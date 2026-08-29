@@ -1,0 +1,119 @@
+{
+  "suite": "adversarial-levels",
+  "cases": [
+    {
+      "id": "levels-docs-a0-candidate",
+      "input": "Review a prose-only typo fix with level=auto, minimum=A0, depth=focused. It changes no executable example, runbook, or security setting.",
+      "expected": "Select A0 as a candidate and state the focused scope; do not claim that every docs change is automatically A0.",
+      "level": "auto",
+      "minimum": "A0",
+      "depth": "focused",
+      "mode": "review",
+      "gate": "N/A",
+      "confidence": "Not applicable"
+    },
+    {
+      "id": "levels-docs-executable-promotes",
+      "input": "Review docs that change a runnable release command and production rollback procedure with level=auto, minimum=A0.",
+      "expected": "Do not keep A0 solely because the file is Markdown; select the level from the executable and operational effect.",
+      "level": "auto",
+      "minimum": "A0",
+      "depth": "standard",
+      "mode": "review",
+      "gate": "N/A",
+      "confidence": "Not applicable"
+    },
+    {
+      "id": "levels-a0-normal-contract",
+      "input": "At A0, review a pure formatter change against its documented normal-input contract.",
+      "expected": "Check agreed normal use, requirements, values, and contract preservation without introducing failure or attacker claims as findings.",
+      "level": "A0",
+      "depth": "standard",
+      "mode": "review",
+      "gate": "N/A",
+      "confidence": "Not applicable"
+    },
+    {
+      "id": "levels-a1-failure-boundaries",
+      "input": "Review a queue consumer for timeout, retry, partial failure, boundary values, and accidental duplicate delivery.",
+      "expected": "Cover A0 and A1 failure behavior and distinguish a reachable failure from a generic concern.",
+      "level": "A1",
+      "depth": "standard",
+      "mode": "review",
+      "gate": "N/A",
+      "confidence": "Strongly supported"
+    },
+    {
+      "id": "levels-a2-authorized-abuse",
+      "input": "Review a points redemption endpoint for concurrent requests, replay, ordering, quota bypass, and cost amplification.",
+      "expected": "Select or honor A2 and test abuse through authorized entry points, including lower levels.",
+      "level": "A2",
+      "depth": "standard",
+      "mode": "review",
+      "gate": "N/A",
+      "confidence": "Strongly supported"
+    },
+    {
+      "id": "levels-a3-boundary-attacker",
+      "input": "Review an upload webhook that accepts tenant IDs and callback signatures from external input.",
+      "expected": "Cover authorization, tenant isolation, injection, parser behavior, forged callback, and secret exposure at A3.",
+      "level": "A3",
+      "depth": "deep",
+      "mode": "gate",
+      "gate": "CONDITIONAL",
+      "confidence": "Hypothesis"
+    },
+    {
+      "id": "levels-a4-compromise-containment",
+      "input": "Review dependency verification, CI signing, IAM, release credentials, and privileged workers assuming one is compromised.",
+      "expected": "Use A4 to examine blast radius, containment, revocation, rollback, recovery, and auditability without promising prevention of all compromise.",
+      "level": "A4",
+      "depth": "deep",
+      "mode": "review",
+      "gate": "N/A",
+      "confidence": "Hypothesis"
+    },
+    {
+      "id": "levels-explicit-upper-bound",
+      "input": "Review an auth change with level=A2; the diff contains an A3 tenant-boundary trigger.",
+      "expected": "Review A0-A2 only and record the A3 trigger under unreviewed higher-level threats; do not silently raise the explicit upper bound.",
+      "level": "A2",
+      "minimum": "A1",
+      "depth": "standard",
+      "mode": "review",
+      "gate": "N/A",
+      "confidence": "Not applicable"
+    },
+    {
+      "id": "levels-auto-minimum",
+      "input": "Review a small code change with level=auto and minimum=A3 even if local triggers appear to require only A1.",
+      "expected": "Select at least A3 because minimum applies to auto selection.",
+      "level": "auto",
+      "minimum": "A3",
+      "depth": "focused",
+      "mode": "review",
+      "gate": "N/A",
+      "confidence": "Not applicable"
+    },
+    {
+      "id": "levels-priority-independent",
+      "input": "An A1 crash path irreversibly loses customer data, while an A3 hardening idea has no demonstrated path.",
+      "expected": "Assign priority from impact and urgency, not A-level; the A1 issue may be P1 and the unsupported A3 idea stays a hypothesis.",
+      "level": "A3",
+      "depth": "standard",
+      "mode": "gate",
+      "gate": "BLOCK",
+      "confidence": ["Confirmed", "Hypothesis"]
+    },
+    {
+      "id": "levels-depth-independent",
+      "input": "Compare A3/focused with A1/deep for the same changed endpoint.",
+      "expected": "A3/focused uses a stronger actor model over direct evidence; A1/deep explores history, transitive effects, failures, rollback, and recovery without assuming malice.",
+      "level": "A3",
+      "depth": "focused",
+      "mode": "review",
+      "gate": "N/A",
+      "confidence": "Not applicable"
+    }
+  ]
+}

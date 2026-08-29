@@ -1,4 +1,12 @@
 {
+  "adversarial-pr-review": {
+    "category": "Code Review",
+    "codex": true,
+    "copilot": true,
+    "languages": ["ja", "en"],
+    "stability": "experimental",
+    "description": "差分外の証拠探索とA0〜A4の敵対性レベルでPR・diffをレビューする"
+  },
   "reader-first-editor": {
     "category": "Writing and Review",
     "codex": true,

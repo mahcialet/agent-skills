@@ -3,6 +3,17 @@
 The repository's original material is MIT-licensed. The following sources also
 influenced or are attributed by individual skills.
 
+## adversarial-pr-review
+
+See [`skills/adversarial-pr-review/NOTICE.md`](skills/adversarial-pr-review/NOTICE.md)
+for complete attribution and scope notes.
+
+- Qiita article, *ベテランエンジニアのPRレビュー187件を分類してみたら、バグは5件に1件しか指摘されていなかった*,
+  by `@ktdatascience`, published 2026-08-26 and reviewed 2026-08-30.
+- The article is an attributed conceptual reference. No redistribution license
+  is relied upon, no article text or 187-comment dataset is copied, and reported
+  percentages are not treated as universal benchmarks.
+
 ## reader-first-editor
 
 See [`skills/reader-first-editor/NOTICE.md`](skills/reader-first-editor/NOTICE.md)

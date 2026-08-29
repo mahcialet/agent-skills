@@ -1,0 +1,25 @@
+# Copy to .github/adversarial-review.yml and adjust for the repository.
+defaults:
+  level: auto
+  minimum: A1
+  depth: standard
+  mode: review
+
+paths:
+  - match: "docs/**"
+    minimum: A0
+    depth: focused
+  - match: "src/auth/**"
+    minimum: A3
+    depth: deep
+  - match: ".github/workflows/**"
+    minimum: A4
+    depth: deep
+
+gate:
+  block_priorities: [P0, P1]
+
+# Advisory candidates only. The reviewer still inspects the command, runner,
+# dependencies, hooks, environment, and side effects before considering execution.
+safe_commands:
+  - "unit-test-command --offline"

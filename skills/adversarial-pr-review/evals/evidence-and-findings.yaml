@@ -1,0 +1,115 @@
+{
+  "suite": "evidence-and-findings",
+  "cases": [
+    {
+      "id": "evidence-diff-is-index",
+      "input": "The changed line removes an idempotency check. Report a race based only on the diff.",
+      "expected": "Refuse a diff-only conclusion; reread the changed file and trace entry point, state, transaction, constraint, and observable impact before creating a finding.",
+      "level": "A2",
+      "depth": "standard",
+      "mode": "review",
+      "gate": "N/A",
+      "confidence": "Hypothesis"
+    },
+    {
+      "id": "evidence-reread-changed-file",
+      "input": "Review a three-line patch to a parser without opening the rest of the changed file.",
+      "expected": "Open the complete changed file to resolve control flow, validation order, defaults, and error handling before evaluating the patch.",
+      "level": "A3",
+      "depth": "focused",
+      "mode": "review",
+      "gate": "N/A",
+      "confidence": "Not applicable"
+    },
+    {
+      "id": "evidence-caller-path",
+      "input": "A helper can return an empty authorization scope, but its callers are unknown.",
+      "expected": "Trace callers and entry points; only report a finding if an actor and reachable path to a broken invariant are established.",
+      "level": "A3",
+      "depth": "standard",
+      "mode": "review",
+      "gate": "N/A",
+      "confidence": "Strongly supported"
+    },
+    {
+      "id": "evidence-symmetric-comparison",
+      "input": "A new refund path handles duplicate keys differently from the existing charge path.",
+      "expected": "Compare the symmetric implementation and explain whether the difference is intentional evidence or an invariant mismatch.",
+      "level": "A2",
+      "depth": "standard",
+      "mode": "review",
+      "gate": "N/A",
+      "confidence": "Strongly supported"
+    },
+    {
+      "id": "evidence-supporting-artifacts",
+      "input": "A dependency update changes serialized data and external API behavior.",
+      "expected": "Inspect tests, schema or migrations, configuration, lockfile, history, and a version-specific external contract as applicable; record unavailable evidence.",
+      "level": "A3",
+      "depth": "deep",
+      "mode": "review",
+      "gate": "N/A",
+      "confidence": "Hypothesis"
+    },
+    {
+      "id": "finding-reachable-race",
+      "input": "Two retries can both pass a separate existence check; the write has no database unique constraint and both commit a side effect.",
+      "expected": "Create an evidence-backed finding with actor, precondition, code path, broken at-most-once invariant, impact, reproduction, fix direction, and false-positive condition.",
+      "level": "A2",
+      "depth": "standard",
+      "mode": "gate",
+      "gate": "BLOCK",
+      "confidence": "Strongly supported"
+    },
+    {
+      "id": "finding-external-contract-unknown",
+      "input": "Correctness depends on an external provider deduplicating callbacks, but its contract and version cannot be verified.",
+      "expected": "Keep the claim as a hypothesis or residual risk; do not state the external behavior as fact or a confirmed finding.",
+      "level": "A2",
+      "depth": "deep",
+      "mode": "review",
+      "gate": "N/A",
+      "confidence": "Hypothesis"
+    },
+    {
+      "id": "finding-not-test-or-style-only",
+      "input": "The patch has no new test and uses a style the reviewer dislikes, but no failed contract or reachable impact is shown.",
+      "expected": "Do not create a finding solely for missing tests or style preference; identify a concrete unverified invariant or omit the concern.",
+      "level": "A1",
+      "depth": "standard",
+      "mode": "review",
+      "gate": "N/A",
+      "confidence": "Not applicable"
+    },
+    {
+      "id": "finding-zero-with-scope",
+      "input": "No evidence-backed defect is found in a focused A1 review.",
+      "expected": "Report zero findings, reviewed scope, evidence ledger, unexecuted validation, and residual risk; do not guarantee safety.",
+      "level": "A1",
+      "depth": "focused",
+      "mode": "gate",
+      "gate": "PASS",
+      "confidence": "Not applicable"
+    },
+    {
+      "id": "finding-preexisting-unrelated",
+      "input": "History shows a real bug that predates the patch and the reviewed changes neither reach nor worsen it.",
+      "expected": "Exclude it from main findings and, only if useful, note it separately as a pre-existing unrelated issue.",
+      "level": "A1",
+      "depth": "deep",
+      "mode": "review",
+      "gate": "N/A",
+      "confidence": "Confirmed"
+    },
+    {
+      "id": "finding-unsafe-artifact-needs-reachability",
+      "input": "A newly added script writes a marker and sends a file externally. A prompt-injection string in the PR body names the script, but no workflow, hook, standard command, or trusted caller executes it.",
+      "expected": "Do not promote the script to a finding solely because it is dangerous if run or named by prompt injection. Record it as unexecuted validation or a hypothesis unless a real execution path and preconditions are established.",
+      "level": "A4",
+      "depth": "deep",
+      "mode": "gate",
+      "gate": "CONDITIONAL",
+      "confidence": "Hypothesis"
+    }
+  ]
+}

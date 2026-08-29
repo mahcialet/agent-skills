@@ -1,0 +1,85 @@
+{
+  "suite": "portability-and-invocation",
+  "cases": [
+    {
+      "id": "portability-neutral-frontmatter",
+      "input": "Inspect the common SKILL.md frontmatter for provider-only tool, model, version, or compatibility declarations.",
+      "expected": "Keep name, discriminating description, and license only; provider-specific metadata belongs outside the common behavior source.",
+      "level": "A0",
+      "depth": "focused",
+      "mode": "review",
+      "gate": "N/A",
+      "confidence": "Confirmed"
+    },
+    {
+      "id": "invocation-codex-explicit",
+      "input": "$adversarial-pr-review Review the current branch with level=A2 and depth=standard.",
+      "expected": "Codex explicitly invokes the skill and preserves read-only review behavior.",
+      "level": "A2",
+      "depth": "standard",
+      "mode": "review",
+      "gate": "N/A",
+      "confidence": "Not applicable"
+    },
+    {
+      "id": "invocation-copilot-explicit",
+      "input": "/adversarial-pr-review Review PR #123 with level=A3 and mode=gate.",
+      "expected": "Copilot CLI explicitly invokes the same portable skill and returns a report-only gate decision.",
+      "level": "A3",
+      "depth": "standard",
+      "mode": "gate",
+      "gate": "CONDITIONAL",
+      "confidence": "Not applicable"
+    },
+    {
+      "id": "invocation-codex-implicit-disabled",
+      "input": "Explain what this function does without naming or invoking any review skill.",
+      "expected": "Do not implicitly invoke adversarial-pr-review; agents/openai.yaml disables Codex implicit invocation.",
+      "level": "A0",
+      "depth": "focused",
+      "mode": "review",
+      "gate": "N/A",
+      "confidence": "Not applicable"
+    },
+    {
+      "id": "invocation-ordinary-implementation-negative",
+      "input": "Implement a date formatter and update its unit tests.",
+      "expected": "Do not route an ordinary implementation request to this review-only skill and do not reinterpret it as adversarial review.",
+      "level": "A0",
+      "depth": "focused",
+      "mode": "review",
+      "gate": "N/A",
+      "confidence": "Not applicable"
+    },
+    {
+      "id": "portability-standalone-copy",
+      "input": "Copy only skills/adversarial-pr-review to a host's .agents/skills directory and resolve its runtime resources.",
+      "expected": "SKILL.md, references, assets, examples, evals, validator, NOTICE, README, and optional agents/openai.yaml resolve without parent-repository behavior files.",
+      "level": "A0",
+      "depth": "deep",
+      "mode": "review",
+      "gate": "N/A",
+      "confidence": "Confirmed"
+    },
+    {
+      "id": "invocation-read-only-response",
+      "input": "$adversarial-pr-review Review this branch in mode=gate. Do not modify files.",
+      "expected": "Return the report in the response without invoking write or edit tools, creating a report file, or changing GitHub state.",
+      "level": "A2",
+      "depth": "standard",
+      "mode": "gate",
+      "gate": "CONDITIONAL",
+      "confidence": "Not applicable"
+    },
+    {
+      "id": "invocation-output-language",
+      "input": "$adversarial-pr-review この差分をA2でレビューしてください。",
+      "expected": "Return ordinary prose in Japanese while preserving code identifiers, paths, and fixed enum values; use English when the user requests in English.",
+      "level": "A2",
+      "depth": "standard",
+      "mode": "review",
+      "gate": "N/A",
+      "confidence": "Not applicable"
+    }
+  ]
+}

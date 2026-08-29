@@ -13,18 +13,24 @@ source of truthです。
 |---|:---:|:---:|---|---|---|---|
 | [reader-first-editor](skills/reader-first-editor/README.md) | ✓ | ✓ | ja, en | experimental | 読み返しや誤解の原因を診断し、意味を損なわず文章を整える | [MIT + notices](skills/reader-first-editor/NOTICE.md) |
 
+### Code Review
+
+| Skill | Codex | Copilot | Languages | Stability | Description | License |
+|---|:---:|:---:|---|---|---|---|
+| [adversarial-pr-review](skills/adversarial-pr-review/README.md) | ✓ | ✓ | ja, en | experimental | 差分外の証拠探索とA0〜A4の敵対性レベルでPR・diffをレビューする | [MIT + notices](skills/adversarial-pr-review/NOTICE.md) |
+
 <!-- END GENERATED SKILL CATALOG -->
 
-`reader-first-editor` は独立した非公式実装です。ISO 24495-1への適合、認証、
-endorsementを主張しません。
+各Skillの適用範囲、安全境界、第三者attributionは、それぞれのREADMEとNOTICEに記載して
+います。
 
 ## インストール
 
 GitHub CLI 2.97以降は、このリポジトリの `skills/*/SKILL.md` を検出できます。
 
 ```bash
-gh skill install mahcialet/agent-skills reader-first-editor --agent codex --scope user
-gh skill install mahcialet/agent-skills reader-first-editor --agent github-copilot --scope user
+gh skill install mahcialet/agent-skills <skill-name> --agent codex --scope user
+gh skill install mahcialet/agent-skills <skill-name> --agent github-copilot --scope user
 ```
 
 `gh skill` はpublic previewです。手動配置とcommit SHA固定は

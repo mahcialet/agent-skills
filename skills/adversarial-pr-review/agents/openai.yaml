@@ -1,0 +1,7 @@
+interface:
+  display_name: "Adversarial PR Review"
+  short_description: "差分外の証拠とA0〜A4でPRを深くレビューします。"
+  default_prompt: "$adversarial-pr-review を使い、現在の変更を敵対性levelと探索depthを明示してレビューしてください。"
+
+policy:
+  allow_implicit_invocation: false
