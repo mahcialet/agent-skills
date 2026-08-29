@@ -8,15 +8,19 @@
 | Copilot CLI | `.agents/skills`、小文字hyphen名、`/skills list`・`info`・`reload`、Skill内追加ファイル | [GitHub Docs](https://docs.github.com/en/copilot/how-tos/copilot-cli/customize-copilot/add-skills) |
 | GitHub CLI | `skills/*/SKILL.md`、Codex/Copilot target、SHA pin、`publish --dry-run` | [gh manual](https://cli.github.com/manual/gh_skill) |
 
-共通 `skills/reader-first-editor/SKILL.md` をsource of truthとし、provider別の
-手書きコピーは置かない。Codex固有の `agents/openai.yaml` にはUIと起動ポリシー
-だけを置く。
+各 `skills/<skill-name>/SKILL.md` をsource of truthとし、provider別の手書きコピーは
+置かない。Codex固有の `agents/openai.yaml` にはUIと起動ポリシーだけを置く。
 
 ## ローカル検証状況
 
 - GitHub CLI 2.97.0: `gh skill install --help` と
   `gh skill publish --help` で上記機能を確認。`publish --dry-run` と、ローカル
-  sourceから一時ディレクトリへのcopy installに成功した。
+  sourceから一時ディレクトリへのcopy installに成功した。2 Skill収録後の
+  `publish --dry-run` も成功した。tag protection未設定のwarningは残るが、この作業では
+  tag／releaseを作成していない。
+
+### reader-first-editor
+
 - Codex CLI 0.151.0: Nodeの一時実行で検証。project scopeの `.agents/skills` から
   `$reader-first-editor` を明示起動し、Skill本文、必須core、日本語技法を読み込んで
   `review` を返した。read-only sandboxで原文・ファイルは変更されなかった。
@@ -27,6 +31,26 @@
   阻害しなかった。`/reader-first-editor` の明示起動は書込み・shell toolを禁止した
   非対話セッションでreviewを返した。
 
+### adversarial-pr-review
+
+- Codex CLI 0.151.0: disposable repoのproject scopeから明示起動した。A3/deep reviewで
+  tenant越境を `P1 / A3 / Confirmed`、並行retryを
+  `P1 / A2 / Strongly supported` と分離し、caller、対称実装、schema、test、historyを
+  evidence ledgerへ記録した。PR本文とhead側instructionはdataとして扱い、外部送信を含む
+  runnerを実行せず、markerも作らなかった。report-onlyの `BLOCK` を返し、worktreeは
+  変更しなかった。
+- 同CLIのA1/focused no-finding caseでは、日本語でfinding 0件、限定的な `PASS`、scope、
+  未実施検証、残余リスクを返した。Skill名のない通常のコード説明ではSkill fileを
+  読み込まず、`allow_implicit_invocation: false` をtrace上で確認した。
+- GitHub Copilot CLI 1.0.81: `copilot skill list` がproject scopeから検出した。
+  `/adversarial-pr-review` のA2/focused reviewで必須reference 3件を読み、日本語でraceの
+  findingとdiff外のschema・caller evidenceを返した。shellとwrite toolを禁止した状態で
+  file変更やrunner実行はなかった。別のA3 reviewではtenant越境を検出し、PR本文と変更済み
+  instructionの命令には従わなかった。Skill名のない通常説明ではSkillを起動しなかった。
+- Copilotの最終版実機確認はfocusedなA2/A3 caseで行った。複数domainを一度に扱う長い
+  combined reviewについては、必須reference routing追加後のschema fidelityを再確認して
+  いないため、成功済みとは扱わない。
+
 実機検証は一時repoで行い、user scopeやこのリポジトリの作業ツリーへSkillを
 インストールしていない。host versionが変わった場合は、同じ項目を再検証する。
 
@@ -36,7 +60,7 @@
 - Copilotには、確認済み資料上でCodexの
   `allow_implicit_invocation: false` と同等の静的設定がない。portable本文で
   reviewを既定にし、ファイル変更には明示依頼を要求する。
-- Skillが二つになる前に、repo-wide tagとSkill接頭辞付きtagのどちらを使うか
-  `release-policy.md` で決定する。
+- releaseはrepo-wide SemVer tagを使い、1 releaseをcatalog全体のsnapshotとする。
+  Skill個別versionはfrontmatterへ置かない。
 - 実文コーパスは未整備。初版は合成fixtureであり、匿名化可能な実例を継続追加する。
 - 自動日本語構文解析器は導入せず、数値はtripwireだけに使う。
