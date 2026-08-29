@@ -1,0 +1,41 @@
+{
+  "suite": "semantic-preservation",
+  "cases": [
+    {
+      "id": "no-invented-deadline-or-owner",
+      "language": "ja",
+      "mode": "authoring",
+      "input": "申請書は速やかに提出してください。",
+      "must_preserve": ["申請書", "提出", "依頼"],
+      "must_not_add": ["3月31日", "総務部", "担当者"],
+      "expected": "期限と提出先を創作せず、不足として明示する"
+    },
+    {
+      "id": "no-invented-update-action",
+      "language": "en",
+      "mode": "revise-safe",
+      "input": "The feature may be unavailable during maintenance.",
+      "must_preserve": ["may", "during maintenance"],
+      "must_not_add": ["update your app", "restart", "contact support"],
+      "expected": "不確実性を維持し、新しい行動を追加しない"
+    },
+    {
+      "id": "preserve-condition-exception-negation",
+      "language": "ja",
+      "mode": "revise-safe",
+      "input": "管理者を除き、本人確認が完了していない利用者は申請できません。",
+      "must_preserve": ["管理者を除き", "本人確認が完了していない", "申請できません"],
+      "must_not_add": [],
+      "expected": "例外、条件、否定の範囲を保持する"
+    },
+    {
+      "id": "preserve-modality",
+      "language": "en",
+      "mode": "revise-safe",
+      "input": "Access may be granted after approval.",
+      "must_preserve": ["may", "after approval"],
+      "must_not_add": ["will", "manager"],
+      "expected": "可能性を確実性へ変えずactorを創作しない"
+    }
+  ]
+}

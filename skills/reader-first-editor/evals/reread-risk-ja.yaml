@@ -1,0 +1,29 @@
+{
+  "suite": "reread-risk-ja",
+  "cases": [
+    {
+      "id": "stacked-conditions",
+      "language": "ja",
+      "mode": "review",
+      "input": "契約中であっても、本人確認が期限までに完了しない場合は、管理者が承認した場合を除き利用できません。",
+      "expected_risks": ["RR-05", "RR-13"],
+      "expected": "条件・例外・否定の適用範囲を診断し、削除しない"
+    },
+    {
+      "id": "ambiguous-relative-clause",
+      "language": "ja",
+      "mode": "review",
+      "input": "管理者が確認した利用者が提出した記録を削除します。",
+      "expected_risks": ["RR-04", "RR-14"],
+      "expected": "修飾の解釈を勝手に確定しない"
+    },
+    {
+      "id": "avoid-choppy-rewrite",
+      "language": "ja",
+      "mode": "revise-safe",
+      "input": "メンテナンス中は保存できないため、作業前に状態ページを確認してください。",
+      "must_preserve": ["メンテナンス中", "保存できない", "ため", "作業前", "状態ページ", "確認してください"],
+      "expected": "明確な理由と行動を不必要な短文列へ分けない"
+    }
+  ]
+}

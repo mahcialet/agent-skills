@@ -1,0 +1,28 @@
+{
+  "suite": "prose-pacing",
+  "cases": [
+    {
+      "id": "no-random-variation-ja",
+      "language": "ja",
+      "mode": "review",
+      "input": "設定を確認します。権限を確認します。結果を確認します。",
+      "expected": "反復回数だけで変更せず、各文の修辞機能と階層を診断する"
+    },
+    {
+      "id": "this-referent-en",
+      "language": "en",
+      "mode": "review",
+      "input": "This enables the service. This improves reliability. This reduces recovery time.",
+      "expected_risks": ["RR-06", "RR-09", "RR-10"],
+      "expected": "Thisの参照先と主張間の関係を診断し、因果を創作しない"
+    },
+    {
+      "id": "preserve-identifiers",
+      "language": "en",
+      "mode": "revise-safe",
+      "input": "Set `allow_implicit_invocation` to `false`, then run `/skills reload`.",
+      "must_preserve": ["`allow_implicit_invocation`", "`false`", "`/skills reload`"],
+      "expected": "識別子とコマンドを完全一致で保持する"
+    }
+  ]
+}

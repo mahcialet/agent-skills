@@ -1,0 +1,28 @@
+{
+  "suite": "interaction-clarity-ja",
+  "cases": [
+    {
+      "id": "review-is-nondestructive",
+      "language": "ja",
+      "mode": "review",
+      "input": "ご確認をお願いいたします。",
+      "expected": "確認が承認・意見・受領確認のどれか不明と診断し、原文やファイルを変更しない"
+    },
+    {
+      "id": "preserve-request-strength",
+      "language": "ja",
+      "mode": "revise-safe",
+      "input": "本日中の対応が必要です。完了後に返信してください。",
+      "must_preserve": ["本日中", "必要", "完了後", "返信してください"],
+      "expected": "義務を推奨へ弱めず返信要否を保持する"
+    },
+    {
+      "id": "do-not-invent-actor",
+      "language": "ja",
+      "mode": "authoring",
+      "input": "承認後に公開します。",
+      "must_not_add": ["部長", "管理者", "広報部"],
+      "expected": "承認者と公開者を推測せず、必要なら要確認にする"
+    }
+  ]
+}
