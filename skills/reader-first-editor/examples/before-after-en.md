@@ -18,8 +18,9 @@ outcome.
 
 > After approval, the request is reviewed. Access may then be granted.
 
-The sequence and uncertainty remain. If knowing the actors matters, flag them
-as missing instead of guessing.
+This preserves the sequence—approval, review, then possible access—and keeps
+the actors unspecified. If knowing the actors matters, flag them as missing
+instead of guessing.
 
 ## Preserve technical literals and host scope
 
@@ -32,6 +33,7 @@ as missing instead of guessing.
 
 > To disable implicit skill invocation in Codex, set
 > `allow_implicit_invocation` to `false`.
-> After installing or changing a skill in Copilot CLI, run `/skills reload`.
+> After installing or changing a skill, run `/skills reload` in Copilot CLI.
 
-Both literals and each command's host scope are unchanged.
+All three technical literals are unchanged, and each action remains scoped to
+its original host.
