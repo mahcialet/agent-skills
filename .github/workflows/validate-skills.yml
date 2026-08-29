@@ -1,0 +1,27 @@
+name: Validate skills
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Validate repository and fixtures
+        run: ./scripts/validate-skills.sh
+      - name: Validate with gh skill when available
+        shell: bash
+        run: |
+          if gh skill publish --help >/dev/null 2>&1; then
+            gh skill publish --dry-run
+          else
+            echo "gh skill is unavailable on this runner; portable validator passed."
+          fi
