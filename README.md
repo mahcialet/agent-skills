@@ -6,9 +6,11 @@ source of truthです。
 
 ## Writing and Review
 
+<!-- BEGIN GENERATED SKILL CATALOG -->
 | Skill | Codex | Copilot | Languages | Stability | Description | License |
 |---|:---:|:---:|---|---|---|---|
 | [reader-first-editor](skills/reader-first-editor/README.md) | ✓ | ✓ | ja, en | experimental | 意味を保存しながら初読理解を助ける | [MIT + notices](skills/reader-first-editor/NOTICE.md) |
+<!-- END GENERATED SKILL CATALOG -->
 
 `reader-first-editor` は独立した非公式実装です。ISO 24495-1への適合、認証、
 endorsementを主張しません。

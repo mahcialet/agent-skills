@@ -1,0 +1,10 @@
+{
+  "reader-first-editor": {
+    "category": "Writing and Review",
+    "codex": true,
+    "copilot": true,
+    "languages": ["ja", "en"],
+    "stability": "experimental",
+    "description": "意味を保存しながら初読理解を助ける"
+  }
+}

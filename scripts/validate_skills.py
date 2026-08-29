@@ -131,6 +131,20 @@ def validate(repo: Path) -> list[str]:
     if len(seen_names) == 1 and seen_names != {"reader-first-editor"}:
         errors.append("the initial catalog must contain only reader-first-editor")
 
+    catalog_generator = repo / "scripts" / "generate-catalog.py"
+    if not catalog_generator.is_file():
+        errors.append("scripts/generate-catalog.py is missing")
+    else:
+        result = subprocess.run(
+            [sys.executable, str(catalog_generator), "--check", "--repo", str(repo)],
+            cwd=repo,
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        if result.returncode:
+            errors.append(f"catalog generator failed:\n{result.stderr.strip()}")
+
     openai_metadata = skills_dir / "reader-first-editor" / "agents" / "openai.yaml"
     if openai_metadata.is_file():
         text = openai_metadata.read_text(encoding="utf-8")
