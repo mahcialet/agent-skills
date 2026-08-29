@@ -16,20 +16,22 @@ outcome.
 
 ### Safe revision
 
-> Access may be granted after approval and review of the request.
+> After approval, the request is reviewed. Access may then be granted.
 
 The sequence and uncertainty remain. If knowing the actors matters, flag them
 as missing instead of guessing.
 
-## Preserve technical literals
+## Preserve technical literals and host scope
 
 ### Before
 
-> Set `allow_implicit_invocation` to `false`, then run `/skills reload`.
+> In Codex, set `allow_implicit_invocation` to `false`. In Copilot CLI, run
+> `/skills reload` after installing or changing a skill.
 
 ### Safe revision
 
-> To disable implicit invocation, set `allow_implicit_invocation` to `false`.
-> Then run `/skills reload`.
+> To disable implicit skill invocation in Codex, set
+> `allow_implicit_invocation` to `false`.
+> After installing or changing a skill in Copilot CLI, run `/skills reload`.
 
-Both literals and the operation order are unchanged.
+Both literals and each command's host scope are unchanged.
