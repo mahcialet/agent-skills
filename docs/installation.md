@@ -10,7 +10,8 @@
 | `reader-first-editor` | 日本語・英語文章の初読理解と意味保存 | read-onlyの文章review |
 | `adversarial-pr-review` | 差分外の証拠とA0〜A4によるPR・diff review | read-onlyのcode review |
 
-以下の一般例では `<skill-name>` を、上記いずれかの名前へ置き換える。
+以下の一般例では、最初に `skill_name` を設定する。例では
+`reader-first-editor` を使うが、`adversarial-pr-review` も指定できる。
 
 | 目的 | 推奨方法 | 特徴 |
 |---|---|---|
@@ -46,24 +47,27 @@ GitHub CLI 2.97.0で、`skills/*/SKILL.md` の検出、CodexとGitHub Copilotへ
 推奨する。
 
 ```bash
+skill_name=reader-first-editor # adversarial-pr-reviewも指定可能
+
 # Codexで、すべてのprojectから使えるようにする
-gh skill install mahcialet/agent-skills <skill-name> \
+gh skill install mahcialet/agent-skills "${skill_name}" \
   --agent codex --scope user
 
 # GitHub Copilotで、すべてのprojectから使えるようにする
-gh skill install mahcialet/agent-skills <skill-name> \
+gh skill install mahcialet/agent-skills "${skill_name}" \
   --agent github-copilot --scope user
 
 # Codexで、現在のprojectだけから使えるようにする
-gh skill install mahcialet/agent-skills <skill-name> \
+gh skill install mahcialet/agent-skills "${skill_name}" \
   --agent codex --scope project
 
 # 検証済みの内容を再現できるよう、取得元をcommit SHAへ固定する
-gh skill install mahcialet/agent-skills <skill-name> \
-  --agent codex --scope user --pin <COMMIT_SHA>
+commit_sha=REPLACE_WITH_COMMIT_SHA
+gh skill install mahcialet/agent-skills "${skill_name}" \
+  --agent codex --scope user --pin "${commit_sha}"
 
 # GitHubではなく、現在のローカル作業ツリーからproject scopeへコピーする
-gh skill install . <skill-name> --from-local \
+gh skill install . "${skill_name}" --from-local \
   --agent codex --scope project
 ```
 
@@ -77,8 +81,8 @@ gh skill install mahcialet/agent-skills adversarial-pr-review \
 ```
 
 `gh skill` はpublic previewであり、オプションや配置が変更される可能性がある。
-固定が必要な環境では `--pin <COMMIT_SHA>` を指定する。`<COMMIT_SHA>` は、使用する
-内容を確認済みのcommit SHAへ置き換える。pinしない場合、installerはrepositoryの
+固定が必要な環境では `--pin` を指定する。例にある `REPLACE_WITH_COMMIT_SHA` は、
+使用する内容を確認済みのcommit SHAへ置き換える。pinしない場合、installerはrepositoryの
 releaseまたはdefault branchを解決するため、後日の再インストール結果が変わる
 可能性がある。
 
@@ -181,8 +185,7 @@ reader-first-editor.backup.20260830153000
 
 `gh skill` や補助スクリプトを使わない場合は、Skillディレクトリ全体を標準配置先へ
 コピーする。`SKILL.md` だけではなく、`references/`、`assets/`、`examples/`、
-`agents/`、`scripts/` なども
-必要なため、ディレクトリ単位でコピーする。
+`agents/`、`scripts/` なども必要なため、ディレクトリ単位でコピーする。
 
 CodexとCopilot CLIが共通で読むuser scopeへ配置する例:
 
@@ -206,11 +209,13 @@ Copilot固有のuser scopeである `~/.copilot/skills` も利用できるが、
 配置後、新しいセッションを開始する。すでにCopilot CLIを起動している場合は
 `/skills reload` で再読込みできる。
 
-- Codex: Skill一覧で対象名を確認し、`$<skill-name> ...` で明示起動する。
-- Copilot CLI: `/skills list` または `/skills info <skill-name>` で確認し、
-  `/<skill-name> ...` で明示起動する。
+- Codex: Skill一覧で対象名を確認し、`$reader-first-editor ...` または
+  `$adversarial-pr-review ...` で明示起動する。
+- Copilot CLI: `/skills list`、`/skills info reader-first-editor`、または
+  `/skills info adversarial-pr-review` で確認し、
+  `/reader-first-editor ...` または `/adversarial-pr-review ...` で明示起動する。
 
-最初はdisposableな入力を `review` させ、非破壊の既定動作を確認する。
+最初は破棄可能な入力を `review` させ、非破壊の既定動作を確認する。
 
 ```text
 $reader-first-editor 次の文をreviewしてください。書き換えは不要です: ...

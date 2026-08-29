@@ -54,7 +54,7 @@
 実機検証は一時repoで行い、user scopeやこのリポジトリの作業ツリーへSkillを
 インストールしていない。host versionが変わった場合は、同じ項目を再検証する。
 
-## 既知の制約・未決事項
+## 既知の制約・運用方針
 
 - `gh skill` はpublic previewであるため、手動配置手順を維持する。
 - Copilotには、確認済み資料上でCodexの

@@ -29,8 +29,9 @@ source of truthです。
 GitHub CLI 2.97以降は、このリポジトリの `skills/*/SKILL.md` を検出できます。
 
 ```bash
-gh skill install mahcialet/agent-skills <skill-name> --agent codex --scope user
-gh skill install mahcialet/agent-skills <skill-name> --agent github-copilot --scope user
+skill_name=reader-first-editor # adversarial-pr-reviewも指定可能
+gh skill install mahcialet/agent-skills "${skill_name}" --agent codex --scope user
+gh skill install mahcialet/agent-skills "${skill_name}" --agent github-copilot --scope user
 ```
 
 `gh skill` はpublic previewです。手動配置とcommit SHA固定は

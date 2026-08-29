@@ -5,8 +5,7 @@
 
 既定値は `level=auto`、`minimum=A1`、`depth=standard`、`mode=review` です。reviewは
 read-onlyで、`mode=gate` もreport-onlyとして `BLOCK` / `CONDITIONAL` / `PASS` を
-レポートするだけです。
-GitHub上のreview、status、label、mergeは変更しません。
+レポートするだけです。GitHub上のreview、status、label、mergeは変更しません。
 
 ## 明示起動
 
@@ -70,7 +69,8 @@ findingが0件でも安全を保証しません。確認scope、未実施検証�
 CodexとGitHub Copilot CLIは同じ `SKILL.md` をsource of truthとして使います。
 `agents/openai.yaml` はCodex向けUI metadataと暗黙起動禁止だけを持ち、review behaviorは
 共通本文にあります。Skillディレクトリ全体を `.agents/skills/adversarial-pr-review` へ
-配置してください。root repositoryのインストール手順も参照できます。
+配置してください。このモノレポから利用する場合は、root repositoryのインストール手順も
+参照できます。
 
 This is an independent review aid, not a penetration test, formal verification,
 security certification, or guarantee. See [NOTICE.md](NOTICE.md) for attribution.

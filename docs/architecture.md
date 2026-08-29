@@ -7,7 +7,7 @@ instructions、references、examples、scripts、noticesを同じディレクト
 コピー後のSkillは、別Skillや自身より上のパスに依存しません。
 
 ルートは共通検証、インストール補助、カタログ、CI、license索引、contribution方針を
-持ちます。Skill固有の編集ロジックは各Skill内に置きます。
+持ちます。Skill固有の挙動を定めるinstructionsや処理は、各Skill内に置きます。
 
 ## Host portability
 
