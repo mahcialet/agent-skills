@@ -10,7 +10,7 @@ from pathlib import Path
 
 NAME_RE = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
 LINK_RE = re.compile(r"(?<!!)\[[^]]*\]\(([^)]+)\)")
-CODE_PATH_RE = re.compile(r"`((?:references|examples|evals|scripts)/[^`\s]+)`")
+CODE_PATH_RE = re.compile(r"`((?:references|examples|evals|scripts|assets)/[^`\s]+)`")
 FORBIDDEN_FRONTMATTER = {"allowed-tools", "model", "version", "tools"}
 
 
@@ -145,10 +145,15 @@ def validate(repo: Path) -> list[str]:
         if result.returncode:
             errors.append(f"catalog generator failed:\n{result.stderr.strip()}")
 
-    openai_metadata = skills_dir / "reader-first-editor" / "agents" / "openai.yaml"
-    if openai_metadata.is_file():
+    for openai_metadata in sorted(skills_dir.glob("*/agents/openai.yaml")):
         text = openai_metadata.read_text(encoding="utf-8")
-        for token in ("interface:", "policy:", "allow_implicit_invocation: false"):
+        for token in (
+            "interface:",
+            "display_name:",
+            "short_description:",
+            "default_prompt:",
+            "policy:",
+        ):
             if token not in text:
                 errors.append(f"{openai_metadata.relative_to(repo)}: missing {token}")
 

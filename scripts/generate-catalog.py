@@ -13,6 +13,7 @@ from pathlib import Path
 START = "<!-- BEGIN GENERATED SKILL CATALOG -->"
 END = "<!-- END GENERATED SKILL CATALOG -->"
 NAME_RE = re.compile(r"^name:\s*([a-z0-9]+(?:-[a-z0-9]+)*)\s*$", re.MULTILINE)
+CATEGORY_ORDER = ["Writing and Review", "Code Review"]
 
 
 def skill_names(repo: Path) -> set[str]:
@@ -45,8 +46,17 @@ def load_catalog(repo: Path, names: set[str]) -> dict[str, dict]:
     for name, metadata in data.items():
         if not isinstance(metadata, dict) or not required <= metadata.keys():
             raise ValueError(f"catalog metadata is incomplete for {name}")
+        if not isinstance(metadata["category"], str) or not metadata["category"].strip():
+            raise ValueError(f"catalog category must be non-empty for {name}")
+        if not isinstance(metadata["codex"], bool) or not isinstance(metadata["copilot"], bool):
+            raise ValueError(f"catalog host support must be boolean for {name}")
         if not isinstance(metadata["languages"], list) or not metadata["languages"]:
             raise ValueError(f"catalog languages must be a non-empty list for {name}")
+        if not all(isinstance(language, str) and language for language in metadata["languages"]):
+            raise ValueError(f"catalog languages must contain strings for {name}")
+        for field in ("stability", "description"):
+            if not isinstance(metadata[field], str) or not metadata[field].strip():
+                raise ValueError(f"catalog {field} must be non-empty for {name}")
     return data
 
 
@@ -54,22 +64,26 @@ def render(data: dict[str, dict]) -> str:
     groups: dict[str, list[tuple[str, dict]]] = defaultdict(list)
     for name, metadata in data.items():
         groups[metadata["category"]].append((name, metadata))
-    if set(groups) != {"Writing and Review"}:
-        raise ValueError("initial generator supports the existing Writing and Review section only")
-    lines = [
-        START,
-        "| Skill | Codex | Copilot | Languages | Stability | Description | License |",
-        "|---|:---:|:---:|---|---|---|---|",
-    ]
-    for name, metadata in sorted(groups["Writing and Review"]):
-        codex = "✓" if metadata["codex"] else "—"
-        copilot = "✓" if metadata["copilot"] else "—"
-        languages = ", ".join(metadata["languages"])
-        lines.append(
-            f"| [{name}](skills/{name}/README.md) | {codex} | {copilot} | "
-            f"{languages} | {metadata['stability']} | {metadata['description']} | "
-            f"[MIT + notices](skills/{name}/NOTICE.md) |"
-        )
+    known_categories = [category for category in CATEGORY_ORDER if category in groups]
+    unknown_categories = sorted(set(groups) - set(CATEGORY_ORDER))
+    lines = [START]
+    for category in known_categories + unknown_categories:
+        lines.extend([
+            f"### {category}",
+            "",
+            "| Skill | Codex | Copilot | Languages | Stability | Description | License |",
+            "|---|:---:|:---:|---|---|---|---|",
+        ])
+        for name, metadata in sorted(groups[category]):
+            codex = "✓" if metadata["codex"] else "—"
+            copilot = "✓" if metadata["copilot"] else "—"
+            languages = ", ".join(metadata["languages"])
+            lines.append(
+                f"| [{name}](skills/{name}/README.md) | {codex} | {copilot} | "
+                f"{languages} | {metadata['stability']} | {metadata['description']} | "
+                f"[MIT + notices](skills/{name}/NOTICE.md) |"
+            )
+        lines.append("")
     lines.append(END)
     return "\n".join(lines)
 

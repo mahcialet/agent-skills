@@ -4,12 +4,15 @@ Codex、GitHub Copilot、およびオープンなAgent Skills形式を実装す�
 portableなSkillを管理するモノレポです。外部リンク集ではなく、掲載するSkill本体の
 source of truthです。
 
-## Writing and Review
+## Skills
 
 <!-- BEGIN GENERATED SKILL CATALOG -->
+### Writing and Review
+
 | Skill | Codex | Copilot | Languages | Stability | Description | License |
 |---|:---:|:---:|---|---|---|---|
 | [reader-first-editor](skills/reader-first-editor/README.md) | ✓ | ✓ | ja, en | experimental | 読み返しや誤解の原因を診断し、意味を損なわず文章を整える | [MIT + notices](skills/reader-first-editor/NOTICE.md) |
+
 <!-- END GENERATED SKILL CATALOG -->
 
 `reader-first-editor` は独立した非公式実装です。ISO 24495-1への適合、認証、
