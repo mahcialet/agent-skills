@@ -30,6 +30,16 @@
   scopeの `reader-first-editor` を表示し、`agents/openai.yaml` の同梱は検出を
   阻害しなかった。`/reader-first-editor` の明示起動は書込み・shell toolを禁止した
   非対話セッションでreviewを返した。
+- `repository-review` 追加後のCodex CLI 0.151.0実機確認では、一時repoのproject
+  scopeに配置したSkill本文と新しいcore referenceを読み、文書と設定の不一致を
+  `CONTRADICTED`、根拠のない強い主張を `UNSUPPORTED`、外部URL付きの主張を
+  `SUPPORTED-BY-CITATION`、外部の最新状況を `UNVERIFIED` と分離した。外部URLを
+  取得せず、対象fileを変更しなかった。現在の実行環境では明示起動時の初期Skill一覧に
+  project Skillが表示されず、repository内の定義を探索してから読み込んだため、初期検出は
+  成功済みとして扱わない。
+- 同変更後のGitHub Copilot CLI 1.0.81では、`copilot skill list` が更新済みSkillを
+  project scopeから検出した。代表caseの非対話実行は利用quotaによりreview開始前に
+  終了したため、新しい判定語彙と出力schemaの実機確認は成功済みとして扱わない。
 
 ### adversarial-pr-review
 
