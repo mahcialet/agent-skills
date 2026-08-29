@@ -1,6 +1,6 @@
 interface:
   display_name: "Reader-First Editor"
-  short_description: "Review prose for first-pass clarity and fidelity."
+  short_description: "Review prose for clarity, fidelity, and repository consistency."
   default_prompt: "Use $reader-first-editor to review this text for reread risk without changing its meaning."
 
 policy:

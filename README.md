@@ -11,7 +11,7 @@ source of truthです。
 
 | Skill | Codex | Copilot | Languages | Stability | Description | License |
 |---|:---:|:---:|---|---|---|---|
-| [reader-first-editor](skills/reader-first-editor/README.md) | ✓ | ✓ | ja, en | experimental | 読み返しや誤解の原因を診断し、意味を損なわず文章を整える | [MIT + notices](skills/reader-first-editor/NOTICE.md) |
+| [reader-first-editor](skills/reader-first-editor/README.md) | ✓ | ✓ | ja, en | experimental | 読み返しや誤解、リポジトリ内の実態との乖離を診断し、意味を損なわず文章を整える | [MIT + notices](skills/reader-first-editor/NOTICE.md) |
 
 ### Code Review
 
