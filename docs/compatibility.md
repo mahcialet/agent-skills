@@ -15,18 +15,20 @@
 ## ローカル検証状況
 
 - GitHub CLI 2.97.0: `gh skill install --help` と
-  `gh skill publish --help` で上記機能を確認。
-- `gh skill publish --dry-run`: CIと完了監査で実行する。
-- Codex CLI: この作業環境に実行ファイルがなく、一覧・明示起動の実機検証は未実施。
-- Copilot CLI: この作業環境に実行ファイルがなく、一覧・明示起動および
-  `agents/openai.yaml` の無害性の実機検証は未実施。
+  `gh skill publish --help` で上記機能を確認。`publish --dry-run` と、ローカル
+  sourceから一時ディレクトリへのcopy installに成功した。
+- Codex CLI 0.151.0: Nodeの一時実行で検証。project scopeの `.agents/skills` から
+  `$reader-first-editor` を明示起動し、Skill本文、必須core、日本語技法を読み込んで
+  `review` を返した。read-only sandboxで原文・ファイルは変更されなかった。
+  Skill名を含めない同種の依頼ではSkillファイルを読み込まなかったため、
+  `allow_implicit_invocation: false` も実行trace上で確認した。
+- GitHub Copilot CLI 1.0.81: Nodeの一時実行で検証。`copilot skill list` がproject
+  scopeの `reader-first-editor` を表示し、`agents/openai.yaml` の同梱は検出を
+  阻害しなかった。`/reader-first-editor` の明示起動は書込み・shell toolを禁止した
+  非対話セッションでreviewを返した。
 
-実行ファイルが利用可能になったら、次を確認して結果とversionを追記する。
-
-1. CodexでSkill一覧と `$reader-first-editor`、暗黙起動禁止、review非破壊性。
-2. Copilot CLIで `/skills list`、`/skills info reader-first-editor`、
-   `/reader-first-editor`、review非破壊性。
-3. Copilotが `agents/openai.yaml` を含むディレクトリを問題なく読み込むこと。
+実機検証は一時repoで行い、user scopeやこのリポジトリの作業ツリーへSkillを
+インストールしていない。host versionが変わった場合は、同じ項目を再検証する。
 
 ## 既知の制約・未決事項
 
