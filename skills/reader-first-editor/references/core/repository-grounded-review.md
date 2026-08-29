@@ -39,6 +39,11 @@ version、期限、保証、SLA、「推奨」「標準」「安全」「高速�
 
 判定は次の5種類だけを使う。
 
+判定順は、リポジトリ内の反証・支持、外部citationの存在、外部最新情報の必要性、
+その他の根拠不足の順とする。外部serviceの現在の提供状況など、リポジトリ外の
+最新情報なしに真偽を確認できないclaimは `UNVERIFIED` である。citationがないことだけを
+理由に `UNSUPPORTED` へ変えない。
+
 ### `VERIFIED`
 
 リポジトリ内の具体的な証拠がclaimを支持する。証拠のfileと位置を示す。支持する
@@ -75,10 +80,15 @@ claimの検証にリポジトリ外の最新情報や外部資料の内容確認
 - `[DOC↔DOC]`
 - `[DOC↔HISTORY]`
 - `[CITATION]`
+- `[EVIDENCE-GAP]`
 - `[UNVERIFIED]`
 
 同じclaimに複数の関係がある場合は併記できる。分類は証拠の代わりではないため、
 必ずfileと位置または確認したcitationを示す。
+
+支持・反証の証拠もcitationも見つからない `UNSUPPORTED` には
+`[EVIDENCE-GAP]` を使う。外部の最新情報が必要な `UNVERIFIED` には
+`[UNVERIFIED]` を使う。両者を「根拠がない」という一つの分類へまとめない。
 
 ## 証拠が競合する場合
 

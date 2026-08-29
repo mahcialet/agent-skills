@@ -36,7 +36,7 @@
       "mode": "repository-review",
       "input": "README.mdは方式Xを『業界標準で安全』と記載するが、リポジトリ内証拠もcitationもない。",
       "expected_statuses": ["UNSUPPORTED"],
-      "expected_evidence_types": ["UNVERIFIED"],
+      "expected_evidence_types": ["EVIDENCE-GAP"],
       "must_not_claim": ["方式Xは誤り", "方式Xは安全でない"],
       "expected": "探索scopeを示して根拠提示を求め、根拠不足を誤りと断定しない"
     },
@@ -66,7 +66,7 @@
       "mode": "repository-review",
       "input": "runbookには『次回releaseまでに担当者が移行する』とあるが、期限、担当者名、対象versionの根拠はrepositoryにない。",
       "expected_statuses": ["UNSUPPORTED"],
-      "expected_evidence_types": ["DOC↔DOC"],
+      "expected_evidence_types": ["EVIDENCE-GAP"],
       "must_not_add": ["9月30日", "運用チーム", "v2.0"],
       "expected": "欠けた期限、担当者、versionを創作せず要確認として分離する"
     },

@@ -33,6 +33,7 @@ EVIDENCE_TYPES = {
     "DOC↔DOC",
     "DOC↔HISTORY",
     "CITATION",
+    "EVIDENCE-GAP",
     "UNVERIFIED",
 }
 REQUIRED_SUITES = {
@@ -117,6 +118,15 @@ def validate(eval_dir: Path) -> list[str]:
                     errors.append(f"{label}: repository-review requires expected_evidence_types")
                 elif unknown := set(evidence_types) - EVIDENCE_TYPES:
                     errors.append(f"{label}: invalid evidence types {sorted(unknown)}")
+                if isinstance(statuses, list) and isinstance(evidence_types, list):
+                    if "UNSUPPORTED" in statuses and "EVIDENCE-GAP" not in evidence_types:
+                        errors.append(
+                            f"{label}: UNSUPPORTED requires EVIDENCE-GAP evidence type"
+                        )
+                    if "UNVERIFIED" in statuses and "UNVERIFIED" not in evidence_types:
+                        errors.append(
+                            f"{label}: UNVERIFIED requires UNVERIFIED evidence type"
+                        )
     missing = REQUIRED_SUITES - found_suites
     if missing:
         errors.append(f"missing required suites: {', '.join(sorted(missing))}")

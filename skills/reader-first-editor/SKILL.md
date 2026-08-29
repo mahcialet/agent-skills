@@ -61,6 +61,18 @@ Plain Languageやstyleの原則より先に意味保存契約を適用する。
 探索を始め、リポジトリ全体を黙って無制限に走査しない。モデル知識を証拠にせず、
 根拠不足を誤りと判定しない。
 
+repository-reviewの判定前に、次の順でgateを通す。
+
+1. リポジトリ内の具体的な反証があれば `CONTRADICTED`、支持証拠があれば `VERIFIED`。
+   証拠が競合する場合はどちらにも確定しない。
+2. 外部citationが提示され、内容を未確認なら `SUPPORTED-BY-CITATION`。
+3. 外部serviceの現在の提供状況など、真偽確認にリポジトリ外の最新情報が不可欠なら
+   `UNVERIFIED`。citationがないことを理由に `UNSUPPORTED` へ変えない。
+4. それ以外で、探索scope内に支持証拠もcitationもなければ `UNSUPPORTED`。
+
+各指摘のprefixは `[証拠種別][判定状態][HIGH|MEDIUM|LOW]` とする。支持・反証の
+証拠がない指摘は証拠種別に `[EVIDENCE-GAP]` を使い、種別を省略しない。
+
 ## literalと構造化要素を保護する
 
 ユーザーが明示的に対象へ含めない限り、コードブロック、inline code、コマンド、
