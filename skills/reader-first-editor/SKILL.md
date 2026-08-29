@@ -2,11 +2,13 @@
 name: reader-first-editor
 description: >-
   Review or revise Japanese and English reader-facing prose for first-pass
-  comprehension, reread-risk reduction, and semantic fidelity. Use for text
-  that is correct but difficult to absorb, structurally flat, ambiguous,
-  overly dense, or mechanically repetitive. Default to review unless the
-  user explicitly requests revision. Do not use for creative writing,
-  controlled-language compliance, or rewriting code and identifiers.
+  comprehension, reread-risk reduction, semantic fidelity, and consistency
+  with evidence in the same repository. Use for prose that is difficult to
+  absorb, structurally flat, ambiguous, overly dense, mechanically repetitive,
+  or potentially inconsistent with repository code, config, tests, or docs.
+  Default to review unless the user explicitly requests revision. Do not use
+  for open-world fact checking, creative writing, controlled-language
+  compliance, or rewriting code and identifiers.
 license: MIT; see NOTICE.md
 ---
 
@@ -14,6 +16,8 @@ license: MIT; see NOTICE.md
 
 意味を創作・削除・弱化せず、対象読者が文章を初読で理解できるよう支援する。
 目的は読者支援であり、AI検出回避、文体のランダム化、機械的な短文化ではない。
+明示された場合は、同一リポジトリ内の証拠と文書のclaimを照合する。外部世界の
+一般的なfact checkingへ拡張しない。
 
 ## 必ず守る処理順
 
@@ -37,6 +41,8 @@ Plain Languageやstyleの原則より先に意味保存契約を適用する。
 ない。
 
 - `review` — 原文・ファイルを変えずリスクを報告する。既定値。
+- `repository-review` — 対象文書を同一リポジトリ内の証拠と照合し、原文・ファイルを
+  変えず判定と根拠を報告する。
 - `revise-safe` — 事実を削除せず、並べ替え、分割、結合、明確化を行う。
 - `revise-structural` — 移動・削除候補と対象箇所を列挙する。明示的な削除許可が
   ある場合だけ削除する。
@@ -48,6 +54,12 @@ Plain Languageやstyleの原則より先に意味保存契約を適用する。
 正確な契約と出力形式は `references/core/output-modes.md` を読む。ユーザーが
 「改稿文だけ」を明示した場合は文章だけを返してよいが、内部の棚卸しと比較は省略
 しない。
+
+リポジトリ内の実態との照合、文書とcode・config・test・他文書の整合確認、または
+`repository-review` が明示された場合だけ
+`references/core/repository-grounded-review.md` を読む。対象文書の参照と識別子から
+探索を始め、リポジトリ全体を黙って無制限に走査しない。モデル知識を証拠にせず、
+根拠不足を誤りと判定しない。
 
 ## literalと構造化要素を保護する
 
