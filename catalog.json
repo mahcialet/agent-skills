@@ -5,6 +5,6 @@
     "copilot": true,
     "languages": ["ja", "en"],
     "stability": "experimental",
-    "description": "意味を保存しながら初読理解を助ける"
+    "description": "読み返しや誤解の原因を診断し、意味を損なわず文章を整える"
   }
 }
