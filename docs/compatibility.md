@@ -34,13 +34,14 @@
   scopeに配置したSkill本文と新しいcore referenceを読み、文書と設定の不一致を
   `CONTRADICTED`、根拠のない強い主張を `EVIDENCE-GAP / UNSUPPORTED`、外部URL付きの
   主張を `SUPPORTED-BY-CITATION`、外部の最新状況を `UNVERIFIED` と分離した。
-  外部URLを取得せず、対象fileを変更しなかった。現在の実行環境では明示起動時の
-  初期Skill一覧にproject Skillが表示されず、repository内の定義を探索してから
-  読み込んだため、初期検出は成功済みとして扱わない。
+  外部URLを取得せず、対象fileも変更しなかった。
+  一方、現在の実行環境では、明示起動時の初期Skill一覧にproject Skillが表示されなかった。
+  repository内の定義を探索してから読み込んだため、確認済みなのは探索後の動作であり、
+  初期検出の成功ではない。
 - 同変更後のGitHub Copilot CLI 1.0.81では、`copilot skill list` が更新済みSkillを
-  project scopeから検出した。最初の代表caseでは外部の最新状況を `UNSUPPORTED` とした
-  ため、shared Skillに判定順と3要素prefixのgateを追加した。再実行では、文書と設定の
-  不一致、根拠不足、外部citation、外部の最新状況、一致する参照を、それぞれ
+  project scopeから検出した。最初の代表caseでは、外部の最新状況を `UNSUPPORTED` と
+  判定した。そこで、shared Skillに判定順と3要素prefixのgateを追加した。再実行では、
+  文書と設定の不一致、根拠不足、外部citation、外部の最新状況、一致する参照を、それぞれ
   `CONTRADICTED`、`EVIDENCE-GAP / UNSUPPORTED`、`SUPPORTED-BY-CITATION`、
   `UNVERIFIED`、`VERIFIED` と分離した。shell・write toolと外部URLを禁止した
   非対話セッションで完了し、file変更はなかった。

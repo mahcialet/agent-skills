@@ -27,7 +27,7 @@ safe_commands:
 - `defaults.depth`: `focused` / `standard` / `deep`
 - `defaults.mode`: `review` / `gate`
 - `paths[].match`: repository rootからのpath pattern
-- `paths[].level` / `minimum` / `depth`: matching pathの下限・上限・探索量
+- `paths[].level` / `minimum` / `depth`: matching pathの上限・下限・探索量
 - `gate.block_priorities`: report内gate判断でblockingとするpriority
 - `safe_commands`: maintainerが候補として示すcommand。実行許可listではない
 

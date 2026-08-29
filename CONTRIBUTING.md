@@ -11,5 +11,5 @@
 6. `./scripts/validate-skills.sh` と、利用可能なら
    `gh skill publish --dry-run` を実行する。
 
-commitは意味のある小さな単位に分け、不可分でないカタログ変更・挙動変更・
-無関係なcleanupを混ぜないでください。
+commitは意味のある小さな単位に分けてください。カタログ変更、挙動変更、
+無関係なcleanupは、互いに不可分な場合を除き、同じcommitに混ぜないでください。
