@@ -1,0 +1,4 @@
+.codex/
+.tokensave/
+__pycache__/
+*.pyc
