@@ -10,12 +10,37 @@ import statistics
 import sys
 from pathlib import Path
 
-MODES = {"review", "revise-safe", "revise-structural", "diff", "authoring", "jtf-only"}
+MODES = {
+    "review",
+    "repository-review",
+    "revise-safe",
+    "revise-structural",
+    "diff",
+    "authoring",
+    "jtf-only",
+}
+EVIDENCE_STATUSES = {
+    "VERIFIED",
+    "CONTRADICTED",
+    "SUPPORTED-BY-CITATION",
+    "UNSUPPORTED",
+    "UNVERIFIED",
+}
+EVIDENCE_TYPES = {
+    "DOC↔CODE",
+    "DOC↔CONFIG",
+    "DOC↔TEST",
+    "DOC↔DOC",
+    "DOC↔HISTORY",
+    "CITATION",
+    "UNVERIFIED",
+}
 REQUIRED_SUITES = {
     "semantic-preservation",
     "reread-risk-ja",
     "interaction-clarity-ja",
     "prose-pacing",
+    "repository-grounded-review",
 }
 
 
@@ -67,9 +92,31 @@ def validate(eval_dir: Path) -> list[str]:
                 errors.append(f"{label}: input must be non-empty text")
             if not isinstance(case.get("expected"), str) or not case["expected"].strip():
                 errors.append(f"{label}: expected must be non-empty text")
-            for key in ("must_preserve", "must_not_add", "expected_risks"):
-                if key in case and not all(isinstance(item, str) for item in case[key]):
-                    errors.append(f"{label}: {key} must be a string list")
+            for key in (
+                "must_preserve",
+                "must_not_add",
+                "must_not_claim",
+                "expected_risks",
+                "expected_statuses",
+                "expected_evidence_types",
+            ):
+                if key in case:
+                    value = case[key]
+                    if not isinstance(value, list) or not all(
+                        isinstance(item, str) for item in value
+                    ):
+                        errors.append(f"{label}: {key} must be a string list")
+            if case.get("mode") == "repository-review":
+                statuses = case.get("expected_statuses")
+                evidence_types = case.get("expected_evidence_types")
+                if not isinstance(statuses, list) or not statuses:
+                    errors.append(f"{label}: repository-review requires expected_statuses")
+                elif unknown := set(statuses) - EVIDENCE_STATUSES:
+                    errors.append(f"{label}: invalid evidence statuses {sorted(unknown)}")
+                if not isinstance(evidence_types, list) or not evidence_types:
+                    errors.append(f"{label}: repository-review requires expected_evidence_types")
+                elif unknown := set(evidence_types) - EVIDENCE_TYPES:
+                    errors.append(f"{label}: invalid evidence types {sorted(unknown)}")
     missing = REQUIRED_SUITES - found_suites
     if missing:
         errors.append(f"missing required suites: {', '.join(sorted(missing))}")

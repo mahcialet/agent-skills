@@ -1,0 +1,93 @@
+{
+  "suite": "repository-grounded-review",
+  "cases": [
+    {
+      "id": "verified-config-default",
+      "language": "ja",
+      "mode": "repository-review",
+      "input": "README.mdは既定portを8080と記載し、config/defaults.yamlもport: 8080を定義している。",
+      "expected_statuses": ["VERIFIED"],
+      "expected_evidence_types": ["DOC↔CONFIG"],
+      "expected": "両方のfile位置を示してVERIFIEDとし、問題のない記述を改稿しない"
+    },
+    {
+      "id": "contradicted-config-default",
+      "language": "ja",
+      "mode": "repository-review",
+      "input": "README.mdはenabled: trueが既定と記載するが、config/defaults.yamlはenabled: falseを定義している。",
+      "expected_statuses": ["CONTRADICTED"],
+      "expected_evidence_types": ["DOC↔CONFIG"],
+      "must_not_claim": ["READMEが正しい", "設定が正しい"],
+      "expected": "具体的な不一致を示し、source of truthの根拠なしに一方を正と決めない"
+    },
+    {
+      "id": "external-citation-present",
+      "language": "ja",
+      "mode": "repository-review",
+      "input": "README.mdは『AWSの推奨方式』というclaimにAWS公式文書のURLを添えている。URL先は今回取得していない。",
+      "expected_statuses": ["SUPPORTED-BY-CITATION"],
+      "expected_evidence_types": ["CITATION"],
+      "must_not_claim": ["AWSの推奨を確認済み", "外部内容を検証済み"],
+      "expected": "citationの存在だけを確認し、外部資料の内容をverified扱いしない"
+    },
+    {
+      "id": "unsupported-strong-claim",
+      "language": "ja",
+      "mode": "repository-review",
+      "input": "README.mdは方式Xを『業界標準で安全』と記載するが、リポジトリ内証拠もcitationもない。",
+      "expected_statuses": ["UNSUPPORTED"],
+      "expected_evidence_types": ["UNVERIFIED"],
+      "must_not_claim": ["方式Xは誤り", "方式Xは安全でない"],
+      "expected": "探索scopeを示して根拠提示を求め、根拠不足を誤りと断定しない"
+    },
+    {
+      "id": "unverified-current-external-state",
+      "language": "ja",
+      "mode": "repository-review",
+      "input": "README.mdは外部serviceが現在すべての地域で利用可能と記載するが、repositoryには最新状況を示す資料がない。",
+      "expected_statuses": ["UNVERIFIED"],
+      "expected_evidence_types": ["UNVERIFIED"],
+      "must_not_claim": ["現在利用可能", "現在利用不可"],
+      "expected": "外部の最新情報が必要とし、モデル知識で真偽を補完しない"
+    },
+    {
+      "id": "conflicting-repository-evidence",
+      "language": "ja",
+      "mode": "repository-review",
+      "input": "README.mdはtimeoutを30秒、codeは60秒、test fixtureは45秒としている。source-of-truth宣言はない。",
+      "expected_statuses": ["CONTRADICTED"],
+      "expected_evidence_types": ["DOC↔CODE", "DOC↔TEST"],
+      "must_not_claim": ["codeが常に正しい", "testが仕様である"],
+      "expected": "三者の競合と位置付け不明を報告し、一律の証拠優先順位を適用しない"
+    },
+    {
+      "id": "no-invented-missing-details",
+      "language": "ja",
+      "mode": "repository-review",
+      "input": "runbookには『次回releaseまでに担当者が移行する』とあるが、期限、担当者名、対象versionの根拠はrepositoryにない。",
+      "expected_statuses": ["UNSUPPORTED"],
+      "expected_evidence_types": ["DOC↔DOC"],
+      "must_not_add": ["9月30日", "運用チーム", "v2.0"],
+      "expected": "欠けた期限、担当者、versionを創作せず要確認として分離する"
+    },
+    {
+      "id": "no-model-knowledge-as-evidence",
+      "language": "en",
+      "mode": "repository-review",
+      "input": "The documentation claims that an external API supports a feature, but the repository contains no specification, test, or citation for that claim.",
+      "expected_statuses": ["UNVERIFIED"],
+      "expected_evidence_types": ["UNVERIFIED"],
+      "must_not_claim": ["VERIFIED from model knowledge"],
+      "expected": "内部知識を証拠にせず、外部確認が必要と英語で報告する"
+    },
+    {
+      "id": "bounded-large-repo-search",
+      "language": "ja",
+      "mode": "repository-review",
+      "input": "大規模monorepoのdocs/service-a.mdはSERVICE_A_TIMEOUTの既定値を30秒と記載し、参照先のservices/a/config.yamlも30秒を定義している。",
+      "expected_statuses": ["VERIFIED"],
+      "expected_evidence_types": ["DOC↔CONFIG"],
+      "expected": "明示参照と識別子からservice-aの関連fileだけを探索し、全repository走査を前提にしない"
+    }
+  ]
+}
