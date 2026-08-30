@@ -1,0 +1,69 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/mahcialet/agent-skills/reader-first-editor/syntax-signal.schema.json",
+  "title": "Reader-First Editor Japanese syntax sensor result",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "available", "backend", "backend_version", "model", "model_version", "python_version", "text_hash", "analysis_ms", "reason", "signals", "warnings", "interpretation"],
+  "properties": {
+    "schema_version": {"const": 1},
+    "available": {"type": "boolean"},
+    "backend": {"const": "ginza"},
+    "backend_version": {"type": ["string", "null"]},
+    "model": {"type": "string", "minLength": 1},
+    "model_version": {"type": ["string", "null"]},
+    "python_version": {"type": "string", "minLength": 1},
+    "text_hash": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+    "analysis_ms": {"type": "number", "minimum": 0},
+    "reason": {"enum": [null, "dependency-not-installed", "model-not-installed", "model-load-error", "parse-error"]},
+    "signals": {
+      "oneOf": [
+        {"type": "null"},
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["sentence_count", "token_count", "bunsetu_count", "max_main_predicate_distance", "max_dependency_distance", "max_modifier_depth", "max_adnominal_dependency_distance", "condition_marker_count", "condition_markers", "exception_marker_count", "exception_markers", "negation_marker_count", "negation_markers", "demonstratives", "max_conditions_per_predicate", "max_parallel_width"],
+          "properties": {
+            "sentence_count": {"type": "integer", "minimum": 0},
+            "token_count": {"type": "integer", "minimum": 0},
+            "bunsetu_count": {"type": "integer", "minimum": 0},
+            "max_main_predicate_distance": {"type": "integer", "minimum": 0},
+            "max_dependency_distance": {"type": "integer", "minimum": 0},
+            "max_modifier_depth": {"type": "integer", "minimum": 0},
+            "max_adnominal_dependency_distance": {"type": "integer", "minimum": 0},
+            "condition_marker_count": {"type": "integer", "minimum": 0},
+            "condition_markers": {"type": "array", "items": {"type": "string"}},
+            "exception_marker_count": {"type": "integer", "minimum": 0},
+            "exception_markers": {"type": "array", "items": {"type": "string"}},
+            "negation_marker_count": {"type": "integer", "minimum": 0},
+            "negation_markers": {"type": "array", "items": {"type": "string"}},
+            "demonstratives": {"type": "array", "items": {"type": "string"}},
+            "max_conditions_per_predicate": {"type": "integer", "minimum": 0},
+            "max_parallel_width": {"type": "integer", "minimum": 0}
+          }
+        }
+      ]
+    },
+    "warnings": {"type": "array", "items": {"type": "string"}},
+    "interpretation": {"const": "observation-only"}
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"available": {"const": true}}},
+      "then": {
+        "properties": {
+          "backend_version": {"type": "string", "minLength": 1},
+          "model_version": {"type": "string", "minLength": 1},
+          "reason": {"const": null},
+          "signals": {"type": "object"}
+        }
+      },
+      "else": {
+        "properties": {
+          "reason": {"enum": ["dependency-not-installed", "model-not-installed", "model-load-error", "parse-error"]},
+          "signals": {"const": null}
+        }
+      }
+    }
+  ]
+}

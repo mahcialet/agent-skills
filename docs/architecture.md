@@ -66,3 +66,14 @@ Copilotで共通利用できる形式にします。承認はproposalを直接�
 rollbackします。自動commit・pushは行いません。詳細は
 [corpus workflow](../skills/reader-first-editor/docs/corpus-workflow.md)と
 [Agent investigation](../skills/reader-first-editor/docs/agent-investigation.md)に記載します。
+
+## Optional Japanese syntax sensor
+
+GiNZA adapterはCoreの必須依存ではなく、明示起動時だけ読み込むoptional componentです。通常reviewの
+実行pathから、package install、model download、parse fixtureを分離します。dependency不在、model
+不在、load失敗、parse失敗は非致命のavailability resultへ変換し、LLM-onlyの処理を継続します。
+
+sensorは構造観測値とbackend・model version、text hashを返します。可読性、RR label、曖昧性、改稿
+要否を決定しません。A/B集約も特定providerを直接起動せず、CodexとGitHub Copilotで外部実行した
+paired observationを共通schemaから比較します。自動blockerがなく改善が観測されても人間の確認を
+要求し、既定利用は有効化しません。

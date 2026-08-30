@@ -71,3 +71,14 @@ Only publicly described plain-language principles were consulted. No text from
 the licensed ISO 24495-1 standard is reproduced. This is an unofficial,
 independent skill and does not claim ISO conformance, certification, or
 endorsement.
+
+## GiNZA optional integration
+
+- Source: <https://github.com/megagonlabs/ginza>
+- Packages: `ginza`, `ja-ginza`
+- Reviewed version: `5.2.0`
+- License metadata: MIT / MIT License
+
+The skill includes an optional adapter and a synthetic recorded fixture. It
+does not bundle GiNZA, spaCy, Sudachi, or the `ja-ginza` model. Users install
+those packages separately under their respective licenses.

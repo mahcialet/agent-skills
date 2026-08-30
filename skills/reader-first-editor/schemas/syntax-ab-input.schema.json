@@ -1,0 +1,66 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/mahcialet/agent-skills/reader-first-editor/syntax-ab-input.schema.json",
+  "title": "Reader-First Editor syntax A/B observations",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "experiment", "required_providers", "observations"],
+  "properties": {
+    "schema_version": {"const": 1},
+    "experiment": {"type": "string", "minLength": 1},
+    "required_providers": {"type": "array", "minItems": 2, "uniqueItems": true, "items": {"enum": ["codex", "github-copilot"]}},
+    "observations": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["case_id", "provider", "model", "model_version", "host_version", "repeat_index", "condition", "status", "expected_risk_present", "risk_detected", "unnecessary_revision", "semantic_preserved", "expected_behavior_match", "syntax_available", "duration_ms", "notes"],
+        "properties": {
+          "case_id": {"type": "string", "minLength": 1},
+          "provider": {"enum": ["codex", "github-copilot"]},
+          "model": {"type": "string", "minLength": 1},
+          "model_version": {"type": "string", "minLength": 1},
+          "host_version": {"type": "string", "minLength": 1},
+          "repeat_index": {"type": "integer", "minimum": 1},
+          "condition": {"enum": ["llm-only", "llm-plus-signals"]},
+          "status": {"enum": ["completed", "unsupported", "error"]},
+          "expected_risk_present": {"type": "boolean"},
+          "risk_detected": {"type": ["boolean", "null"]},
+          "unnecessary_revision": {"type": ["boolean", "null"]},
+          "semantic_preserved": {"type": ["boolean", "null"]},
+          "expected_behavior_match": {"type": ["boolean", "null"]},
+          "syntax_available": {"type": ["boolean", "null"]},
+          "duration_ms": {"type": "number", "minimum": 0},
+          "notes": {"type": "string"}
+        },
+        "allOf": [
+          {
+            "if": {"properties": {"status": {"const": "completed"}}},
+            "then": {
+              "properties": {
+                "risk_detected": {"type": "boolean"},
+                "unnecessary_revision": {"type": "boolean"},
+                "semantic_preserved": {"type": "boolean"},
+                "expected_behavior_match": {"type": "boolean"}
+              }
+            },
+            "else": {
+              "properties": {
+                "risk_detected": {"const": null},
+                "unnecessary_revision": {"const": null},
+                "semantic_preserved": {"const": null},
+                "expected_behavior_match": {"const": null}
+              }
+            }
+          },
+          {
+            "if": {"properties": {"condition": {"const": "llm-only"}}},
+            "then": {"properties": {"syntax_available": {"const": null}}},
+            "else": {"properties": {"syntax_available": {"type": "boolean"}}}
+          }
+        ]
+      }
+    }
+  }
+}

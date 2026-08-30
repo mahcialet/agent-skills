@@ -16,7 +16,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 SCHEMA_VERSION = 1
-TOOL_VERSION = "0.4.0"
+TOOL_VERSION = "0.5.0"
 STATE_DIRECTORIES = {
     "candidate": "candidates",
     "annotated": "annotated",

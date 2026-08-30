@@ -122,6 +122,13 @@ investigation、proposalを探索・読込みしない。調査の既定判断�
 固定閾値だけの根拠、頻度だけの根拠、既存ruleのduplicateがあれば `PROMOTE` にしない。
 `PROMOTE` をcoreへのapplyや安全保証として扱わない。
 
+## 明示的な日本語構造sensor評価
+
+利用者がGiNZAによるsyntax signalまたはLLM-onlyとのA/B評価を明示した場合だけ、
+`references/core/syntax-sensor.md` を読む。通常のreviewや改稿ではparserを起動・installせず、
+parserなしでも処理を継続する。parser outputは構造観測値に限定し、RR label、可読性、曖昧性、
+改稿要否のground truthとして扱わない。A/B結果から既定利用を自動で有効化しない。
+
 ## 最終意味保存gate
 
 返答または保存前に、元文と改稿案の事実、主体、行動、対象、数値、日付、条件、

@@ -1,0 +1,41 @@
+{
+  "fixture_schema_version": 1,
+  "recorded_at": "2026-08-30",
+  "recorded_with": {
+    "python": "3.12.13",
+    "ginza": "5.2.0",
+    "ja_ginza": "5.2.0",
+    "spacy": "3.7.5",
+    "click": "8.1.8"
+  },
+  "input": "条件を確認した場合は、その処理を続行しません。ただし、例外を承認した場合は続行します。",
+  "expected": {
+    "available": true,
+    "backend": "ginza",
+    "backend_version": "5.2.0",
+    "model": "ja_ginza",
+    "model_version": "5.2.0",
+    "reason": null,
+    "signals": {
+      "sentence_count": 2,
+      "token_count": 29,
+      "bunsetu_count": 11,
+      "max_main_predicate_distance": 11,
+      "max_dependency_distance": 9,
+      "max_modifier_depth": 1,
+      "max_adnominal_dependency_distance": 3,
+      "condition_marker_count": 3,
+      "condition_markers": ["条件", "場合"],
+      "exception_marker_count": 2,
+      "exception_markers": ["ただし", "例外"],
+      "negation_marker_count": 1,
+      "negation_markers": ["ん"],
+      "demonstratives": ["その"],
+      "max_conditions_per_predicate": 1,
+      "max_parallel_width": 1
+    },
+    "text_hash": "sha256:9e77654e9607b1ba6385db4d93e8761255a8a0a68f99bc7fc3513c59691ec32a",
+    "warnings": [],
+    "interpretation": "observation-only"
+  }
+}

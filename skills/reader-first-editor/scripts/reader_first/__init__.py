@@ -14,6 +14,15 @@ from .investigation import (
     validate_bundle_against_store,
     validate_investigation_result,
 )
+from .japanese_syntax import (
+    BackendUnavailable,
+    GinzaBackend,
+    SyntaxAnalysisError,
+    analyze_japanese,
+    build_syntax_ab_report,
+    validate_syntax_ab_report,
+    validate_syntax_signal,
+)
 from .regression import (
     RegressionError,
     apply_rule_patch,
@@ -37,7 +46,9 @@ from .state import (
 )
 
 __all__ = [
+    "BackendUnavailable",
     "DuplicateRecordError",
+    "GinzaBackend",
     "GitHubCollectionError",
     "GitHubRestClient",
     "InvalidTransitionError",
@@ -46,6 +57,8 @@ __all__ = [
     "RecordValidationError",
     "RegressionError",
     "StoreError",
+    "SyntaxAnalysisError",
+    "analyze_japanese",
     "apply_rule_patch",
     "build_investigation_bundle",
     "build_reference_only_candidates",
@@ -53,6 +66,7 @@ __all__ = [
     "build_regression_report",
     "build_rule_approval",
     "build_rule_proposal",
+    "build_syntax_ab_report",
     "deterministic_candidate_id",
     "fetch_pull_request_snapshot",
     "load_recorded_snapshot",
@@ -64,4 +78,6 @@ __all__ = [
     "validate_investigation_result",
     "validate_regression_run",
     "validate_report_against_runs",
+    "validate_syntax_ab_report",
+    "validate_syntax_signal",
 ]

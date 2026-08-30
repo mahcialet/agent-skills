@@ -104,6 +104,13 @@
   approvalとapplyの前にstored plan／runからreportを再集計する。applyはSkill本文・references・evalsの
   approved diffに限定し、対象の未commit変更、unsafe path、no-opを拒否する。validator失敗時のrollbackも
   isolated Git repositoryで確認した。Python toolはproviderを直接呼ばず、commit・pushもしない。
-- 自動日本語構文解析器は導入していない。将来導入する場合もoptionalな構造sensorに限定し、
-  parserなしでSkillを継続できる設計とする。現在の数値はtripwireだけに使い、hard thresholdで
-  可読性を判定しない。A/B検証も未実施である。
+- optionalなGiNZA構造sensorをPython 3.12で確認した。`ginza==5.2.0`、`ja-ginza==5.2.0`、
+  `spacy==3.7.5`、`click==8.1.8` でrecorded fixtureと実解析が成功した。dependency未導入と
+  parse errorは非致命resultとなり、parserなしでSkillを継続できる。spaCy 3.8系では同じmodelの
+  loadが失敗したため、導入例は実測済みversionをpinしている。
+- sensor outputはbackend／model version、text hash、構造観測値だけを持ち、可読性、RR label、
+  曖昧性の判定を持たない。通常reviewから自動install・model download・解析を行わない。
+  provider-neutralなA/B集約はpaired result、RR recall、false positive、unnecessary revision、
+  semantic preservation、処理時間、parse failure、provider間disagreementを評価する。synthetic testでは
+  改善なし、回帰、pair不足、parser unavailableを `do-not-default` とすることを確認した。実際の
+  Codex／GitHub Copilot A/Bは未実施であり、optional sensorの既定利用は無効である。

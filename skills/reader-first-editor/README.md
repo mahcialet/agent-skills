@@ -142,6 +142,16 @@ Python tool自体はproviderを起動しません。pass reportは `rules approv
 apply対象はSkill本文・references・evalsに限定され、validator失敗時はrollbackします。toolは
 commitもpushもしません。詳しくは[ルール昇格](docs/rule-promotion.md)を参照してください。
 
+日本語構造sensorはoptionalです。`scripts/analyze_ja.py analyze` を明示実行した場合だけGiNZAを
+読み込み、dependency未導入やparse失敗では非致命のavailability resultを返します。通常reviewから
+install、model download、解析を自動実行しません。出力は構造観測値であり、可読性やRR labelの
+ground truthではありません。
+
+`ab-report` は同じcaseのLLM-onlyとLLM-plus-signalsをCodex／GitHub Copilot間で比較します。
+回帰、provider差拡大、改善なしを `do-not-default` とし、改善が観測されても人間の確認なしに
+既定利用を有効化しません。install pin、schema、CLI例は[日本語構文解析](docs/syntax-analysis.md)を
+参照してください。
+
 - [コーパス運用](docs/corpus-workflow.md)
 - [コーパスデータモデル](docs/corpus-data-model.md)
 - [ルール昇格](docs/rule-promotion.md)

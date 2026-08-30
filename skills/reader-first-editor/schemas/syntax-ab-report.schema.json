@@ -1,0 +1,112 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/mahcialet/agent-skills/reader-first-editor/syntax-ab-report.schema.json",
+  "title": "Reader-First Editor syntax A/B report",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["id", "schema_version", "experiment", "created_at", "required_providers", "conditions", "deltas", "provider_difference", "pairing", "automatic_blockers", "observed_improvements", "recommendation", "default_enabled"],
+  "properties": {
+    "id": {"type": "string", "pattern": "^rfsab-[0-9a-f]{20}$"},
+    "schema_version": {"const": 1},
+    "experiment": {"type": "string", "minLength": 1},
+    "created_at": {"type": "string", "minLength": 1},
+    "required_providers": {"type": "array", "minItems": 2, "uniqueItems": true, "items": {"enum": ["codex", "github-copilot"]}},
+    "conditions": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["llm-only", "llm-plus-signals"],
+      "properties": {
+        "llm-only": {"$ref": "#/$defs/metrics"},
+        "llm-plus-signals": {"$ref": "#/$defs/metrics"}
+      }
+    },
+    "deltas": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["rr_recall", "false_positive_rate", "unnecessary_revision_rate", "semantic_preservation_rate", "expected_behavior_accuracy", "mean_duration_ms", "parse_failure_rate"],
+      "properties": {
+        "rr_recall": {"type": ["number", "null"]},
+        "false_positive_rate": {"type": ["number", "null"]},
+        "unnecessary_revision_rate": {"type": ["number", "null"]},
+        "semantic_preservation_rate": {"type": ["number", "null"]},
+        "expected_behavior_accuracy": {"type": ["number", "null"]},
+        "mean_duration_ms": {"type": ["number", "null"]},
+        "parse_failure_rate": {"type": ["number", "null"]}
+      }
+    },
+    "provider_difference": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["llm-only", "llm-plus-signals", "expected_behavior_accuracy_spread_delta", "risk_decision_disagreement_rate_delta"],
+      "properties": {
+        "llm-only": {"$ref": "#/$defs/providerMetrics"},
+        "llm-plus-signals": {"$ref": "#/$defs/providerMetrics"},
+        "expected_behavior_accuracy_spread_delta": {"type": ["number", "null"]},
+        "risk_decision_disagreement_rate_delta": {"type": ["number", "null"]}
+      }
+    },
+    "pairing": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["complete_pairs", "missing_pairs", "metadata_mismatches", "providers_by_condition"],
+      "properties": {
+        "complete_pairs": {"type": "integer", "minimum": 0},
+        "missing_pairs": {"type": "integer", "minimum": 0},
+        "metadata_mismatches": {"type": "integer", "minimum": 0},
+        "providers_by_condition": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["llm-only", "llm-plus-signals"],
+          "properties": {
+            "llm-only": {"type": "array", "uniqueItems": true, "items": {"enum": ["codex", "github-copilot"]}},
+            "llm-plus-signals": {"type": "array", "uniqueItems": true, "items": {"enum": ["codex", "github-copilot"]}}
+          }
+        }
+      }
+    },
+    "automatic_blockers": {"type": "array", "items": {"type": "string"}},
+    "observed_improvements": {"type": "array", "items": {"type": "string"}},
+    "recommendation": {"enum": ["do-not-default", "human-review-required"]},
+    "default_enabled": {"const": false}
+  },
+  "$defs": {
+    "metrics": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["total", "completed", "unsupported", "errors", "rr_recall", "false_positive_rate", "unnecessary_revision_rate", "semantic_preservation_rate", "expected_behavior_accuracy", "mean_duration_ms", "parse_failure_rate"],
+      "properties": {
+        "total": {"type": "integer", "minimum": 0},
+        "completed": {"type": "integer", "minimum": 0},
+        "unsupported": {"type": "integer", "minimum": 0},
+        "errors": {"type": "integer", "minimum": 0},
+        "rr_recall": {"type": ["number", "null"], "minimum": 0, "maximum": 1},
+        "false_positive_rate": {"type": ["number", "null"], "minimum": 0, "maximum": 1},
+        "unnecessary_revision_rate": {"type": ["number", "null"], "minimum": 0, "maximum": 1},
+        "semantic_preservation_rate": {"type": ["number", "null"], "minimum": 0, "maximum": 1},
+        "expected_behavior_accuracy": {"type": ["number", "null"], "minimum": 0, "maximum": 1},
+        "mean_duration_ms": {"type": ["number", "null"], "minimum": 0},
+        "parse_failure_rate": {"type": ["number", "null"], "minimum": 0, "maximum": 1}
+      }
+    },
+    "providerMetrics": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["expected_behavior_accuracy_by_provider", "expected_behavior_accuracy_spread", "risk_decision_pairs", "risk_decision_disagreements", "risk_decision_disagreement_rate"],
+      "properties": {
+        "expected_behavior_accuracy_by_provider": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["codex", "github-copilot"],
+          "properties": {
+            "codex": {"type": ["number", "null"], "minimum": 0, "maximum": 1},
+            "github-copilot": {"type": ["number", "null"], "minimum": 0, "maximum": 1}
+          }
+        },
+        "expected_behavior_accuracy_spread": {"type": ["number", "null"], "minimum": 0, "maximum": 1},
+        "risk_decision_pairs": {"type": "integer", "minimum": 0},
+        "risk_decision_disagreements": {"type": "integer", "minimum": 0},
+        "risk_decision_disagreement_rate": {"type": ["number", "null"], "minimum": 0, "maximum": 1}
+      }
+    }
+  }
+}

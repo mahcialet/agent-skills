@@ -1,44 +1,105 @@
 # 日本語構文解析
 
-状態: planned（未実装）
+状態: optional sensor implemented、既定利用は無効
 
-実文corpusとprovider baselineを先に整備し、必要性を確認した後でoptionalな構造sensorを
-評価する。現在、GiNZA、KWJA、その他のparserはSkillの依存に含まれない。
+GiNZA adapterは日本語文の構造観測値を返す。可読性の最終判定器ではない。通常reviewから自動起動
+せず、GiNZA、spaCy、modelをCoreの必須依存に含めない。parserがない環境でもSkill全体は継続する。
 
-## 役割
+## 2026-08-30時点の確認結果
 
-parserは文数、dependency distance、modifier depth、条件・否定markerなどの観測値だけを返す。
-Agentが原文とcontextを読み、人間がrule変更を承認する。parser outputを可読性のground truth、
-RR label、曖昧でないことの証拠として扱わない。
+| package | version | metadata / 実測 |
+|---|---:|---|
+| `ginza` | `5.2.0` | MIT、Python `>=3.8`、wheel 21,203 bytes |
+| `ja-ginza` | `5.2.0` | MIT License、model wheel 59,112,919 bytes |
+| `spacy` | `3.7.5` | Python 3.12でmodel loadを確認したpin |
+| `click` | `8.1.8` | 上記のisolated実行で使用したpin |
 
-## Safety
+参照した公式metadata:
 
-- optional dependencyとし、未導入でもSkill全体を継続する。
-- parse errorを文章の誤りと判定しない。
-- parser、model、version、失敗理由を結果へ記録する。
-- hard thresholdだけでFAILまたは改稿を決めない。
-- 数値を満たすための機械的な短文化を行わない。
-- model downloadやnetwork accessを通常reviewから自動実行しない。
+- [ginza on PyPI](https://pypi.org/project/ginza/)
+- [ja-ginza on PyPI](https://pypi.org/project/ja-ginza/)
+- [GiNZA repository](https://github.com/megagonlabs/ginza)
 
-dependencyがない場合は、成功を装わず次のようなavailability resultを返す。
+`ginza==5.2.0` と `ja-ginza==5.2.0` のdependency宣言はspaCy `<4.0.0,>=3.4.4` を許容するが、
+2026-08-30のisolated testではspaCy 3.8系で `ja_ginza` のloadに失敗した。Python 3.12.13、
+`spacy==3.7.5`、`click==8.1.8` では解析に成功した。このため導入例は実測済みversionをpinする。
+将来versionを変更する場合は、同じload testとrecorded fixtureを再実行する。
+
+初回installにはnetworkと約59 MBのmodel wheelに加え、spaCyやSudachiの依存取得が必要である。
+通常reviewはpackage installやmodel downloadを開始しない。GiNZA modelはpackageに含まれるため、
+install済み環境での解析時にmodelをnetworkから取得しない。
+
+## 明示的な実行
+
+Coreへ依存を追加せず、isolated environmentで実行する例:
+
+```bash
+uv run --python 3.12 \
+  --with ginza==5.2.0 \
+  --with ja-ginza==5.2.0 \
+  --with spacy==3.7.5 \
+  --with click==8.1.8 \
+  python skills/reader-first-editor/scripts/analyze_ja.py analyze \
+  --text-file /path/to/input-ja.txt
+```
+
+依存を導入せずに同じcommandを実行してもexit code 0でavailability resultを返す。
 
 ```json
 {
   "available": false,
   "reason": "dependency-not-installed",
-  "warnings": []
+  "signals": null,
+  "interpretation": "observation-only"
 }
 ```
 
-## 導入順
+`model-not-installed`、`model-load-error`、`parse-error` も非致命resultである。文章の誤りや解析成功と
+読み替えず、LLM-onlyの処理を継続する。
 
-1. LLM-onlyのcorpus baselineを記録する。
-2. GiNZAの現行version、license、Python対応、配布size、offline動作を確認する。
-3. sensor output schemaとgraceful fallbackを実装する。
-4. 同一corpusでLLM-onlyとLLM-plus-signalsを比較する。
-5. RR recall、false positive、unnecessary revision、semantic preservation、provider差、cost、
-   parse failure率を評価する。
-6. 改善が確認できた場合だけ既定利用を検討する。
+## Sensor output
 
-KWJAなどの高度なbackendは、coreferenceやdiscourse signalの不足が実文から確認された場合だけ
-experimentalに比較し、coreの必須依存にはしない。
+完全な形式は `schemas/syntax-signal.schema.json` で定義する。available resultは次を記録する。
+
+- backend、backend version、model、model version、Python version
+- 入力本文を複製しないSHA-256 hash
+- 文数、token数、文節数
+- 主述語までの最大距離、最大dependency distance
+- modifier depth、連体修飾dependency distance
+- 条件・例外・否定markerと指示語
+- 同一述語へ対応付けた条件marker数、並列幅
+- 解析時間とwarning
+
+これらはtokenizationとparseに依存する観測値である。数値やmarkerだけから `RR-04` などを付与せず、
+一つのparseが返ったことを「曖昧でない」証拠にしない。合成文のrecorded resultは
+`tests/fixtures/syntax/ginza-5.2.0-ja-ginza-5.2.0.json` に保存している。
+
+## LLM-onlyとのA/B
+
+`schemas/syntax-ab-input.schema.json` に従い、同じcaseを次の2条件で記録する。
+
+```text
+llm-only
+llm-plus-signals
+```
+
+各observationにはcase ID、provider、model・version、host version、repeat index、status、
+expected riskの有無、risk検出、unnecessary revision、semantic preservation、expected behavior一致、
+syntax availability、処理時間を含める。CodexとGitHub Copilotの両providerを必須とする。
+
+```bash
+python3 skills/reader-first-editor/scripts/analyze_ja.py ab-report \
+  --input /path/to/syntax-ab-observations.json
+```
+
+reportはRR recall、false-positive rate、unnecessary-revision rate、semantic-preservation rate、
+expected-behavior accuracy、処理時間、parse-failure rateを条件間で比較する。さらにprovider別accuracyの
+spreadと、同じcaseに対するrisk判定のdisagreement rateを比較する。
+
+paired result不足、unsupported／error、parser unavailable、semantic regression、false positiveや
+unnecessary revisionの増加、provider差の増加、改善なしは `do-not-default` とする。blockerがなく
+改善が観測されても `human-review-required` に留め、`default_enabled` は常にfalseである。実際の
+Codex／GitHub Copilot resultはPhase 8で記録する。それまではoptional機能を既定化しない。
+
+高度なcoreference、bridging reference、discourse relationが必要だという実文上の証拠が得られた
+場合だけ、KWJAなどをexperimental backendとして比較する。重い依存をCoreへ追加しない。

@@ -53,12 +53,17 @@ REQUIRED_SCHEMAS = {
     "regression-run.schema.json",
     "rule-approval.schema.json",
     "rule-proposal.schema.json",
+    "syntax-ab-input.schema.json",
+    "syntax-ab-report.schema.json",
+    "syntax-signal.schema.json",
 }
 REQUIRED_TOOL_FILES = {
+    "scripts/analyze_ja.py",
     "scripts/corpus_tool.py",
     "scripts/reader_first/__init__.py",
     "scripts/reader_first/github.py",
     "scripts/reader_first/investigation.py",
+    "scripts/reader_first/japanese_syntax.py",
     "scripts/reader_first/regression.py",
     "scripts/reader_first/state.py",
 }
@@ -66,6 +71,7 @@ REQUIRED_GITHUB_FIXTURES = {
     "pr-138-reference-only.json",
     "pr-187-reference-only.json",
 }
+REQUIRED_SYNTAX_FIXTURES = {"ginza-5.2.0-ja-ginza-5.2.0.json"}
 FORBIDDEN_GITHUB_FIXTURE_KEYS = {"body", "content", "diff_hunk", "login", "patch"}
 
 
@@ -197,17 +203,18 @@ def validate_tooling(skill_dir: Path) -> list[str]:
     for relative in sorted(REQUIRED_TOOL_FILES):
         if not (skill_dir / relative).is_file():
             errors.append(f"missing required corpus tool file: {relative}")
-    tool = skill_dir / "scripts" / "corpus_tool.py"
-    if tool.is_file():
-        result = subprocess.run(
-            [sys.executable, str(tool), "--version"],
-            cwd=skill_dir,
-            text=True,
-            capture_output=True,
-            check=False,
-        )
-        if result.returncode or not result.stdout.strip():
-            errors.append(f"corpus_tool.py --version failed: {result.stderr.strip()}")
+    for name in ("corpus_tool.py", "analyze_ja.py"):
+        tool = skill_dir / "scripts" / name
+        if tool.is_file():
+            result = subprocess.run(
+                [sys.executable, str(tool), "--version"],
+                cwd=skill_dir,
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+            if result.returncode or not result.stdout.strip():
+                errors.append(f"{name} --version failed: {result.stderr.strip()}")
     return errors
 
 
@@ -242,6 +249,41 @@ def validate_github_fixtures(skill_dir: Path) -> list[str]:
     return errors
 
 
+def validate_syntax_fixtures(skill_dir: Path) -> list[str]:
+    fixture_dir = skill_dir / "tests" / "fixtures" / "syntax"
+    errors: list[str] = []
+    found = {path.name for path in fixture_dir.glob("*.json")}
+    if missing := REQUIRED_SYNTAX_FIXTURES - found:
+        errors.append(f"missing syntax fixtures: {', '.join(sorted(missing))}")
+    for name in sorted(REQUIRED_SYNTAX_FIXTURES & found):
+        path = fixture_dir / name
+        try:
+            fixture = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError) as exc:
+            errors.append(f"{path}: invalid JSON fixture: {exc}")
+            continue
+        if not isinstance(fixture, dict):
+            errors.append(f"{path}: fixture rootはobjectである必要があります")
+            continue
+        expected = fixture.get("expected")
+        recorded = fixture.get("recorded_with")
+        if fixture.get("fixture_schema_version") != 1 or not isinstance(expected, dict):
+            errors.append(f"{path}: fixture schema_versionまたはexpectedが不正です")
+            continue
+        if not isinstance(recorded, dict) or not all(
+            isinstance(recorded.get(key), str)
+            for key in ("python", "ginza", "ja_ginza", "spacy", "click")
+        ):
+            errors.append(f"{path}: parser/model version metadataが必要です")
+        if expected.get("interpretation") != "observation-only":
+            errors.append(f"{path}: parser resultを判定として保存できません")
+        if expected.get("backend") != "ginza" or expected.get("available") is not True:
+            errors.append(f"{path}: recorded GiNZA resultが必要です")
+        if any(key in expected for key in ("readability", "reread_risk", "verdict")):
+            errors.append(f"{path}: fixtureへ可読性の最終判定を保存できません")
+    return errors
+
+
 def sentence_metrics(text: str) -> dict[str, object]:
     sentences = [s.strip() for s in re.split(r"(?<=[。！？.!?])\s*", text) if s.strip()]
     lengths = [len(s) for s in sentences]
@@ -265,6 +307,7 @@ def main() -> int:
         + validate_schemas(args.schema_dir)
         + validate_tooling(skill_dir)
         + validate_github_fixtures(skill_dir)
+        + validate_syntax_fixtures(skill_dir)
     )
     if errors:
         for error in errors:
@@ -274,7 +317,7 @@ def main() -> int:
         print(json.dumps(sentence_metrics(args.metrics), ensure_ascii=False))
     print(
         f"validated {len(list(args.eval_dir.glob('*.yaml')))} eval suites "
-        f"and {len(REQUIRED_SCHEMAS)} schemas and corpus tooling"
+        f"and {len(REQUIRED_SCHEMAS)} schemas and corpus/syntax tooling"
     )
     return 0
 
