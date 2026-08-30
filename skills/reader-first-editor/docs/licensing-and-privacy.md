@@ -1,6 +1,6 @@
 # ライセンスとプライバシー
 
-状態: 一部implemented（local record validationのみ）
+状態: 一部implemented（local validationとpublic GitHub reference-only収集）
 
 corpus recordはsourceのprovenanceと、raw textを保存・再配布できる権利を分離して記録する。
 public repositoryであること、repositoryにlicenseがあること、textを匿名化したことだけでは、
@@ -20,6 +20,10 @@ public promotion: reject
 
 URLだけでなくimmutable commit SHA、PR番号、file、取得日時、content hashを保存する。
 source reputationやmerge済みという事実をlicenseまたはqualityの代わりにしない。
+
+GitHub collectorはrepository licenseのSPDX IDを観測値として保存するが、それだけでPR本文、patch、
+review commentの権利を確認済みと扱わない。live responseからは本文fieldを破棄し、recorded fixtureも
+raw text fieldを含む場合は拒否する。account名も保存せず、human／bot／unknownの種別だけを残す。
 
 ## 必須provenance
 

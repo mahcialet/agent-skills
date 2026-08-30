@@ -9,9 +9,17 @@ import subprocess
 import sys
 from pathlib import Path
 
+from reader_first.github import (
+    GitHubRestClient,
+    build_reference_only_candidates,
+    default_github_token,
+    fetch_pull_request_snapshot,
+    load_recorded_snapshot,
+)
 from reader_first.state import (
     STATE_DIRECTORIES,
     TOOL_VERSION,
+    TRANSLATION_STATUSES,
     LocalCorpusStore,
     StoreError,
     prepare_candidate_record,
@@ -113,6 +121,33 @@ def build_parser() -> argparse.ArgumentParser:
     collect_parser.add_argument("--dry-run", action="store_true")
     _add_actor_reason(collect_parser)
 
+    github_parser = commands.add_parser(
+        "collect-github",
+        help="明示指定したpublic GitHub PRからreference-only candidateを収集する",
+    )
+    github_parser.add_argument("--repository", required=True, help="owner/name形式のpublic repository")
+    github_parser.add_argument("--pr-number", type=int, required=True)
+    github_parser.add_argument("--file", action="append", dest="files", help="対象Markdown fileを限定する")
+    github_parser.add_argument("--language", choices=("ja", "en"), required=True)
+    github_parser.add_argument(
+        "--translation-status",
+        choices=sorted(TRANSLATION_STATUSES),
+        default="unknown",
+    )
+    github_parser.add_argument("--genre", required=True)
+    github_parser.add_argument("--reader-description", required=True)
+    github_parser.add_argument(
+        "--reader-evidence",
+        default="CLIで利用者が明示したreader metadata",
+    )
+    github_parser.add_argument(
+        "--fixture",
+        type=Path,
+        help="networkを使わず、raw textを除いたrecorded snapshotを読む",
+    )
+    github_parser.add_argument("--dry-run", action="store_true")
+    _add_actor_reason(github_parser)
+
     annotate_parser = commands.add_parser("annotate", help="candidateへannotationを保存する")
     annotate_parser.add_argument("record_id")
     annotate_parser.add_argument("--annotation", type=Path, required=True)
@@ -168,6 +203,58 @@ def run(args: argparse.Namespace) -> int:
         _ensure_project_write_safe(args, data_dir)
         created = store.create_candidate(record, actor=args.actor, reason=args.reason)
         _print_json({"created": created["id"], "state": "candidate", "data_dir": str(data_dir)})
+        return 0
+    if command == "collect-github":
+        if not args.dry_run:
+            _ensure_project_write_safe(args, data_dir)
+        if args.fixture is not None:
+            snapshot = load_recorded_snapshot(
+                args.fixture,
+                repository=args.repository,
+                pr_number=args.pr_number,
+            )
+        else:
+            snapshot = fetch_pull_request_snapshot(
+                GitHubRestClient(token=default_github_token()),
+                args.repository,
+                args.pr_number,
+            )
+        records = build_reference_only_candidates(
+            snapshot,
+            language=args.language,
+            translation_status=args.translation_status,
+            genre=args.genre,
+            reader_description=args.reader_description,
+            reader_evidence=args.reader_evidence,
+            selected_files=args.files,
+        )
+        records = [prepare_candidate_record(record) for record in records]
+        if args.dry_run:
+            _print_json(
+                {
+                    "dry_run": True,
+                    "network_accessed": args.fixture is None,
+                    "repository": snapshot["repository"]["full_name"],
+                    "pull_request": snapshot["pull_request"]["number"],
+                    "source_revision": snapshot["pull_request"]["head_revision"],
+                    "records": records,
+                    "will_modify": [],
+                }
+            )
+            return 0
+        created = [
+            record["id"]
+            for record in store.create_candidates(records, actor=args.actor, reason=args.reason)
+        ]
+        _print_json(
+            {
+                "created": created,
+                "state": "candidate",
+                "data_dir": str(data_dir),
+                "changes_rule_behavior": False,
+                "modified_core": [],
+            }
+        )
         return 0
     if command == "annotate":
         _ensure_project_write_safe(args, data_dir)

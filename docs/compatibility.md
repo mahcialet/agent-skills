@@ -80,9 +80,18 @@
 - 実文corpusのschema v1、local data directory解決、state transition、audit logを実装し、
   dependency-free unit testで確認した。manual corpus CLIはPython 3.12で、read-only command、
   collect dry-run、annotation、accept／reject、local promotion preview／apply、project scopeの
-  ignore gateを確認した。GitHub収集、public promotion、通常reviewへの明示的な読込みは
-  未実装である。現在のbundled evalは合成fixtureのままで、local recordは通常reviewへ
-  影響しない。rights不明のthird-party textをpublic corpusへ昇格させる処理も提供していない。
+  ignore gateを確認した。
+- public GitHub collectorは、明示指定されたPRだけをnetworkから読み、変更済みMarkdown、
+  immutable SHA、review submission、inline threadの構造metadataをreference-only candidateへ
+  保存する。private repositoryは最初のrepository metadata確認後に拒否する。pagination、
+  partial thread、raw text入りfixtureの拒否をrecorded fixture testで確認した。
+- `digital-go-jp/design-tokens` PR #138は2026-08-30のlive dry-runで、README.md、final headへの
+  human approval、inline threadなしを確認し、`positive-reviewed` candidateとして分類した。
+  PR #187はrecorded metadataで、旧SHAへのinline threadとfollow-up SHAへのapprovalを対応付け、
+  `review-directed-revision` と分類した。どちらもPR本文、patch、review/comment本文を保存しない。
+- public corpus promotion、通常reviewへの明示的なlocal record読込みは未実装である。現在の
+  bundled evalは合成fixtureのままで、local recordは通常reviewへ影響しない。rights不明の
+  third-party textをpublic corpusへ昇格させる処理も提供していない。
 - 自動日本語構文解析器は導入していない。将来導入する場合もoptionalな構造sensorに限定し、
   parserなしでSkillを継続できる設計とする。現在の数値はtripwireだけに使い、hard thresholdで
   可読性を判定しない。A/B検証も未実施である。

@@ -1,0 +1,91 @@
+{
+  "schema_version": 1,
+  "retrieved_at": "2026-08-30T00:00:00Z",
+  "repository": {
+    "full_name": "digital-go-jp/design-tokens",
+    "private": false,
+    "visibility": "public",
+    "license_spdx_id": "MIT"
+  },
+  "pull_request": {
+    "number": 187,
+    "url": "https://github.com/digital-go-jp/design-tokens/pull/187",
+    "state": "closed",
+    "draft": false,
+    "merged_at": "2025-03-11T07:59:07Z",
+    "created_at": "2025-03-11T00:27:15Z",
+    "updated_at": "2025-03-11T07:59:12Z",
+    "head_revision": "2c608edfe3c7395f1e48487ece884b11f9dff190",
+    "base_revision": "9ab73be5646d544068a207dd81b61832505b1627",
+    "merge_revision": "1d3d266157cf69f27d019afbcd674b3d86cd64df",
+    "author_type": "human"
+  },
+  "files": [
+    {
+      "path": "README.md",
+      "status": "modified",
+      "blob_revision": "971a9f121af5bf5becdfe6b078d0c8e905bcad33",
+      "previous_path": null,
+      "additions": 6,
+      "deletions": 0,
+      "changes": 6,
+      "url": "https://github.com/digital-go-jp/design-tokens/blob/2c608edfe3c7395f1e48487ece884b11f9dff190/README.md"
+    }
+  ],
+  "reviews": [
+    {
+      "id": 2672473407,
+      "state": "COMMENTED",
+      "submitted_at": "2025-03-11T00:56:23Z",
+      "commit_revision": "5edc14ec75b0db63690f602c0d81ac750bd11275",
+      "author_type": "human",
+      "body_present": false
+    },
+    {
+      "id": 2672833310,
+      "state": "COMMENTED",
+      "submitted_at": "2025-03-11T05:10:05Z",
+      "commit_revision": "5edc14ec75b0db63690f602c0d81ac750bd11275",
+      "author_type": "human",
+      "body_present": false
+    },
+    {
+      "id": 2672911303,
+      "state": "APPROVED",
+      "submitted_at": "2025-03-11T05:45:19Z",
+      "commit_revision": "2c608edfe3c7395f1e48487ece884b11f9dff190",
+      "author_type": "human",
+      "body_present": true
+    }
+  ],
+  "review_comments": [
+    {
+      "id": 1988205342,
+      "review_id": 2672473407,
+      "in_reply_to_id": null,
+      "author_type": "human",
+      "path": "README.md",
+      "line": null,
+      "side": "RIGHT",
+      "original_line": 52,
+      "commit_revision": "2c608edfe3c7395f1e48487ece884b11f9dff190",
+      "original_revision": "5edc14ec75b0db63690f602c0d81ac750bd11275",
+      "created_at": "2025-03-11T00:56:23Z",
+      "body_present": true
+    },
+    {
+      "id": 1988403661,
+      "review_id": 2672833310,
+      "in_reply_to_id": 1988205342,
+      "author_type": "human",
+      "path": "README.md",
+      "line": null,
+      "side": "RIGHT",
+      "original_line": 52,
+      "commit_revision": "2c608edfe3c7395f1e48487ece884b11f9dff190",
+      "original_revision": "5edc14ec75b0db63690f602c0d81ac750bd11275",
+      "created_at": "2025-03-11T05:10:05Z",
+      "body_present": true
+    }
+  ]
+}

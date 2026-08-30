@@ -60,6 +60,11 @@ source identityとIDがずれたrecordを拒否する。
 
 ## Schema evolution
 
+GitHub collectorが作るrecordは、互換性を保つoptionalな `github_evidence` を持つ。PRの
+base／head／merge SHA、変更fileのblob SHA、review submissionのstateと対象SHA、inline threadの
+path・line・reply数を構造化して保存する。account名やPR本文、patch、review/comment本文は
+保存しない。`body_present` は本文の有無だけを示し、内容を含まない。
+
 state変更はpending journal、record、原子的に置き換えるaudit logを使う。audit commit前の
 失敗は旧stateへrollbackし、process停止でpending journalが残った場合は次回初期化時に
 audit eventの有無からcommitまたはrollbackを回復する。store全体のprocess間lockにより、

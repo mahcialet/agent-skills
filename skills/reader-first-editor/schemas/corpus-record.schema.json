@@ -226,9 +226,141 @@
       }
     },
     "confidence": {"enum": ["low", "medium", "high", "unknown"]},
-    "created_at": {"type": "string", "minLength": 1}
+    "created_at": {"type": "string", "minLength": 1},
+    "github_evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["repository", "pull_request", "changed_file", "reviews", "inline_threads"],
+      "properties": {
+        "repository": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["visibility", "license_spdx_id"],
+          "properties": {
+            "visibility": {"const": "public"},
+            "license_spdx_id": {"type": ["string", "null"]}
+          }
+        },
+        "pull_request": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "state",
+            "draft",
+            "merged_at",
+            "created_at",
+            "updated_at",
+            "base_revision",
+            "head_revision",
+            "merge_revision"
+          ],
+          "properties": {
+            "state": {"type": "string", "minLength": 1},
+            "draft": {"type": "boolean"},
+            "merged_at": {"type": ["string", "null"]},
+            "created_at": {"type": ["string", "null"]},
+            "updated_at": {"type": ["string", "null"]},
+            "base_revision": {"type": ["string", "null"], "pattern": "^[0-9a-f]{40}$"},
+            "head_revision": {"type": ["string", "null"], "pattern": "^[0-9a-f]{40}$"},
+            "merge_revision": {"type": ["string", "null"], "pattern": "^[0-9a-f]{40}$"}
+          }
+        },
+        "changed_file": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "status",
+            "previous_path",
+            "blob_revision",
+            "additions",
+            "deletions",
+            "changes"
+          ],
+          "properties": {
+            "status": {"type": "string", "minLength": 1},
+            "previous_path": {"type": ["string", "null"]},
+            "blob_revision": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+            "additions": {"type": "integer", "minimum": 0},
+            "deletions": {"type": "integer", "minimum": 0},
+            "changes": {"type": "integer", "minimum": 0}
+          }
+        },
+        "reviews": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "id",
+              "state",
+              "submitted_at",
+              "commit_revision",
+              "author_type",
+              "body_present"
+            ],
+            "properties": {
+              "id": {"type": "integer", "minimum": 0},
+              "state": {"type": "string", "minLength": 1},
+              "submitted_at": {"type": ["string", "null"]},
+              "commit_revision": {"type": ["string", "null"], "pattern": "^[0-9a-f]{40}$"},
+              "author_type": {"enum": ["human", "bot", "unknown"]},
+              "body_present": {"type": "boolean"}
+            }
+          }
+        },
+        "inline_threads": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "id",
+              "review_id",
+              "path",
+              "line",
+              "side",
+              "original_line",
+              "original_revision",
+              "latest_revision",
+              "created_at",
+              "reply_count",
+              "human_comment_count",
+              "bot_comment_count",
+              "body_count"
+            ],
+            "properties": {
+              "id": {"type": "integer", "minimum": 0},
+              "review_id": {"type": ["integer", "null"], "minimum": 0},
+              "path": {"type": "string", "minLength": 1},
+              "line": {"type": ["integer", "null"], "minimum": 0},
+              "side": {"type": ["string", "null"]},
+              "original_line": {"type": ["integer", "null"], "minimum": 0},
+              "original_revision": {"type": ["string", "null"], "pattern": "^[0-9a-f]{40}$"},
+              "latest_revision": {"type": ["string", "null"], "pattern": "^[0-9a-f]{40}$"},
+              "created_at": {"type": ["string", "null"]},
+              "reply_count": {"type": "integer", "minimum": 0},
+              "human_comment_count": {"type": "integer", "minimum": 0},
+              "bot_comment_count": {"type": "integer", "minimum": 0},
+              "body_count": {"type": "integer", "minimum": 0}
+            }
+          }
+        }
+      }
+    }
   },
   "allOf": [
+    {
+      "if": {"required": ["github_evidence"]},
+      "then": {
+        "properties": {
+          "source": {
+            "properties": {
+              "type": {"const": "github-pr"}
+            }
+          }
+        }
+      }
+    },
     {
       "if": {
         "properties": {

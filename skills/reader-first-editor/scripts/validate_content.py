@@ -52,8 +52,14 @@ REQUIRED_SCHEMAS = {
 REQUIRED_TOOL_FILES = {
     "scripts/corpus_tool.py",
     "scripts/reader_first/__init__.py",
+    "scripts/reader_first/github.py",
     "scripts/reader_first/state.py",
 }
+REQUIRED_GITHUB_FIXTURES = {
+    "pr-138-reference-only.json",
+    "pr-187-reference-only.json",
+}
+FORBIDDEN_GITHUB_FIXTURE_KEYS = {"body", "content", "diff_hunk", "login", "patch"}
 
 
 def load_suites(eval_dir: Path) -> tuple[list[dict], list[str]]:
@@ -198,6 +204,37 @@ def validate_tooling(skill_dir: Path) -> list[str]:
     return errors
 
 
+def validate_github_fixtures(skill_dir: Path) -> list[str]:
+    fixture_dir = skill_dir / "tests" / "fixtures" / "github"
+    errors: list[str] = []
+    found = {path.name for path in fixture_dir.glob("*.json")}
+    if missing := REQUIRED_GITHUB_FIXTURES - found:
+        errors.append(f"missing GitHub fixtures: {', '.join(sorted(missing))}")
+
+    def scan(value: object, path: str, file: Path) -> None:
+        if isinstance(value, dict):
+            for key, child in value.items():
+                if key.lower() in FORBIDDEN_GITHUB_FIXTURE_KEYS:
+                    errors.append(f"{file}: raw/private field is forbidden at {path}.{key}")
+                scan(child, f"{path}.{key}", file)
+        elif isinstance(value, list):
+            for index, child in enumerate(value):
+                scan(child, f"{path}[{index}]", file)
+
+    for name in sorted(REQUIRED_GITHUB_FIXTURES & found):
+        path = fixture_dir / name
+        try:
+            fixture = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError) as exc:
+            errors.append(f"{path}: invalid JSON fixture: {exc}")
+            continue
+        if not isinstance(fixture, dict) or fixture.get("schema_version") != 1:
+            errors.append(f"{path}: fixture schema_version must be 1")
+            continue
+        scan(fixture, "$", path)
+    return errors
+
+
 def sentence_metrics(text: str) -> dict[str, object]:
     sentences = [s.strip() for s in re.split(r"(?<=[。！？.!?])\s*", text) if s.strip()]
     lengths = [len(s) for s in sentences]
@@ -216,7 +253,12 @@ def main() -> int:
     parser.add_argument("--metrics", help="Print descriptive tripwires for text; never pass/fail quality")
     args = parser.parse_args()
     skill_dir = Path(__file__).parent.parent
-    errors = validate(args.eval_dir) + validate_schemas(args.schema_dir) + validate_tooling(skill_dir)
+    errors = (
+        validate(args.eval_dir)
+        + validate_schemas(args.schema_dir)
+        + validate_tooling(skill_dir)
+        + validate_github_fixtures(skill_dir)
+    )
     if errors:
         for error in errors:
             print(f"ERROR: {error}", file=sys.stderr)

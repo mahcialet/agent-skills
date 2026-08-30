@@ -249,6 +249,19 @@ class StoreTests(unittest.TestCase):
         self.assertEqual(len(events), 1)
         self.assertEqual(events[0]["new_state"], "candidate")
 
+    def test_batch_duplicate_preflight_prevents_partial_creation(self) -> None:
+        existing = self.store.create_candidate(sample_record(), actor="tester", reason="fixture")
+        fresh = sample_record()
+        fresh["source"]["span"] = "section:fresh"
+        with self.assertRaises(DuplicateRecordError):
+            self.store.create_candidates(
+                [fresh, sample_record()],
+                actor="tester",
+                reason="batch fixture",
+            )
+        self.assertEqual(self.store.list_records()[0]["id"], existing["id"])
+        self.assertEqual(len(self.store.list_records()), 1)
+
     def test_audit_actor_and_reason_are_required(self) -> None:
         with self.assertRaises(StoreError):
             self.store.create_candidate(sample_record(), actor="", reason="fixture")

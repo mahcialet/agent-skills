@@ -16,7 +16,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 SCHEMA_VERSION = 1
-TOOL_VERSION = "0.1.0"
+TOOL_VERSION = "0.2.0"
 STATE_DIRECTORIES = {
     "candidate": "candidates",
     "annotated": "annotated",
@@ -157,6 +157,27 @@ def _reject_unknown_keys(container: dict, keys: set[str], context: str) -> None:
         raise RecordValidationError(f"{context}に未知のkeyがあります: {', '.join(unknown)}")
 
 
+def _require_nonnegative_int(container: dict, key: str, context: str) -> int:
+    value = container.get(key)
+    if not isinstance(value, int) or isinstance(value, bool) or value < 0:
+        raise RecordValidationError(f"{context}.{key}は0以上のintegerである必要があります")
+    return value
+
+
+def _require_optional_string(container: dict, key: str, context: str) -> str | None:
+    value = container.get(key)
+    if value is not None and not isinstance(value, str):
+        raise RecordValidationError(f"{context}.{key}はstringまたはnullである必要があります")
+    return value
+
+
+def _require_optional_sha(container: dict, key: str, context: str) -> str | None:
+    value = _require_optional_string(container, key, context)
+    if value is not None and not re.fullmatch(r"[0-9a-f]{40}", value):
+        raise RecordValidationError(f"{context}.{key}は40桁のSHAまたはnullである必要があります")
+    return value
+
+
 def validate_corpus_record(record: dict) -> None:
     """依存libraryなしでcorpus recordの主要invariantを検証する。"""
 
@@ -184,7 +205,7 @@ def validate_corpus_record(record: dict) -> None:
         "created_at",
     }
     _require_keys(record, required, "record")
-    _reject_unknown_keys(record, required, "record")
+    _reject_unknown_keys(record, required | {"github_evidence"}, "record")
     record_id = _require_string(record, "id")
     if not re.fullmatch(r"rfe-[0-9a-f]{20}", record_id):
         raise RecordValidationError("idはdeterministic candidate ID形式である必要があります")
@@ -367,6 +388,142 @@ def validate_corpus_record(record: dict) -> None:
                 )
     if record_id != deterministic_candidate_id(record):
         raise RecordValidationError("idがsource identityから再計算した値と一致しません")
+    if "github_evidence" in record:
+        _validate_github_evidence(record)
+
+
+def _validate_github_evidence(record: dict) -> None:
+    source = record["source"]
+    if source["type"] != "github-pr":
+        raise RecordValidationError("github_evidenceはgithub-pr sourceだけに使用できます")
+    evidence = _require_object(record, "github_evidence")
+    evidence_keys = {"repository", "pull_request", "changed_file", "reviews", "inline_threads"}
+    _require_keys(evidence, evidence_keys, "github_evidence")
+    _reject_unknown_keys(evidence, evidence_keys, "github_evidence")
+
+    repository = _require_object(evidence, "repository")
+    repository_keys = {"visibility", "license_spdx_id"}
+    _require_keys(repository, repository_keys, "github_evidence.repository")
+    _reject_unknown_keys(repository, repository_keys, "github_evidence.repository")
+    if repository["visibility"] != "public":
+        raise RecordValidationError("github_evidenceはpublic repositoryだけを記録できます")
+    _require_optional_string(repository, "license_spdx_id", "github_evidence.repository")
+
+    pull = _require_object(evidence, "pull_request")
+    pull_keys = {
+        "state",
+        "draft",
+        "merged_at",
+        "created_at",
+        "updated_at",
+        "base_revision",
+        "head_revision",
+        "merge_revision",
+    }
+    _require_keys(pull, pull_keys, "github_evidence.pull_request")
+    _reject_unknown_keys(pull, pull_keys, "github_evidence.pull_request")
+    _require_string(pull, "state")
+    if not isinstance(pull["draft"], bool):
+        raise RecordValidationError("github_evidence.pull_request.draftはbooleanである必要があります")
+    for key in ("merged_at", "created_at", "updated_at"):
+        _require_optional_string(pull, key, "github_evidence.pull_request")
+    for key in ("base_revision", "head_revision", "merge_revision"):
+        _require_optional_sha(pull, key, "github_evidence.pull_request")
+    if pull["head_revision"] != source["immutable_revision"] or source["commit"] != pull["head_revision"]:
+        raise RecordValidationError("github_evidenceのhead revisionとsourceが一致しません")
+
+    changed_file = _require_object(evidence, "changed_file")
+    changed_file_keys = {
+        "status",
+        "previous_path",
+        "blob_revision",
+        "additions",
+        "deletions",
+        "changes",
+    }
+    _require_keys(changed_file, changed_file_keys, "github_evidence.changed_file")
+    _reject_unknown_keys(changed_file, changed_file_keys, "github_evidence.changed_file")
+    _require_string(changed_file, "status")
+    _require_optional_string(changed_file, "previous_path", "github_evidence.changed_file")
+    blob_revision = _require_string(changed_file, "blob_revision")
+    if not re.fullmatch(r"[0-9a-f]{40}", blob_revision):
+        raise RecordValidationError("github_evidence.changed_file.blob_revisionが不正です")
+    for key in ("additions", "deletions", "changes"):
+        _require_nonnegative_int(changed_file, key, "github_evidence.changed_file")
+    if record["text"]["content_hash"] != f"git-blob-sha1:{blob_revision}":
+        raise RecordValidationError("github_evidenceのblob revisionとcontent hashが一致しません")
+
+    reviews = evidence["reviews"]
+    if not isinstance(reviews, list):
+        raise RecordValidationError("github_evidence.reviewsはarrayである必要があります")
+    review_ids: set[int] = set()
+    review_keys = {
+        "id",
+        "state",
+        "submitted_at",
+        "commit_revision",
+        "author_type",
+        "body_present",
+    }
+    for review in reviews:
+        if not isinstance(review, dict):
+            raise RecordValidationError("github_evidence.reviews[]はobjectである必要があります")
+        _require_keys(review, review_keys, "github_evidence.reviews[]")
+        _reject_unknown_keys(review, review_keys, "github_evidence.reviews[]")
+        review_id = _require_nonnegative_int(review, "id", "github_evidence.reviews[]")
+        if review_id in review_ids:
+            raise RecordValidationError("github_evidenceのreview IDが重複しています")
+        review_ids.add(review_id)
+        _require_string(review, "state")
+        _require_optional_string(review, "submitted_at", "github_evidence.reviews[]")
+        _require_optional_sha(review, "commit_revision", "github_evidence.reviews[]")
+        if review["author_type"] not in {"human", "bot", "unknown"}:
+            raise RecordValidationError("github_evidence.reviews[].author_typeが不正です")
+        if not isinstance(review["body_present"], bool):
+            raise RecordValidationError("github_evidence.reviews[].body_presentが不正です")
+
+    threads = evidence["inline_threads"]
+    if not isinstance(threads, list):
+        raise RecordValidationError("github_evidence.inline_threadsはarrayである必要があります")
+    thread_ids: set[int] = set()
+    thread_keys = {
+        "id",
+        "review_id",
+        "path",
+        "line",
+        "side",
+        "original_line",
+        "original_revision",
+        "latest_revision",
+        "created_at",
+        "reply_count",
+        "human_comment_count",
+        "bot_comment_count",
+        "body_count",
+    }
+    for thread in threads:
+        if not isinstance(thread, dict):
+            raise RecordValidationError("github_evidence.inline_threads[]はobjectである必要があります")
+        _require_keys(thread, thread_keys, "github_evidence.inline_threads[]")
+        _reject_unknown_keys(thread, thread_keys, "github_evidence.inline_threads[]")
+        thread_id = _require_nonnegative_int(thread, "id", "github_evidence.inline_threads[]")
+        if thread_id in thread_ids:
+            raise RecordValidationError("github_evidenceのthread IDが重複しています")
+        thread_ids.add(thread_id)
+        for key in ("review_id", "line", "original_line"):
+            if thread[key] is not None:
+                _require_nonnegative_int(thread, key, "github_evidence.inline_threads[]")
+        thread_path = _require_string(thread, "path")
+        if thread_path not in {source["file"], changed_file["previous_path"]}:
+            raise RecordValidationError(
+                "github_evidence inline threadのpathが現在または変更前のfileと一致しません"
+            )
+        for key in ("side", "created_at"):
+            _require_optional_string(thread, key, "github_evidence.inline_threads[]")
+        for key in ("original_revision", "latest_revision"):
+            _require_optional_sha(thread, key, "github_evidence.inline_threads[]")
+        for key in ("reply_count", "human_comment_count", "bot_comment_count", "body_count"):
+            _require_nonnegative_int(thread, key, "github_evidence.inline_threads[]")
 
 
 def _canonical_identity(record: dict) -> dict:
@@ -657,23 +814,37 @@ class LocalCorpusStore:
             raise
 
     def create_candidate(self, record: dict, *, actor: str, reason: str) -> dict:
+        return self.create_candidates([record], actor=actor, reason=reason)[0]
+
+    def create_candidates(self, records: list[dict], *, actor: str, reason: str) -> list[dict]:
+        """Batch全体のduplicateを先に確認し、candidateを同じlock内で作成する。"""
+
         if not actor.strip() or not reason.strip():
             raise StoreError("audit用のactorとreasonが必要です")
+        if not records:
+            raise StoreError("作成するcandidateがありません")
         self.initialize()
-        prepared = prepare_candidate_record(record)
+        prepared_records = [prepare_candidate_record(record) for record in records]
+        record_ids = [record["id"] for record in prepared_records]
+        if len(record_ids) != len(set(record_ids)):
+            raise DuplicateRecordError("同じbatch内に重複candidateがあります")
         with self._store_lock():
-            if self._locations(prepared["id"]):
-                raise DuplicateRecordError(f"同じcandidateがすでに存在します: {prepared['id']}")
-            event = self._make_event(
-                action="collect",
-                record_id=prepared["id"],
-                actor=actor,
-                reason=reason,
-                old_state=None,
-                new_state="candidate",
-            )
-            self._commit_transaction(before=None, after=prepared, event=event)
-        return prepared
+            duplicates = [record_id for record_id in record_ids if self._locations(record_id)]
+            if duplicates:
+                raise DuplicateRecordError(
+                    "同じcandidateがすでに存在します: " + ", ".join(sorted(duplicates))
+                )
+            for prepared in prepared_records:
+                event = self._make_event(
+                    action="collect",
+                    record_id=prepared["id"],
+                    actor=actor,
+                    reason=reason,
+                    old_state=None,
+                    new_state="candidate",
+                )
+                self._commit_transaction(before=None, after=prepared, event=event)
+        return prepared_records
 
     def _load_record_unlocked(self, record_id: str) -> dict:
         locations = self._locations(record_id)

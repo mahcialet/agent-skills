@@ -76,13 +76,13 @@ Copilot CLI:
 校閲後の改稿も必要な場合は、`repository-review` と `revise-safe` などの改稿モードを
 両方明示してください。校閲結果を先に確定し、意味保存gateを通してから改稿します。
 
-## ローカルコーパス育成（planned）
+## ローカルコーパス育成（一部implemented）
 
 実文、review履歴、採用・却下判断を、インストール済みSkillとは別のlocal dataへ蓄積し、
 corpusとruleの候補を保守的に評価するworkflowを整備しています。schema v1、local data
-directoryの解決、state transition、audit log、manual corpus CLI、local promotionは実装済み
-です。GitHub収集、public promotion、rule investigation、通常reviewからのlocal corpus利用は
-未実装で、現在の通常reviewやbundled evalには影響しません。
+directoryの解決、state transition、audit log、manual corpus CLI、local promotion、public
+GitHub PRのreference-only収集は実装済みです。public promotion、rule investigation、通常review
+からのlocal corpus利用は未実装で、現在の通常reviewやbundled evalには影響しません。
 
 設計上は、候補の収集、corpusへのpromotion、behavior-changing ruleのpromotionを別のgateに
 分けます。収集したcandidateやpromoted local corpusを通常reviewへ暗黙に読み込まず、
@@ -109,6 +109,22 @@ python3 "$tool" --data-dir "$data_dir" corpus promote <candidate-id> --apply \
 最後の二つは、最初がread-only preview、`--apply` 付きがlocal dataだけへの書込みです。
 どちらもcore ruleやbundled evalを変更しません。project scopeを使う場合は、projectの
 `.gitignore` に `.reader-first-editor/` を追加してください。
+
+public GitHub PRを収集する例:
+
+```bash
+python3 "$tool" --data-dir "$data_dir" corpus collect-github \
+  --repository digital-go-jp/design-tokens --pr-number 138 \
+  --language ja --translation-status native --genre technical-readme \
+  --reader-description "design tokenを利用する開発者・デザイナー" \
+  --actor reviewer --reason "reference-only candidate" --dry-run
+```
+
+`collect-github` は明示実行時だけnetworkへ接続します。既定でpublic repositoryだけを対象にし、
+PR本文、patch、review/comment本文を保存しません。変更済みMarkdownのpath・SHA、review state、
+inline threadの位置と件数だけを `github_evidence` に残し、rightsは `unknown`、textは
+`reference-only`、recordは `local_only` とします。`--dry-run` を外すまでlocal dataへも
+書き込みません。
 
 - [コーパス運用](docs/corpus-workflow.md)
 - [コーパスデータモデル](docs/corpus-data-model.md)
