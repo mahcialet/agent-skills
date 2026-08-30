@@ -1,0 +1,29 @@
+{
+  "schema_version": "1.0",
+  "kind": "behavior-profile-catalog",
+  "status": "experimental",
+  "profiles": [
+    {
+      "name": "scope-control",
+      "version": "0.1.0",
+      "description": "依頼範囲とno-touch境界を作業前に可視化し、無断のscope expansionを防ぐconduct contract",
+      "status": "experimental",
+      "license": "MIT",
+      "path": "scope-control/BEHAVIOR_PROFILE.md",
+      "readme": "scope-control/README.md",
+      "notice": "scope-control/NOTICE.md",
+      "pressure_tests": "scope-control/evals/pressure-tests.json"
+    },
+    {
+      "name": "independent-adversarial-verification",
+      "version": "0.1.0",
+      "description": "read-only reviewerとauthorized implementerを分離し、reviewから再検証までを追跡する。",
+      "status": "experimental",
+      "license": "MIT",
+      "path": "independent-adversarial-verification/BEHAVIOR_PROFILE.md",
+      "readme": "independent-adversarial-verification/README.md",
+      "notice": "independent-adversarial-verification/NOTICE.md",
+      "pressure_tests": "independent-adversarial-verification/evals/pressure-tests.json"
+    }
+  ]
+}

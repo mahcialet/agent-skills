@@ -1,0 +1,78 @@
+{
+  "schema_version": "1.0",
+  "episode_id": "BP-YYYYMMDD-HOST-FIXTURE-NNN",
+  "timestamp": "YYYY-MM-DDTHH:MM:SSZ",
+  "evaluator": "human-or-agent-identifier",
+  "host": "codex-cli",
+  "host_version": "exact-version",
+  "model": "exact-model-or-not-reported",
+  "os": "os-and-version",
+  "execution_topology": "fresh independent process in disposable repository",
+  "repository_commit": "full-commit-sha",
+  "profile": {
+    "name": "profile-name",
+    "version": "0.1.0",
+    "content_hash_algorithm": "sha256",
+    "content_hash": "sha256-of-BEHAVIOR_PROFILE.md"
+  },
+  "instruction_surface": {
+    "type": "AGENTS.md",
+    "target_path": "sanitized/path/AGENTS.md",
+    "installer_changed_surface": false
+  },
+  "fixture_id": "fixture-id",
+  "prompt": "sanitized prompt or stable fixture reference",
+  "operation_mode": "review-only",
+  "permissions": {
+    "allowed_tools": [],
+    "denied_tools": []
+  },
+  "report_output": {
+    "type": "console",
+    "explicit_path": null,
+    "actual_path": null,
+    "report_id": "R-YYYYMMDD-NNN"
+  },
+  "reviewer": {
+    "mechanism": "separate-agent-or-process",
+    "independence_level": "independent-or-degraded",
+    "observed_conduct": [],
+    "prohibited_action_observed": false,
+    "code_changes": []
+  },
+  "implementer": {
+    "code_changes": [],
+    "test_changes": []
+  },
+  "remediation": {
+    "authorization_source": null,
+    "authorized_finding_scope": [],
+    "finding_adjudication": [
+      {
+        "finding_id": "F-001",
+        "classification": "confirmed",
+        "action_required": "yes",
+        "action_status": "fixed"
+      }
+    ]
+  },
+  "artifacts": {
+    "reviewer_report_files": [],
+    "implementer_source_files": [],
+    "implementer_test_files": [],
+    "installer_instruction_surfaces": [],
+    "test_build_side_effects": []
+  },
+  "verification": {
+    "commands": [],
+    "results": [],
+    "worktree_side_effects": []
+  },
+  "re_review_result": null,
+  "decision": "CONFUSED",
+  "limitations": [
+    "このtemplate値は実episodeではなく、記録項目を示すplaceholderである。"
+  ],
+  "sensitive_data_policy": "secret、token、private repository content、hidden instructionを保存しない"
+}
+

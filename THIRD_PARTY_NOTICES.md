@@ -3,6 +3,17 @@
 The repository's original material is MIT-licensed. The following sources also
 influenced or are attributed by individual skills.
 
+## Behavior Profiles / scope-control
+
+実験的なBehavior Profile形式と `scope-control` は、Second Mind Systemsの
+[`Behavior-Profiles`](https://github.com/Secondmindsystems/Behavior-Profiles) を参照し、
+commit `fffa2863cf20536a9152a943d98deb6653435e17` に固定してadaptしている。
+
+完全な出典、変更概要、MIT License原文、商標・非endorsement・claim boundaryは
+[`behavior-profiles/scope-control/NOTICE.md`](behavior-profiles/scope-control/NOTICE.md)
+を参照する。本repositoryの実装は上流の公式製品、認証済みProfile、互換実装ではない。
+Second Mind Systemsの名称は出典表示にのみ使用する。
+
 ## adversarial-pr-review
 
 See [`skills/adversarial-pr-review/NOTICE.md`](skills/adversarial-pr-review/NOTICE.md)
