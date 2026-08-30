@@ -130,6 +130,8 @@ Recordのprofile versionが現在のcanonical versionと同じ場合は、hash�
 Findingの `action_required` は `yes` / `no` / `undetermined`、`action_status` は
 `fixed` / `not-fixed` / `not-authorized` / `not-required` / `deferred` のみをcanonical値とする。
 Residual riskはreportの説明として記録し、`action_status` の値へ追加しない。
+Enum fieldはJSON stringとして型を確認してから値を照合する。Arrayやobjectなどhash不可能な値を
+受け取った場合もvalidatorを例外終了させず、field単位のcontrolled validation errorとして返す。
 
 `control_decisions` は、既知の観測を分類するcontrol episodeだけが持てるoptional objectである。
 存在する場合は `fixture_run` と `embedded_observation` を持ち、前者はtop-level `decision` と
@@ -173,6 +175,13 @@ reference、`..` によるescapeを許可しない。Project外のartifactはpur
 必要な場合はcontent hashなどの検証可能な識別子を説明fieldへ残す。
 `artifacts.test_build_side_effects` と `verification.worktree_side_effects` は副作用を説明するprose
 fieldであり、pure path listではない。これらの説明内でproject内pathへ言及する場合も相対pathを使う。
+
+Pure pathの判定はvalidator実行hostのpath規則だけに依存させない。Percent encodingは値が安定するまで
+decodeしてからschemeを再検査し、POSIXとWindows双方のroot、drive、UNC、完全な `..` componentを
+拒否する。支持例は `src/module.py`、`src\module.py`、既存互換の
+`src/module.py: 変更理由`、反例は `/tmp/file.py`、`C:\tmp\file.py`、
+`\\server\share\file.py`、`src\..\outside.py`、`file%3A///tmp/file.py` である。
+境界例の `docs/..notes.md` は `..` が独立componentではないため相対pathとして受理する。
 
 実行環境依存の情報は一律に除去せず、再現や結果の解釈に必要となり得る項目を保持する。
 Project内のpathはproject rootからの相対pathで記録し、project外のharness artifactは
