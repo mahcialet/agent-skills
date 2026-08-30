@@ -77,5 +77,10 @@
   reviewを既定にし、ファイル変更には明示依頼を要求する。
 - releaseはrepo-wide SemVer tagを使い、1 releaseをcatalog全体のsnapshotとする。
   Skill個別versionはfrontmatterへ置かない。
-- 実文コーパスは未整備。初版は合成fixtureであり、匿名化可能な実例を継続追加する。
-- 自動日本語構文解析器は導入せず、数値はtripwireだけに使う。
+- 実文corpus toolはplannedであり、まだ実装していない。現在のbundled evalは合成fixtureで、
+  local candidateの収集、annotation、promotion、通常reviewへの明示的な読込みには未対応である。
+  設計上は、candidate収集とSkill挙動を分離し、rights不明のthird-party textをpublic corpusへ
+  昇格させない。
+- 自動日本語構文解析器は導入していない。将来導入する場合もoptionalな構造sensorに限定し、
+  parserなしでSkillを継続できる設計とする。現在の数値はtripwireだけに使い、hard thresholdで
+  可読性を判定しない。A/B検証も未実施である。

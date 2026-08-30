@@ -76,6 +76,23 @@ Copilot CLI:
 校閲後の改稿も必要な場合は、`repository-review` と `revise-safe` などの改稿モードを
 両方明示してください。校閲結果を先に確定し、意味保存gateを通してから改稿します。
 
+## ローカルコーパス育成（planned）
+
+実文、review履歴、採用・却下判断を、インストール済みSkillとは別のlocal dataへ蓄積し、
+corpusとruleの候補を保守的に評価するworkflowを設計しています。この機能はまだ未実装で、
+現在の通常reviewやbundled evalには影響しません。
+
+設計上は、候補の収集、corpusへのpromotion、behavior-changing ruleのpromotionを別のgateに
+分けます。収集したcandidateやpromoted local corpusを通常reviewへ暗黙に読み込まず、
+明示的なapplyと人間の承認なしに `SKILL.md`、references、evalsを変更しません。
+
+- [コーパス運用](docs/corpus-workflow.md)
+- [コーパスデータモデル](docs/corpus-data-model.md)
+- [ルール昇格](docs/rule-promotion.md)
+- [Agentによる調査](docs/agent-investigation.md)
+- [日本語構文解析](docs/syntax-analysis.md)
+- [ライセンスとプライバシー](docs/licensing-and-privacy.md)
+
 ## Portability
 
 CodexとGitHub Copilotで同じ `SKILL.md` をsource of truthにします。
