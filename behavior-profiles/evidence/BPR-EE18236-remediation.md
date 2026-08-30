@@ -133,3 +133,6 @@ security/compliance guarantee、production readinessを証明しない。
 | `BPR-EE18236-RR-01-NF003` | Low | Repository path外側ancestorを固定するhardeningにcommitted regression testがない | `open` |
 
 Re-reviewの開始・終了ともtarget SHAは不変でworktree clean、reviewer writeは0件だった。
+
+その後に明示的にauthorizeされたRR-01の3 findingへの対応は
+[`BPR-EE18236-RR-01-remediation.md`](BPR-EE18236-RR-01-remediation.md) に分離して記録する。
