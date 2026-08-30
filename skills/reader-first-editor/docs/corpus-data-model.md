@@ -2,14 +2,15 @@
 
 状態: implemented（schema v1とlocal state）
 
-一record一fileのJSONを使用する。既存evalと同様にPython標準ライブラリで検証できること、
-安定したkey順とindentによってdiffを確認しやすいことが理由である。schemaはversionを持ち、
-unknown fieldを黙って捨てない。正規schemaは `../schemas/corpus-record.schema.json` である。
+一つのrecordを一つのJSON fileに保存する。この形式なら、既存evalと同じくPython標準ライブラリで
+検証できる。また、key順とindentを安定させることで、変更内容をdiffで追いやすくなる。
+schemaはversionを持ち、unknown fieldを黙って捨てない。正規schemaは
+`../schemas/corpus-record.schema.json` である。
 
 ## recordの役割
 
-recordは原文の正解labelではなく、provenance、観察、期待挙動、人間の判断を分離して保存する。
-GitHubのapproval、RR annotation、rule proposalを同じfieldへまとめない。
+recordは、原文に正解labelを付けるためのものではない。provenance、観察、期待挙動、人間の判断を
+分けて保存する。GitHubのapproval、RR annotation、rule proposalも同じfieldへまとめない。
 
 ## 必須情報
 
@@ -32,12 +33,12 @@ unknownは推測で埋めず、許可されたenumの `unknown` または明示�
 ## deterministic ID
 
 IDは、正規化したsource identity、immutable revision、対象file・span、sample typeから生成する。
-raw textだけをID材料にせず、同じsource recordの重複収集を検出できるようにする。hash algorithm、
-canonicalization version、入力fieldをrecordへ残す。recordの読込み時にもIDを再計算し、外部編集で
-source identityとIDがずれたrecordを拒否する。
+raw textだけを材料にしないため、同じsource recordを重複して収集した場合に検出できる。
+hash algorithm、canonicalization version、入力fieldはrecordへ残す。recordの読込み時にもIDを
+再計算し、外部編集によってsource identityとIDがずれたrecordを拒否する。
 
-同一PRや同一文書の複数spanは、独立したsource evidenceとして水増ししない。相関groupを保存し、
-集計時にsource diversityとsample countを分ける。
+同一PRや同一文書の複数spanを、独立したsource evidenceとして数えない。相関groupを保存し、
+集計ではsource diversityとsample countを分ける。
 
 ## textの保存形式
 
@@ -54,9 +55,9 @@ source identityとIDがずれたrecordを拒否する。
 
 ## decision履歴
 
-現在stateだけでなく、candidate作成、annotation、accept、reject、promotionの履歴をaudit logへ
-残す。acceptedとrejectedの双方を保持し、却下された提案をnegative controlに利用できるように
-する。rejectされたrecordを削除して判断根拠を失わない。
+現在stateに加えて、candidate作成、annotation、accept、reject、promotionの履歴をaudit logへ
+残す。acceptedとrejectedの双方を保持することで、却下された提案をnegative controlに利用できる。
+rejectされたrecordは削除せず、判断根拠を残す。
 
 ## schema evolution
 
@@ -65,10 +66,10 @@ base／head／merge SHA、変更fileのblob SHA、review submissionのstateと�
 path・line・reply数を構造化して保存する。account名やPR本文、patch、review/comment本文は
 保存しない。`body_present` は本文の有無だけを示し、内容を含まない。
 
-state変更はpending journal、record、原子的に置き換えるaudit logを使う。audit commit前の
-失敗は旧stateへrollbackし、process停止でpending journalが残った場合は次回初期化時に
-audit eventの有無からcommitまたはrollbackを回復する。store全体のprocess間lockにより、
-duplicate判定、state変更、auditのread-modify-replaceを直列化する。
+state変更には、pending journal、record、原子的に置き換えるaudit logを使う。audit commit前に
+失敗した場合は旧stateへrollbackする。process停止によってpending journalが残った場合は、次回の
+初期化時にaudit eventの有無を確認し、commitまたはrollbackの状態を回復する。store全体の
+process間lockにより、duplicate判定、state変更、auditのread-modify-replaceを直列化する。
 
 schema migrationは明示的なpreviewとbackupを要求する。新しいvalidatorが古いrecordを黙って
 書き換えず、未対応version、破損record、unknown fieldを区別して報告する。
@@ -88,17 +89,17 @@ rfa-...  human rule approval
 ```
 
 bundle IDはhypothesis、scope、support／control record IDから生成する。result IDはAgent output、
-proposal IDはresult、rule diff、eval候補から生成し、同じ内容の重複を検出する。artifactは
-上書きせず、修正版は別IDとして保存する。
+proposal IDはresult、rule diff、eval候補から生成するため、同じ内容の重複を検出できる。
+artifactは上書きせず、修正版を別IDとして保存する。
 
-bundleはrecord本文をcopyせず、authoritativeなlocal record pathとcontent hashを持つ。読込み時に
-record summary、correlation group、source analysis、readinessをlocal storeと再照合し、外部編集で
-食い違ったartifactを拒否する。
+bundleはrecord本文をcopyせず、authoritativeなlocal record pathとcontent hashを持つ。読込み時には
+record summary、correlation group、source analysis、readinessをlocal storeと再照合する。
+外部編集によって内容が食い違ったartifactは拒否する。
 
 regression planはproposal ID、exact diff hash、provider matrix、全caseを固定する。promoted corpusは
 raw textをplanへ複製せず、record pathとcontent hashで参照する。runはprovider、model、version、
 host、repeat indexを固定し、reportはplanと全runから再計算できる集約値を持つ。
 
-approvalはpass済みreportとexact diffに対する人間の判断を、proposalとは別のimmutable artifactへ
-保存する。proposalの `human_approval` fieldを後からtrueへ書き換えない。apply時はproposal、report、
-approvalのIDとdiff hashを再照合する。
+approvalには、pass済みreportとexact diffに対する人間の判断を保存する。proposalとは別の
+immutable artifactとし、proposalの `human_approval` fieldを後からtrueへ書き換えない。
+apply時はproposal、report、approvalのIDとdiff hashを再照合する。

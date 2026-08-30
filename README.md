@@ -1,8 +1,8 @@
 # Agent Skills
 
-Codex、GitHub Copilot、およびオープンなAgent Skills形式を実装するホスト向けの
-portableなSkillを管理するモノレポです。外部リンク集ではなく、掲載するSkill本体の
-source of truthです。
+Codex、GitHub Copilot、およびオープンなAgent Skills形式に対応するホストで使える
+Skillを管理するモノレポです。外部リンクだけを集めた一覧ではなく、掲載する各Skillの
+正式な内容を収録しています。
 
 ## Skills
 
@@ -21,8 +21,8 @@ source of truthです。
 
 <!-- END GENERATED SKILL CATALOG -->
 
-各Skillの適用範囲、安全境界、第三者attributionは、それぞれのREADMEとNOTICEに記載して
-います。
+各Skillを使える場面、利用時に守る制約、第三者由来要素のattributionとlicense noticeは、
+それぞれのREADMEとNOTICEに記載しています。
 
 ## インストール
 
@@ -49,9 +49,9 @@ gh skill install mahcialet/agent-skills "${skill_name}" --agent github-copilot -
 
 ## 検証
 
-PRを作る前に `./scripts/validate-skills.sh` を実行してください。portableな
-frontmatter、内部参照、NOTICE、fixture、カタログの整合を確認します。利用可能な
-場合、CIは `gh skill publish --dry-run` も実行します。
+PRを作る前に `./scripts/validate-skills.sh` を実行してください。複数のホストで使うための
+frontmatter、Skill内の参照先、NOTICE、テスト用fixture、カタログに食い違いがないかを
+確認します。利用可能な場合、CIは `gh skill publish --dry-run` も実行します。
 
 ## License
 

@@ -2,12 +2,12 @@
 
 状態: implemented（bundleから明示applyまで）
 
-Agentはruleを積極的に考案する役ではなく、危険な一般化を壊す役として使う。通常reviewへ
-local corpusを暗黙に注入しない。toolが生成したprovider-neutralなinvestigation bundleは、
-CodexまたはCopilotが明示起動された場合だけ読む。
+Agentはruleを積極的に考案するためではなく、適用範囲が広すぎるruleを反証するために使う。
+通常reviewではlocal corpusを自動で読み込まない。toolが生成したprovider-neutralな
+investigation bundleを読むのは、CodexまたはCopilotが明示的に起動された場合だけである。
 
-bundle作成、Agent resultのruntime gate、human-unapproved proposal draft、regression結果の
-集約、人間の明示承認、限定したrule applyは実装済みである。
+bundle作成から限定したrule applyまでの経路は実装済みである。この経路には、Agent resultの
+runtime gate、human-unapproved proposal draft、regression結果の集約、人間による明示承認を含む。
 
 ## 既定姿勢
 
@@ -15,8 +15,8 @@ bundle作成、Agent resultのruntime gate、human-unapproved proposal draft、r
 Default decision: DO NOT PROMOTE
 ```
 
-有用なruleを見逃すcostより、有害なruleをcoreへ導入するcostを高く扱う。広いruleより狭い
-rule、処方箋より観察、早い採用より `HOLD` を選ぶ。
+有用なruleを採用し損ねることより、有害なruleをcoreへ導入することを重く扱う。広いruleより
+狭いrule、処方箋より観察、早い採用より `HOLD` を選ぶ。
 
 ## Investigationの順序
 
@@ -37,14 +37,14 @@ rule、処方箋より観察、早い採用より `HOLD` を選ぶ。
 - **Regression Analyst**: false positive、semantic damage、genre bias、provider差を比較する。
 - **Rule Reviewer**: 既存ruleで十分かを再確認し、既定をreject／hold側に置く。
 
-同じAgentが複数役を担う場合も、output sectionと判断を分離する。proposal作成contextとは
-別のfresh contextで反証reviewを行うことが望ましい。
+同じAgentが複数役を担う場合も、役割ごとにoutput sectionと判断を分ける。反証reviewには、
+proposal作成時とは別のfresh contextを使うことが望ましい。
 
 ## Bundle
 
 bundleには、仮説、対象scope、record ID、source correlation、支持例、反例、known exception、
-semantic invariants、既存rule、提案eval、未確認事項を含める。raw third-party textをrights確認
-なしにbundleへ複製せず、reference-only recordは参照とhashだけを渡す。
+semantic invariants、既存rule、提案eval、未確認事項を含める。rightsを確認していないraw
+third-party textはbundleへ複製しない。reference-only recordでは、参照とhashだけを渡す。
 
 Agentの出力はproposal recordのdraftであり、toolのstate transitionや人間の承認を代行しない。
 未説明の反例があればdecisionを `HOLD` にし、情報が足りなければ
@@ -54,9 +54,9 @@ Agentの出力はproposal recordのdraftであり、toolのstate transitionや�
 
 ### bundleを作る
 
-最初に、人間がsupportとcontrolを明示選択する。supportにはaccepted／promoted recordだけを
-使用でき、controlにはaccepted／promoted／rejected recordを使用できる。candidateからの直接調査は
-拒否する。
+最初に、人間がsupportとcontrolを明示的に選ぶ。supportに使用できるのは
+accepted／promoted recordだけである。controlにはaccepted／promoted／rejected recordを使用できる。
+candidateから直接調査を始めることはできない。
 
 ```bash
 tool=skills/reader-first-editor/scripts/corpus_tool.py
@@ -69,9 +69,9 @@ python3 "$tool" --data-dir "$data_dir" rules bundle \
   --actor reviewer --reason "adversarial investigation"
 ```
 
-既定はpreviewであり、`--apply` を付けた場合だけ
-`investigations/<bundle-id>/bundle.json` へ保存する。bundleはraw textを複製せず、record path、
-content hash、provenance、分類metadataだけを持つ。embeddedなlocal textも別fileへcopyしない。
+既定ではpreviewだけを返す。`investigations/<bundle-id>/bundle.json` へ保存するのは、
+`--apply` を付けた場合だけである。bundleはraw textを複製せず、record path、content hash、
+provenance、分類metadataだけを持つ。embeddedなlocal textも別fileへcopyしない。
 
 ### Agent resultを検証する
 
@@ -83,10 +83,10 @@ python3 "$tool" --data-dir "$data_dir" rules validate-investigation \
   --bundle-id <bundle-id> --result investigation.json
 ```
 
-toolはsupport数をrecord件数ではなくcorrelation groupから再計算する。bundle外record、改ざんされた
-source correlation、未説明のcounterexample、provenance未確認、固定閾値だけ、頻度だけ、duplicate
-ruleを検出する。無効な `PROMOTE` はeffective statusを `HOLD` として返し、`--apply` があっても
-保存しない。`HOLD` と `NEEDS_MORE_EVIDENCE` は正常な調査結果として保存できる。
+toolはsupport数をrecord件数ではなくcorrelation groupから再計算する。また、bundle外record、
+改ざんされたsource correlation、未説明のcounterexample、provenance未確認、固定閾値や頻度だけに
+基づく判断、duplicate ruleを検出する。無効な `PROMOTE` はeffective statusを `HOLD` として返し、
+`--apply` があっても保存しない。`HOLD` と `NEEDS_MORE_EVIDENCE` は正常な調査結果として保存できる。
 
 ### proposal draftを作る
 
@@ -97,17 +97,18 @@ python3 "$tool" --data-dir "$data_dir" rules propose \
   --bundle-id <bundle-id> --result-id <result-id> --rule-diff rule.diff
 ```
 
-このcommandも既定はpreviewで、`--apply` はlocal `proposals/` への保存だけを意味する。proposalの
-`human_approval.approved` は必ずfalse、regression statusは全て `not-run` で始まり、
-`SKILL.md`、references、evalsを変更しない。
+このcommandも既定ではpreviewだけを返す。`--apply` が意味するのは、local `proposals/` への
+保存だけである。proposalの `human_approval.approved` は必ずfalse、regression statusは全て
+`not-run` で始まり、`SKILL.md`、references、evalsを変更しない。
 
 ### regressionから明示applyまで進める
 
 proposal後は、bundled eval、promoted corpus、positive／negative／boundary evalを含むplanを
 `rules regression-plan` で作る。CodexとGitHub Copilotで実行したresultは
-`rules regression-ingest` で取り込み、`rules regression-report` で全provider・repeatを集約する。
-toolはproviderを直接起動せず、planとresultの検証・保存・再集計だけを担う。
+`rules regression-ingest` で取り込む。その後、`rules regression-report` で全provider・repeatを
+集約する。toolはproviderを直接起動せず、planとresultの検証・保存・再集計だけを担う。
 
-全gateがpassのreportだけを `rules approve` で別artifactとして承認できる。`rules apply` は既定で
-previewを返し、`--apply` がある場合だけ、承認済みのexact diffを許可対象のSkill本文・reference・
-evalへ適用する。詳細なgateとartifactの関係は[ルール昇格](rule-promotion.md)を参照する。
+全gateがpassしたreportだけを、`rules approve` で別artifactとして承認できる。`rules apply` は
+既定ではpreviewを返す。承認済みのexact diffを、許可されたSkill本文・reference・evalへ適用する
+のは、`--apply` がある場合だけである。詳細なgateとartifactの関係は
+[ルール昇格](rule-promotion.md)を参照する。

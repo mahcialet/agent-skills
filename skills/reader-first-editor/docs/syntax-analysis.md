@@ -2,8 +2,9 @@
 
 状態: optional sensor implemented、既定利用は無効
 
-GiNZA adapterは日本語文の構造観測値を返す。可読性の最終判定器ではない。通常reviewから自動起動
-せず、GiNZA、spaCy、modelをCoreの必須依存に含めない。parserがない環境でもSkill全体は継続する。
+GiNZA adapterが返すのは、日本語文の構造観測値である。可読性を合否判定するものではない。
+通常reviewからは自動起動せず、GiNZA、spaCy、modelをCoreの必須依存に含めない。そのため、
+parserがない環境でもSkill全体の処理は継続する。
 
 ## 2026-08-30時点の確認結果
 
@@ -20,14 +21,14 @@ GiNZA adapterは日本語文の構造観測値を返す。可読性の最終判�
 - [ja-ginza on PyPI](https://pypi.org/project/ja-ginza/)
 - [GiNZA repository](https://github.com/megagonlabs/ginza)
 
-`ginza==5.2.0` と `ja-ginza==5.2.0` のdependency宣言はspaCy `<4.0.0,>=3.4.4` を許容するが、
-2026-08-30のisolated testではspaCy 3.8系で `ja_ginza` のloadに失敗した。Python 3.12.13、
-`spacy==3.7.5`、`click==8.1.8` では解析に成功した。このため導入例は実測済みversionをpinする。
-将来versionを変更する場合は、同じload testとrecorded fixtureを再実行する。
+`ginza==5.2.0` と `ja-ginza==5.2.0` のdependency宣言では、spaCy `<4.0.0,>=3.4.4` が許容される。
+ただし、2026-08-30のisolated testでは、spaCy 3.8系で `ja_ginza` のloadに失敗した。
+Python 3.12.13、`spacy==3.7.5`、`click==8.1.8` では解析に成功したため、導入例では実測済みversionを
+pinする。将来versionを変更する場合は、同じload testとrecorded fixtureを再実行する。
 
-初回installにはnetworkと約59 MBのmodel wheelに加え、spaCyやSudachiの依存取得が必要である。
-通常reviewはpackage installやmodel downloadを開始しない。GiNZA modelはpackageに含まれるため、
-install済み環境での解析時にmodelをnetworkから取得しない。
+初回installにはnetwork接続が必要である。約59 MBのmodel wheelに加え、spaCyやSudachiの依存も
+取得する。通常reviewがpackage installやmodel downloadを開始することはない。GiNZA modelは
+packageに含まれるため、install済み環境での解析時にはmodelをnetworkから取得しない。
 
 ## 明示的な実行
 
@@ -43,7 +44,8 @@ uv run --python 3.12 \
   --text-file /path/to/input-ja.txt
 ```
 
-依存を導入せずに同じcommandを実行してもexit code 0でavailability resultを返す。
+依存を導入せずに同じcommandを実行した場合も、失敗終了せず、exit code 0でavailability resultを
+返す。
 
 ```json
 {
@@ -54,8 +56,8 @@ uv run --python 3.12 \
 }
 ```
 
-`model-not-installed`、`model-load-error`、`parse-error` も非致命resultである。文章の誤りや解析成功と
-読み替えず、LLM-onlyの処理を継続する。
+`model-not-installed`、`model-load-error`、`parse-error` も非致命resultである。これらを文章の誤りや
+解析成功と読み替えず、LLM-onlyの処理を継続する。
 
 ## Sensor output
 
@@ -70,9 +72,9 @@ uv run --python 3.12 \
 - 同一述語へ対応付けた条件marker数、並列幅
 - 解析時間とwarning
 
-これらはtokenizationとparseに依存する観測値である。数値やmarkerだけから `RR-04` などを付与せず、
-一つのparseが返ったことを「曖昧でない」証拠にしない。合成文のrecorded resultは
-`tests/fixtures/syntax/ginza-5.2.0-ja-ginza-5.2.0.json` に保存している。
+これらの観測値はtokenizationとparseに依存する。数値やmarkerだけを根拠に `RR-04` などを付与
+しない。一つのparseが返っただけでは、読者が文を一意に解釈できる証拠にもならない。合成文の
+recorded resultは `tests/fixtures/syntax/ginza-5.2.0-ja-ginza-5.2.0.json` に保存している。
 
 ## LLM-onlyとのA/B
 
@@ -93,13 +95,13 @@ python3 skills/reader-first-editor/scripts/analyze_ja.py ab-report \
 ```
 
 reportはRR recall、false-positive rate、unnecessary-revision rate、semantic-preservation rate、
-expected-behavior accuracy、処理時間、parse-failure rateを条件間で比較する。さらにprovider別accuracyの
-spreadと、同じcaseに対するrisk判定のdisagreement rateを比較する。
+expected-behavior accuracy、処理時間、parse-failure rateを条件間で比較する。さらに、provider別
+accuracyのspreadと、同じcaseに対するrisk判定のdisagreement rateも比較する。
 
 paired result不足、unsupported／error、parser unavailable、semantic regression、false positiveや
-unnecessary revisionの増加、provider差の増加、改善なしは `do-not-default` とする。blockerがなく
-改善が観測されても `human-review-required` に留め、`default_enabled` は常にfalseである。実際の
-Codex／GitHub Copilot resultはPhase 8で記録する。それまではoptional機能を既定化しない。
+unnecessary revisionの増加、provider差の増加、改善なしのいずれかがあれば `do-not-default` とする。
+blockerがなく改善が観測されても `human-review-required` に留め、`default_enabled` は常にfalseで
+ある。実際のCodex／GitHub Copilot resultはPhase 8で記録する。それまではoptional機能を既定化しない。
 
 高度なcoreference、bridging reference、discourse relationが必要だという実文上の証拠が得られた
 場合だけ、KWJAなどをexperimental backendとして比較する。重い依存をCoreへ追加しない。

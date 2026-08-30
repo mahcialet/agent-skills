@@ -21,6 +21,7 @@ The reader must repeatedly resolve the referent and cannot tell which outcome
 is primary.
 
 Direction:
-Name each relevant subject and group only relationships supported by the
-source. Do not invent a causal mechanism or performance figure.
+After confirming what each “This” refers to, name the relevant subjects. Group
+only relationships supported by the source, and do not invent a causal
+mechanism or performance figure.
 ```

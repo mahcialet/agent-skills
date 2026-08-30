@@ -2,9 +2,9 @@
 
 状態: 一部implemented（local validationとpublic GitHub reference-only収集）
 
-corpus recordはsourceのprovenanceと、raw textを保存・再配布できる権利を分離して記録する。
+corpus recordでは、sourceのprovenanceと、raw textを保存・再配布できる権利を分けて記録する。
 public repositoryであること、repositoryにlicenseがあること、textを匿名化したことだけでは、
-PR本文やreview commentの再配布権限を確認済みと扱わない。
+PR本文やreview commentを再配布できるとは判断しない。
 
 ## 既定値
 
@@ -18,12 +18,13 @@ local only: true
 public promotion: reject
 ```
 
-URLだけでなくimmutable commit SHA、PR番号、file、取得日時、content hashを保存する。
-source reputationやmerge済みという事実をlicenseまたはqualityの代わりにしない。
+URLに加えて、immutable commit SHA、PR番号、file、取得日時、content hashを保存する。
+source reputationやmerge済みという事実を、licenseまたはqualityの証明として使わない。
 
-GitHub collectorはrepository licenseのSPDX IDを観測値として保存するが、それだけでPR本文、patch、
-review commentの権利を確認済みと扱わない。live responseからは本文fieldを破棄し、recorded fixtureも
-raw text fieldを含む場合は拒否する。account名も保存せず、human／bot／unknownの種別だけを残す。
+GitHub collectorはrepository licenseのSPDX IDを観測値として保存する。ただし、この値だけで
+PR本文、patch、review commentの権利を確認済みとは扱わない。live responseからは本文fieldを
+破棄する。recorded fixtureにraw text fieldが含まれる場合も拒否する。account名は保存せず、
+human／bot／unknownの種別だけを残す。
 
 ## 必須provenance
 
@@ -40,19 +41,19 @@ content単位でstatusを分ける。
 
 ## Privacy
 
-private repositoryや社内文書は既定で収集しない。明示指定されたlocal collectionでも、token、
-secret、credential、個人情報を保存しない。raw textの保存前にredaction previewと保存先を示し、
-利用者が確認できるようにする。
+private repositoryや社内文書は既定では収集しない。明示指定されたlocal collectionでも、token、
+secret、credential、個人情報を保存しない。raw textを保存する前にredaction previewと保存先を示し、
+利用者が内容と保存場所を確認できるようにする。
 
-project-local dataは誤commitを避ける必要がある。toolはignore状態を確認するが、利用者の
-`.gitignore` を無断で変更しない。unignoredなdirectoryへのwriteは拒否し、明示overrideが
-ある場合だけ続行する。
+project-local dataは誤ってcommitされないように保護する必要がある。toolはignore状態を確認するが、
+利用者の `.gitignore` は無断で変更しない。unignoredなdirectoryへのwriteを拒否し、
+明示overrideがある場合だけ続行する。
 
 ## Public promotion
 
-publicなbundled corpusへ昇格するには、raw text再配布権限、attribution、NOTICE更新、sourceの
+publicなbundled corpusへ昇格する前に、raw text再配布権限、attribution、NOTICE更新、sourceの
 固定、review commentの扱い、third-party contentの分離を確認する。`unknown`、`unlicensed`、
 `restricted` のrecordはpublic promotionを拒否する。
 
-local-only recordはlocal evalへ利用できるが、repositoryのfixture、investigation bundle、
+local-only recordはlocal evalへ利用できる。ただし、repositoryのfixture、investigation bundle、
 reportへraw textを転載しない。権利確認後にstatusを変更する場合もaudit logを残す。

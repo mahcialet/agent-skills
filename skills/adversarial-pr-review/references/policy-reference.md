@@ -1,8 +1,8 @@
 # Repository policy reference
 
-利用repositoryは `assets/review-policy.example.yml` を
-`.github/adversarial-review.yml` へコピーし、review既定値を調整できる。このpolicyは
-任意であり、見つからなければSkill既定値を使う。
+利用するrepositoryでは、`assets/review-policy.example.yml` を
+`.github/adversarial-review.yml` へコピーしてreviewの既定値を調整できる。このpolicyの
+配置は任意であり、見つからない場合はSkillの既定値を使う。
 
 ## Supported fields
 
@@ -27,9 +27,10 @@ safe_commands:
 - `defaults.depth`: `focused` / `standard` / `deep`
 - `defaults.mode`: `review` / `gate`
 - `paths[].match`: repository rootからのpath pattern
-- `paths[].level` / `minimum` / `depth`: matching pathの上限・下限・探索量
+- `paths[].level` / `minimum` / `depth`: 一致したpathに適用する上限・下限・探索量
 - `gate.block_priorities`: report内gate判断でblockingとするpriority
-- `safe_commands`: maintainerが候補として示すcommand。実行許可listではない
+- `safe_commands`: maintainerが実行候補として示すcommand。ここに記載されていても、実行が
+  許可されたことにはならない
 
 ## Precedence
 
@@ -38,11 +39,12 @@ safe_commands:
 3. policy defaults
 4. Skill defaults
 
-複数path ruleが一致する場合、最高levelまたはminimumと、最深depthを使う。同じ優先度で
-矛盾する `mode` 等は勝手に選ばず、解釈不能として報告する。
+複数のpath ruleが一致する場合は、最も高いlevelまたはminimumと、最も深いdepthを使う。
+同じ優先度で `mode` などが矛盾する場合は、どちらかを勝手に選ばず、解釈できない設定として
+報告する。
 
-明示 `level=Ax` は上限なので、path ruleやminimumで勝手に上げない。代わりに、より高い
-triggerを `unreviewed higher-level threats` へ記録する。
+明示 `level=Ax` はreview範囲の上限なので、path ruleやminimumを根拠に勝手に上げない。
+より高いlevelに当たる兆候は、`unreviewed higher-level threats` へ記録する。
 
 ## Safety invariants
 
@@ -54,8 +56,10 @@ policyは次を変更できない。
 - deploy、publish、notification、production、billing、外部送信、data mutationを避ける規則
 - 未実施検証を成功扱いしない規則
 
-`safe_commands` はreview候補を絞るための情報にすぎない。command本体、runner、dependency、
-hook、環境、side effectを確認し、現在の権限内で安全な場合だけ実行を検討する。
+`safe_commands` は、実行を検討する候補を絞るための情報にすぎない。command本体、runner、
+dependency、hook、環境、side effectを確認し、現在の権限内で安全だと判断できる場合だけ
+実行を検討する。
 
-未知field、未知enum、重複key、解釈不能なpatternを黙って無視しない。専用parserがない場合は
-厳密に読めた範囲だけを適用し、残りをevidence ledgerと未実施事項へ記録する。
+未知field、未知enum、重複key、解釈不能なpatternは、黙って無視しない。専用parserがない場合は、
+意味を確実に読めた範囲だけを適用する。読み取れなかった設定は、evidence ledgerと未実施事項へ
+記録する。

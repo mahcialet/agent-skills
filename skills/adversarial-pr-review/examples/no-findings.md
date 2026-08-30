@@ -14,8 +14,8 @@ No evidence-backed findings were identified in the reviewed scope.
 
 ## Hypotheses
 
-None promoted. A possible deployment-specific override could not be evaluated without production configuration;
-it is listed as residual risk instead of a finding.
+None. The possible deployment-specific override is recorded under Residual risks because production
+configuration was unavailable.
 
 ## Evidence ledger
 

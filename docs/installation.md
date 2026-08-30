@@ -1,16 +1,16 @@
 # インストール
 
-このリポジトリの各Skillは、GitHubから取得して固定的に使う方法と、ローカルの
-編集内容を即座に反映させながら開発する方法のどちらでもインストールできる。
+このリポジトリの各Skillは、GitHubから取得した内容を固定して使う方法でも、ローカルの
+編集内容を即座に反映させながら開発する方法でもインストールできる。
 
 ## 利用できるSkill
 
 | Skill | 主な用途 | 既定動作 |
 |---|---|---|
-| `reader-first-editor` | 日本語・英語文章の初読理解と意味保存 | read-onlyの文章review |
-| `adversarial-pr-review` | 差分外の証拠とA0〜A4によるPR・diff review | read-onlyのcode review |
+| `reader-first-editor` | 日本語・英語の文章を、一度で理解しやすく、内容を変えずに整える | 原文やファイルを変更しない文章review |
+| `adversarial-pr-review` | 差分外の証拠とA0〜A4によるPR・diff review | GitHub上の状態やファイルを変更しないcode review |
 
-以下の一般例では、最初に `skill_name` を設定する。例では
+以下の例では、最初に `skill_name` を設定する。コマンド例では
 `reader-first-editor` を使うが、`adversarial-pr-review` も指定できる。
 
 | 目的 | 推奨方法 | 特徴 |
@@ -33,8 +33,8 @@
 
 CodexとGitHub Copilotは、どちらも上記の `.agents/skills` を読める。そのため、
 ローカル補助スクリプトの `--agent codex` と `--agent github-copilot` は同じ標準配置先を
-使用する。`--agent` は対象ホストを明示して誤指定を検出し、実行結果を分かりやすく
-するための指定である。
+使用する。`--agent` では対象ホストを明示する。これにより、対象ホストの誤指定を
+検出でき、実行結果から対象を確認できる。
 
 個人の全projectで使うなら `user`、チームで共有するprojectだけに限定するなら
 `project` を選ぶ。project scopeの `.agents/skills` は、必要に応じて対象projectの
@@ -81,14 +81,14 @@ gh skill install mahcialet/agent-skills adversarial-pr-review \
 ```
 
 `gh skill` はpublic previewであり、オプションや配置が変更される可能性がある。
-固定が必要な環境では `--pin` を指定する。例にある `REPLACE_WITH_COMMIT_SHA` は、
-使用する内容を確認済みのcommit SHAへ置き換える。pinしない場合、installerはrepositoryの
-releaseまたはdefault branchを解決するため、後日の再インストール結果が変わる
-可能性がある。
+使用する内容を固定する必要がある環境では、`--pin` を指定する。例にある
+`REPLACE_WITH_COMMIT_SHA` は、内容を確認済みのcommit SHAへ置き換える。pinしない場合、
+installerはrepositoryのreleaseまたはdefault branchを解決するため、後日再インストールすると
+内容が変わる可能性がある。
 
-`--from-local` は作業ツリーの内容をコピーする。元ファイルを編集しても、すでに
-インストールしたcopyへは自動反映されない。継続的な開発には、後述の `--link` を
-使用する。
+`--from-local` は作業ツリーの内容をコピーする。コピー後に元ファイルを編集しても、
+インストール済みのcopyへは自動反映されない。元ファイルの変更を継続的に反映する
+開発では、後述の `--link` を使用する。
 
 ## ローカル補助スクリプト
 
@@ -121,9 +121,9 @@ Usage: ./scripts/install-local.sh <skill-name> \
   --scope project --agent github-copilot
 ```
 
-copyは、インストール時点の内容を独立したディレクトリとして保存する。元の
+copyすると、インストール時点の内容が独立したディレクトリに保存される。元の
 `skills/reader-first-editor` を後から編集しても、インストール済みcopyは変わらない。
-普段使いや、検証済み内容を意図せず変えたくない場合に適している。
+普段使いや、検証済みの内容を意図せず変えたくない場合に適している。
 
 `adversarial-pr-review` をcopyする場合も同じである。
 
@@ -140,17 +140,17 @@ copyは、インストール時点の内容を独立したディレクトリと�
   --scope user --agent codex --link
 ```
 
-`--link` はファイルを複製せず、配置先にsymlinkを作る。上の例では、概念的に次の
-関係になる。
+`--link` はファイルを複製せず、配置先にsymlinkを作る。上の例での配置先と
+元ディレクトリの関係は、次のとおりである。
 
 ```text
 $HOME/.agents/skills/reader-first-editor
   -> <このリポジトリ>/skills/reader-first-editor
 ```
 
-このリポジトリのSkillを編集すると、リンク先を読むホストにも変更が即座に反映
-されるため、再インストールせず動作確認できる。Skill開発には便利だが、次の点に
-注意する。
+このリポジトリのSkillを編集すると、symlink経由でSkillを読むホストにも変更が即座に
+反映される。そのため、再インストールせずに動作を確認できる。Skill開発に使う場合は、
+次の点に注意する。
 
 - リポジトリを移動・rename・削除するとリンクが切れる。
 - branch切替えや未commitの編集も、そのまま利用内容へ反映される。
@@ -172,8 +172,8 @@ $HOME/.agents/skills/reader-first-editor
   --scope user --agent codex --link --force
 ```
 
-`--force` でも既存内容は削除しない。たとえば次のような時刻付きbackupへ移動して
-から、新しいcopyまたはlinkを作る。
+`--force` を付けても既存内容は削除しない。たとえば次のような時刻付きbackupへ
+移動してから、新しいcopyまたはlinkを作る。
 
 ```text
 reader-first-editor.backup.20260830153000
@@ -206,7 +206,7 @@ Copilot固有のuser scopeである `~/.copilot/skills` も利用できるが、
 
 ## インストールを確認する
 
-配置後、新しいセッションを開始する。すでにCopilot CLIを起動している場合は
+配置後、新しいセッションを開始する。すでにCopilot CLIを起動している場合は、
 `/skills reload` で再読込みできる。
 
 - Codex: Skill一覧で対象名を確認し、`$reader-first-editor ...` または
@@ -215,15 +215,17 @@ Copilot固有のuser scopeである `~/.copilot/skills` も利用できるが、
   `/skills info adversarial-pr-review` で確認し、
   `/reader-first-editor ...` または `/adversarial-pr-review ...` で明示起動する。
 
-最初は破棄可能な入力を `review` させ、非破壊の既定動作を確認する。
+最初は破棄しても問題のない、本番データではない試験用の入力を `review` させ、原文や
+ファイルを変更しない既定動作を確認する。
 
 ```text
 $reader-first-editor 次の文をreviewしてください。書き換えは不要です: ...
 $adversarial-pr-review disposable repoのstaged changesをlevel=A1、depth=focusedでreviewしてください。
 ```
 
-各Skillの固有契約はSkill READMEに記載する。`reader-first-editor` の改稿にはmodeの明示が
-必要で、`adversarial-pr-review` のreviewとgateはいずれもread-only／report-onlyである。
+各Skillの固有契約（mode、変更範囲、安全上の制約、出力）は、Skill READMEに記載する。
+`reader-first-editor` の改稿にはmodeの明示が必要である。`adversarial-pr-review` のreviewと
+gateは、どちらも対象を変更せず、結果の報告だけを行う。
 
 ## 更新
 
@@ -242,5 +244,5 @@ $adversarial-pr-review disposable repoのstaged changesをlevel=A1、depth=focus
 - Codex: `$reader-first-editor ...` または `$adversarial-pr-review ...`
 - Copilot CLI: `/reader-first-editor ...` または `/adversarial-pr-review ...`
 
-どちらも意図しない高コストreviewや編集を避けるため、明示起動を標準とする。Codexでは
-各Skillの `agents/openai.yaml` に `allow_implicit_invocation: false` を設定している。
+どちらも意図せず時間や計算資源を使うreviewや編集を避けるため、明示起動を標準とする。
+Codexでは各Skillの `agents/openai.yaml` に `allow_implicit_invocation: false` を設定している。

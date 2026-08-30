@@ -1,7 +1,8 @@
 # Finding schema
 
-findingは、変更によって導入・露呈する到達可能な問題を、第三者が反証できる形で示す。
-懸念、hypothesis、残余リスクと分離する。
+findingは、変更によって導入・露呈し、実際の経路から到達できる問題を示す。第三者が同じ経路と
+証拠を追って、成立するか確認・反証できる形にする。まだ確認できていない懸念、hypothesis、
+残余リスクとは分ける。
 
 ## 必須項目
 
@@ -22,20 +23,22 @@ Fix direction
 False-positive condition
 ```
 
-- **Location**: 最も狭いchanged location。必要なら関連する差分外locationも併記する。
+- **Location**: 問題があるchanged locationを、可能な限り狭く特定する。必要なら関連する
+  差分外locationも併記する。
 - **Actor / trigger**: 誰または何が、どのevent・input・failureでpathを起動するか。
 - **Precondition**: 問題が成立するstate、権限、順序、競合、設定。
-- **Code path**: entry pointからbroken state・observable effectまでの経路。
+- **Code path**: entry pointから、守るべき条件が破られるstateと外から確認できる影響
+  （observable effect）までの経路。
 - **Broken invariant**: 常に保つべき条件と、どこで破られるか。
 - **Impact**: 利用者、data、security、availability、cost、operationへの具体的影響。
 - **Evidence**: diff、caller、schema、test、contract等の確認済み事実。
 - **Reproduction or verification**: 安全な再現、static proof、または限定的な確認方法。
-- **Fix direction**: 解決すべきboundary/invariant。未検証の完全patchを断定しない。
-- **False-positive condition**: どの隠れたconstraintやcontractが真なら問題が成立しないか。
+- **Fix direction**: 問題を防ぐために直すboundary/invariant。未検証の完全patchを断定しない。
+- **False-positive condition**: どの未確認のconstraintやcontractが真なら、問題が成立しないか。
 
 `Hypothesis` はfindingのconfidenceとして使わず、独立sectionへ置く。外部contract、runtime path、
-production configなどを確認できず、成立を証明できない場合に使う。`Not applicable` は領域や
-検査項目の適用外を示す値であり、findingの確信度には使わない。
+production configなどを確認できず、問題が成立することを示せない場合に使う。
+`Not applicable` は領域や検査項目の適用外を示す値であり、findingの確信度には使わない。
 
 ## Priority
 
@@ -58,8 +61,8 @@ PriorityをA-levelから導かない。たとえばA1のdata lossはP1になり�
 
 ## Evidence ledger
 
-claimごとにsource、調べた内容、結果、制約を記録する。diff以外を少なくとも1つ調べたことを
-形式的に要求するのではなく、主張を支えるために必要な証拠を追う。
+各主張について、source、調べた内容、結果、制約を記録する。diff以外を少なくとも1つ調べる
+という件数だけの条件にはせず、その主張を支えるために必要な証拠を追う。
 
 ```text
 E-01 | diff | changed idempotency check | check and write are separate
@@ -76,4 +79,4 @@ E-04 | test | not executed | runner changed to send data externally
 - **CONDITIONAL**: 限定条件付きの受容、重要なhypothesis、未確認contract、必要なfollow-upがある。
 - **PASS**: 指定scopeと証拠でblocking findingを確認しなかった。
 
-decisionはレポート内の判断に限る。`PASS` は安全保証ではなく、GitHub上のstateも変更しない。
+decisionはレポート内で示す判断に限る。`PASS` は安全保証ではなく、GitHub上のstateも変更しない。

@@ -2,10 +2,10 @@
 
 状態: implemented（investigation、regression gate、human approval、明示apply）
 
-rule promotionはcorpus promotionと別のworkflowである。実例を評価可能なcorpusへ追加しても、
-Skillの判断規則は変わらない。behavior-changing ruleの既定判断は `HOLD` または
+rule promotionはcorpus promotionとは別のworkflowである。実例を評価に使えるcorpusへ追加しても、
+それだけではSkillの判断規則は変わらない。behavior-changing ruleの既定判断は `HOLD` または
 `NEEDS_MORE_EVIDENCE` とする。structured investigation、human-unapproved proposal draft、
-provider-neutralなregression集約、human approval artifact、rule patchの明示applyを実装している。
+provider-neutralなregression集約、human approval artifact、rule patchの明示applyは実装済みである。
 
 ## Workflow
 
@@ -25,8 +25,8 @@ human approval
 明示的なapply
 ```
 
-1件のcandidate、単一sourceの件数、頻度、固定閾値だけからruleを作らない。既存ruleで説明
-できる場合はduplicateとして止め、観察のままで十分ならruleにしない。
+1件のcandidate、単一sourceの件数、頻度、固定閾値だけを根拠にruleを作らない。既存ruleで
+説明できる場合はduplicateとして止め、観察のままで十分ならruleにしない。
 
 ## Proposal gate
 
@@ -41,8 +41,8 @@ proposalには次が必要である。
 - positive、negative、boundary eval候補
 - 未説明の反例数とdecision理由
 
-反例が一つでも残る場合、多数決で無視しない。反例が成立しない条件までruleを狭められなければ
-`HOLD`、証拠自体が不足する場合は `NEEDS_MORE_EVIDENCE` とする。
+反例が一つでも残る場合は、多数決で無視しない。反例が成立しない条件までruleを狭められなければ
+`HOLD` とする。証拠自体が不足する場合は `NEEDS_MORE_EVIDENCE` とする。
 
 ## Apply gate
 
@@ -60,17 +60,17 @@ proposalには次が必要である。
 - positive、negative、boundary evalのいずれかがない
 - candidateまたはcorpus promotionからruleへ直接遷移している
 
-apply対象はhuman-reviewedなprose diffとeval updateである。初版ではcore referencesを
-structured recordから自動生成せず、自動commit・pushもしない。
+applyの対象はhuman-reviewedなprose diffとeval updateである。初版ではcore referencesを
+structured recordから自動生成しない。commitとpushも自動では行わない。
 
-`rules propose --apply` は名前に `apply` を含むが、proposal artifactをlocal dataへ
-保存するだけである。core ruleへの `rules apply` ではない。作成時のregressionは全て `not-run`、
+`rules propose --apply` は名前に `apply` を含むが、proposal artifactをlocal dataへ保存するだけで
+ある。core ruleへ適用する `rules apply` とは異なる。作成時のregressionは全て `not-run`、
 human approvalはfalseで固定する。承認はproposal自体を書き換えず、別のimmutable artifactとして
 保存する。
 
-`rule-proposal.schema.json` へ適合することは、applyの許可ではない。schemaはproposalと
-検証結果を受け渡す形式であり、regression結果、人間の承認、明示的な `--apply` は別の
-runtime gateで再確認する。
+`rule-proposal.schema.json` へ適合しても、それだけではapplyできない。schemaはproposalと検証結果を
+受け渡す形式である。regression結果、人間の承認、明示的な `--apply` は、別のruntime gateで
+再確認する。
 
 ## Regression workflow
 
@@ -103,8 +103,8 @@ revision、literal、register、expected behaviorの一致を記録する。`uns
 
 `regression-report` は全provider・repeatの不足と重複を検出し、existing、corpus、positive、
 negative、boundary、no-change accuracyを集約する。`approve` と `apply` は保存済みplanとrunから
-reportを再計算し、改変されたreportを拒否する。pass reportだけを人間が承認でき、承認artifactは
-proposal ID、report ID、exact diff hash、reviewer、理由を固定する。
+reportを再計算し、改変されたreportを拒否する。人間が承認できるのはpass reportだけである。
+承認artifactにはproposal ID、report ID、exact diff hash、reviewer、理由を固定する。
 
 `rules apply` が変更できるのは次だけである。
 
@@ -112,11 +112,11 @@ proposal ID、report ID、exact diff hash、reviewer、理由を固定する。
 - `skills/reader-first-editor/references/**/*.md`
 - `skills/reader-first-editor/evals/*.yaml`
 
-rule targetとeval targetの両方を必要とする。binary、削除、rename、path traversal、symlink、no-op、
-proposalにないeval ID、対象fileの未commit変更を拒否する。`git apply --check` 後にpatchを適用し、
+rule targetとeval targetの両方が必要である。binary、削除、rename、path traversal、symlink、no-op、
+proposalにないeval ID、対象fileの未commit変更は拒否する。`git apply --check` 後にpatchを適用し、
 content validatorとSkill validatorが失敗した場合はpatchをrollbackする。commitとpushは行わない。
 
 ## Decision
 
-判定は `PROMOTE`、`REJECT`、`HOLD`、`NEEDS_MORE_EVIDENCE` を使う。`PROMOTE` はproposalが
-review可能という意味であり、即時applyや安全保証ではない。
+判定には `PROMOTE`、`REJECT`、`HOLD`、`NEEDS_MORE_EVIDENCE` を使う。`PROMOTE` が示すのは、
+proposalを人間がreviewできる状態になったことだけである。即時applyや安全保証を意味しない。

@@ -2,10 +2,10 @@
 
 状態: 一部implemented（manual CLI、public GitHub収集、local promotionまで）
 
-この文書は、実文、review履歴、採用・却下判断をlocal corpus候補として蓄積し、
-明示的な審査を経てcorpusへ昇格するworkflowを定義する。schema v1、local data directory
-解決、state transition、audit log、manual CLI、public GitHub PR収集、local promotionは
-実装済みである。public promotion、通常reviewへのlocal corpus読込みは未実装である。
+この文書は、実文、review履歴、採用・却下判断をlocal corpus候補として蓄積し、明示的な審査を
+経てcorpusへ昇格するworkflowを定義する。schema v1、local data directory解決、state transition、
+audit log、manual CLI、public GitHub PR収集、local promotionは実装済みである。一方、public
+promotionと、通常reviewでのlocal corpus読込みは未実装である。
 
 ## 原則
 
@@ -13,8 +13,8 @@
 
 > 候補は蓄積できるが、Skillへの反映には明示的な操作が必要である。
 
-`collect` はcandidateだけを作り、`SKILL.md`、references、examples、bundled evalsを
-変更しない。candidate、accepted record、promoted local corpusも通常reviewでは暗黙に
+`collect` が作るのはcandidateだけであり、`SKILL.md`、references、examples、bundled evalsは
+変更しない。candidate、accepted record、promoted local corpusも、通常reviewでは自動的に
 読み込まない。
 
 ## 状態遷移
@@ -35,13 +35,13 @@ inspect / annotate
                 promoted
 ```
 
-corpus promotionは実例を評価可能にする処理であり、rule変更ではない。candidateから
-behavior-changing ruleへ直接遷移できないようにする。
+corpus promotionは、実例を評価に使える状態へ移す処理であり、rule変更ではない。
+candidateからbehavior-changing ruleへ直接遷移することはできない。
 
 ## CLIの実装範囲
 
 provider-neutralかつ標準ライブラリ中心の `scripts/corpus_tool.py` を実装している。
-特定providerのAPIやCLIを内部から起動せず、networkなしで次を利用できる。
+特定providerのAPIやCLIを内部から起動することなく、networkなしで次の操作を利用できる。
 
 ```text
 corpus list
@@ -55,12 +55,13 @@ corpus promote <candidate-id> --apply
 corpus collect-github --repository <owner/name> --pr-number <number> ...
 ```
 
-`promote` の既定動作はdry-runとし、書込み対象、検証結果、拒否理由、生成予定diffを表示する。
-`--apply` がない場合はstateもcorpusも変更しない。
+`promote` の既定動作はdry-runである。書込み対象、検証結果、拒否理由、生成予定diffを表示するが、
+`--apply` がなければstateもcorpusも変更しない。
 
-`collect` には一record一fileのJSON、`annotate` には `annotations` objectだけを持つJSONを渡す。
-`accept` はannotated recordに限り、`reject` はcandidateまたはannotated recordを保存したまま
-rejectedへ移す。`validate` はrecord、state、auditの整合をread-onlyで確認する。
+`collect` には、一つのrecordを格納したJSON fileを渡す。`annotate` に渡すJSONは、
+`annotations` objectだけを持つ。`accept` の対象はannotated recordに限る。`reject` はcandidate
+またはannotated recordを削除せず、rejectedへ移す。`validate` はrecord、state、auditの整合を
+確認するだけで、変更しない。
 
 ## GitHub収集
 
@@ -69,8 +70,8 @@ rejectedへ移す。`validate` はrecord、state、auditの整合をread-onlyで
 `GITHUB_TOKEN` があればrequest headerだけに使用し、record、fixture、errorへ値を出力しない。
 
 全paginationを取得し、repository metadata、PR metadata、変更file、review submission、inline
-review commentのendpointが全て成功してからcandidateを組み立てる。途中responseや親commentの
-欠けたthreadは拒否し、収集開始前のstateを維持する。private repositoryはrepository metadataの
+review commentのendpointが全て成功した後にcandidateを組み立てる。途中responseや親commentが
+欠けたthreadは拒否し、収集開始前のstateを維持する。private repositoryではrepository metadataの
 確認直後に停止し、その後のPR endpointを読まない。
 
 対象は変更済みMarkdownだけで、fileごとにcandidateを作る。PR本文、file content、patch、
@@ -86,10 +87,10 @@ review_comment_redistribution: unknown
 ```
 
 merged PRのfinal headにhuman approvalがあり、対象fileにrevisionを示すhuman inline threadが
-なければ `positive-reviewed`、旧revisionへのhuman threadまたはchanges-requested後にfinal headが
-approveされていれば `review-directed-revision` のcandidate draftにする。これはmetadataによる
-保守的な仮分類であり、annotation rationaleは空のままにする。人間が `annotate` と `accept` を
-実行するまでcorpusへ昇格できない。
+なければ、candidate draftを `positive-reviewed` とする。旧revisionへのhuman threadがある場合、
+またはchanges-requested後にfinal headがapproveされている場合は、`review-directed-revision` とする。
+いずれもmetadataに基づく保守的な仮分類であり、annotation rationaleは空のままにする。人間が
+`annotate` と `accept` を実行するまでcorpusへ昇格できない。
 
 test用の `--fixture` はraw textを除いたrecorded snapshotだけを読む。fixture内に `body`、
 `content`、`patch`、`diff_hunk` があれば拒否する。PR #138と#187のfixtureはGitHub上の事実metadata
@@ -104,11 +105,11 @@ Local dataはインストール済みSkillのsource directoryから分離する�
 2. 明示的なproject scopeの `<repository>/.reader-first-editor/`
 3. user scopeのdata directory
 
-実装済みのpath解決は、user scopeでXDG data directoryを優先し、Windows、macOS、Linuxの
-標準directoryへfallbackする。project scopeはopt-inである。`.gitignore` の確認と警告は
-write commandの実行前に行い、未保護なら拒否する。利用者の `.gitignore` を無断で変更しない。
-明示的な `--data-dir` がGit worktree内を指す場合もignore状態を確認する。
-`--allow-unignored-project-data` だけを利用者による明示overrideとして扱う。
+実装済みのpath解決は、user scopeではXDG data directoryを優先し、Windows、macOS、Linuxの
+標準directoryへfallbackする。project scopeはopt-inである。write commandの実行前に
+`.gitignore` の状態を確認し、未保護なら警告して拒否する。利用者の `.gitignore` は無断で
+変更しない。明示的な `--data-dir` がGit worktree内を指す場合もignore状態を確認する。
+利用者による明示overrideとして扱うのは、`--allow-unignored-project-data` だけである。
 
 概念上のdirectoryは次のとおりである。
 
@@ -126,8 +127,9 @@ reader-first-editor-data/
 
 ## 収集するsample
 
-少なくとも `problematic`、`clean`、`borderline` を扱う。問題文だけでなく、長いが明確、
-自然な主語省略、必要な反復など、変更すべきでないsampleをnegative controlとして保存する。
+少なくとも `problematic`、`clean`、`borderline` を扱う。問題文だけを集めるのではない。
+長いが明確な文、自然な主語省略、必要な反復など、変更すべきでないsampleもnegative controlとして
+保存する。
 
 GitHub由来のrecordは、`positive-reviewed`、`review-directed-revision`、`human-revision`、
 `rejected-suggestion` を区別する。mergeやsource reputationだけをgold labelにしない。
@@ -137,11 +139,11 @@ GitHub由来のrecordは、`positive-reviewed`、`review-directed-revision`、`h
 corpus promotionには、schema、provenance、immutable source、rights status、annotation、
 expected behavior、duplicate確認、reviewer decisionが必要である。rightsが不明なrecordは
 local-onlyに限る。publicなbundled corpusへ移す場合は、raw textの再配布権限、NOTICE、
-attribution、third-party contentの分離を追加で確認する。
+attribution、third-party contentの分離も確認する。
 
 ## Audit
 
-収集、annotation、accept、reject、promotionの各操作を追記型audit logへ記録する。
-元recordを黙って上書きせず、actor、時刻、旧state、新state、理由、schema versionを残す。
-recordとauditの更新前にpending journalを作り、audit commit前の失敗は旧stateへrollbackする。
-process停止後も、次回のstore初期化時に未完了journalを回復する。
+収集、annotation、accept、reject、promotionの各操作を追記型audit logへ記録する。元recordを
+黙って上書きせず、actor、時刻、旧state、新state、理由、schema versionを残す。recordとauditを
+更新する前にpending journalを作り、audit commit前に失敗した場合は旧stateへrollbackする。
+processが停止しても、次回のstore初期化時に未完了journalを回復する。

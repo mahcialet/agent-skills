@@ -1,7 +1,8 @@
 # Review domains
 
-次の11領域を、変更されたasset、boundary、invariant、actor、code pathへ結び付けて調べる。
-全項目に同じ量を費やす必要はないが、該当しない理由を説明できる状態にする。
+次の11領域を、変更に関係するasset、boundary、invariant、actor、到達可能なcode pathへ
+結び付けて調べる。各項目が変更に該当するかは確認する。すべてを同じ深さで
+調べる必要はないが、該当しない項目は、その理由を説明できる状態にする。
 
 1. **隣のコードとの一貫性**
    類似・対称実装、create/delete、encode/decode、sync/async、成功/error pathで契約が
@@ -13,11 +14,12 @@
    単位、境界、nullability、default、rounding、overflow、比較、否定、ordering、timezoneを
    確認する。
 4. **失敗の検知可能性**
-   errorを握り潰さないか。callerが失敗・partial success・retryable failureを区別できるか。
+   errorを握り潰さないか。callerが失敗、部分的な成功（partial success）、再試行できる失敗
+   （retryable failure）を区別できるか。
    log、metric、traceがsecretを漏らさず原因を特定できるか。
 5. **利用者・運用者から見た挙動**
-   user-visible state、重複操作、キャンセル、進捗、再試行、runbook、alert、recovery手順が
-   実際の状態と一致するか。
+   利用者に見える状態（user-visible state）、重複操作、キャンセル、進捗、再試行、runbook、
+   alert、recovery手順が実際の状態と一致するか。
 6. **外部境界**
    authorization context、tenant、webhook、callback、parser、upload、network、third-party API、
    timeout、rate limit、signature、replay protectionを確認する。
@@ -25,8 +27,9 @@
    transaction、unique constraint、idempotency key、atomicity、ordering、outbox、compensation、
    crash後の中間状態、再実行を確認する。
 8. **設計と可読性**
-   invariantとownershipが表現されているか。複雑さが誤実装や安全な変更を阻害する具体的な
-   経路があるか。好みだけをfindingにしない。
+   守るべきinvariantと、誰が管理するかを示すownershipが表現されているか。複雑さによって
+   誤実装しやすくなる、または安全な変更が難しくなる具体的な経路があるか。好みだけを
+   findingにしない。
 9. **速度・資源・コスト**
    algorithm、query fan-out、cache、memory、file descriptor、queue、quota、unbounded input、
    retry storm、cost amplificationを確認する。
@@ -50,5 +53,5 @@
 - history、blame、過去の修正理由
 - versionを特定できる公式な外部contract
 
-検索結果がないことだけを不在の証明にしない。生成、reflection、dynamic dispatch、設定経由の
-到達があり得る場合は、その制約をevidence ledgerへ記録する。
+検索結果が0件だったという理由だけで、その経路が存在しないと断定しない。生成、reflection、
+dynamic dispatch、設定を介して到達する可能性が残る場合は、その制約をevidence ledgerへ記録する。

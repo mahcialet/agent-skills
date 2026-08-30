@@ -5,7 +5,8 @@
 - Target: pull request adding an export endpoint
 - Base / head: `main` / pull-request head
 - Level / minimum / depth / mode: `A3` / `A1` / `deep` / `gate`
-- Selection rationale: the endpoint accepts a tenant identifier across an authorization boundary
+- Selection rationale: the endpoint accepts a tenant identifier from the request even though access must remain
+  within the authenticated tenant
 - Excluded scope: the identity provider's internal token-validation implementation
 
 ## Findings
@@ -34,8 +35,8 @@ it does not make the priority automatically P1.
 
 ## Hypotheses
 
-None. The local test and static caller path establish the reported behavior without relying on the unavailable
-identity-provider implementation.
+None. The local test and caller path in the repository show that the handler returns data for the tenant named in
+the request body. This finding does not depend on the unavailable identity-provider implementation.
 
 ## Evidence ledger
 
@@ -49,8 +50,8 @@ identity-provider implementation.
 
 ## Unexecuted validation
 
-No production identity-provider or tenant environment was contacted. That is unnecessary for the confirmed local
-path and would cross the review's read-only and external-system boundary.
+No production identity provider or tenant environment was accessed. The local test and repository caller path
+already demonstrate the issue, so production access was unnecessary and outside this review's boundary.
 
 ## Residual risks
 

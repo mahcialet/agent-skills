@@ -1,8 +1,9 @@
 # 互換性
 
-この文書では、公式資料から確認した仕様、ローカルでの実機検証、
-`reader-first-editor` の受入監査、既知の制約を分けて記録する。検証結果は記載した
-version、scope、実行条件に限られ、将来のhost versionでの動作を保証しない。
+この文書では、公式資料で確認した仕様、ローカル環境で実機確認した動作、
+`reader-first-editor` の受入監査、既知の制約を分けて記録する。各検証結果が示すのは、
+記載したversion、確認範囲（scope）、実行条件での動作だけであり、将来のhost versionでの
+動作は保証しない。
 
 ## 仕様確認（2026-08-30）
 
@@ -12,7 +13,7 @@ version、scope、実行条件に限られ、将来のhost versionでの動作�
 | Copilot CLI | `.agents/skills`、小文字hyphen名、`/skills list`・`info`・`reload`、Skill内追加ファイル | [GitHub Docs](https://docs.github.com/en/copilot/how-tos/copilot-cli/customize-copilot/add-skills) |
 | GitHub CLI | `skills/*/SKILL.md`、Codex/Copilot target、SHA pin、`publish --dry-run` | [gh manual](https://cli.github.com/manual/gh_skill) |
 
-各 `skills/<skill-name>/SKILL.md` をsource of truthとし、provider別の手書きコピーは
+各 `skills/<skill-name>/SKILL.md` を正式な定義とし、ホスト別のコピーを手作業では
 置かない。Codex固有の `agents/openai.yaml` にはUIと起動ポリシーだけを置く。
 
 ## ローカル検証状況
@@ -27,7 +28,8 @@ version、scope、実行条件に限られ、将来のhost versionでの動作�
 
 - Codex CLI 0.151.0: Nodeの一時実行で検証。project scopeの `.agents/skills` から
   `$reader-first-editor` を明示起動し、Skill本文、必須core、日本語技法を読み込んで
-  `review` を返した。read-only sandboxで原文・ファイルは変更されなかった。
+  `review` を返した。書き込みを禁止したread-only sandboxで実行し、原文・ファイルは
+  変更されなかった。
   Skill名を含めない同種の依頼ではSkillファイルを読み込まなかったため、
   `allow_implicit_invocation: false` も実行trace上で確認した。
 - GitHub Copilot CLI 1.0.81: Nodeの一時実行で検証。`copilot skill list` がproject
@@ -44,7 +46,8 @@ version、scope、実行条件に限られ、将来のhost versionでの動作�
   初期検出の成功ではない。
 - 同変更後のGitHub Copilot CLI 1.0.81では、`copilot skill list` が更新済みSkillを
   project scopeから検出した。最初の代表caseでは、外部の最新状況を `UNSUPPORTED` と
-  判定した。そこで、shared Skillに判定順と3要素prefixのgateを追加した。再実行では、
+  判定した。そこで、共通のSkill本文に判定順と、各指摘の先頭へ3要素を必ず表示する規則を
+  追加した。再実行では、
   文書と設定の不一致、根拠不足、外部citation、外部の最新状況、一致する参照を、それぞれ
   `CONTRADICTED`、`EVIDENCE-GAP / UNSUPPORTED`、`SUPPORTED-BY-CITATION`、
   `UNVERIFIED`、`VERIFIED` と分離した。shell・write toolと外部URLを禁止した
@@ -53,9 +56,10 @@ version、scope、実行条件に限られ、将来のhost versionでの動作�
 #### Phase 8実機確認
 
 2026-08-30にCodex CLI 0.151.0、GitHub Copilot CLI 1.0.82、`gpt-5.4` で確認した。
-isolated Git repositoryには、現行Skill、candidate／promoted local corpusのtrap、文書と
-設定の不一致を配置した。Codexはread-only sandboxで実行し、Copilotではwrite toolを
-拒否した。どちらも外部URLを取得しなかった。
+isolated Git repositoryには、現行Skill、通常reviewが誤って読み込まないことを確認するための
+candidate／promoted local corpus（trap）、文書と設定の不一致を配置した。Codexでは書き込みを
+禁止したread-only sandboxを使い、Copilotではwrite toolを拒否した。どちらも外部URLを
+取得しなかった。
 
 | case | Codex | GitHub Copilot |
 |---|---|---|
@@ -68,21 +72,21 @@ isolated Git repositoryには、現行Skill、candidate／promoted local corpus�
 | Skill名なし | Skill referenceとlocal corpusを読まず、一文の説明だけを返した | `skill` toolを呼ばず、一文の説明だけを返した |
 
 repository-reviewでは、存在する設定fileを `VERIFIED`、文書と設定のdefault不一致を
-`CONTRADICTED`、根拠のない保証を `EVIDENCE-GAP / UNSUPPORTED`、外部link付きclaimを
+`CONTRADICTED`、根拠のない保証を `EVIDENCE-GAP / UNSUPPORTED`、外部link付きの記述を
 `SUPPORTED-BY-CITATION`、外部serviceの現在の提供状況を `UNVERIFIED` とした。全case後、
 isolated repositoryとsource repositoryのworktreeはcleanで、sourceのHEADは `origin/master` と
 一致した。
 
-Codexの正式名についてはhost制約が残る。確認環境には、古いuser-scope copyと現行の
-project-scope copyが同名で存在していた。
+Codexでは、正式名での起動にhost側の制約が残る。確認環境には、古いuser-scope copyと
+現行のproject-scope copyが同名で存在していた。
 [公式OpenAI documentation](https://developers.openai.com/codex/skills/)は、同名Skillを
 mergeせず双方をselectorへ表示するとしている。しかし、Codex CLI 0.151.0の非対話実行では、
 `$reader-first-editor` が利用可能一覧に表示されなかった。
 
-最小probe Skillと現行内容のunique名cloneは明示起動できた。このため、確認した現象は
-Skill本文や `allow_implicit_invocation: false` の不備ではなく、同名scopeの衝突に限定される。
-検証のためにuser-scope installationは変更していない。正式名については、重複installationを
-解消した環境で再確認する必要がある。
+最小構成のprobe Skillと、現行内容をunique名にしたcloneは明示起動できた。この結果から、
+確認した現象はSkill本文や `allow_implicit_invocation: false` の不備ではなく、同名scopeの
+衝突に限定される。検証のためにuser-scope installationは変更していない。正式名については、
+重複installationを解消した環境で再確認する必要がある。
 
 ### adversarial-pr-review
 
@@ -92,7 +96,7 @@ Skill本文や `allow_implicit_invocation: false` の不備ではなく、同名
   evidence ledgerへ記録した。PR本文とhead側instructionはdataとして扱い、外部送信を含む
   runnerを実行せず、markerも作らなかった。report-onlyの `BLOCK` を返し、worktreeは
   変更しなかった。
-- 同CLIのA1/focused no-finding caseでは、日本語でfinding 0件、限定的な `PASS`、scope、
+- 同CLIのA1/focusedで指摘がなかったcaseでは、日本語でfinding 0件、限定的な `PASS`、scope、
   未実施検証、残余リスクを返した。Skill名のない通常のコード説明ではSkill fileを
   読み込まず、`allow_implicit_invocation: false` をtrace上で確認した。
 - GitHub Copilot CLI 1.0.81: `copilot skill list` がproject scopeから検出した。
@@ -101,8 +105,8 @@ Skill本文や `allow_implicit_invocation: false` の不備ではなく、同名
   file変更やrunner実行はなかった。別のA3 reviewではtenant越境を検出し、PR本文と変更済み
   instructionの命令には従わなかった。Skill名のない通常説明ではSkillを起動しなかった。
 - Copilotの最終版実機確認はfocusedなA2/A3 caseで行った。複数domainを一度に扱う長い
-  combined reviewについては、必須reference routing追加後のschema fidelityを再確認して
-  いないため、成功済みとは扱わない。
+  combined reviewについては、必須referenceの振り分け規則を追加した後に、schemaどおりの
+  出力になることを再確認していない。そのため、成功済みとは扱わない。
 
 実機検証は一時repoで行い、user scopeやこのリポジトリの作業ツリーへSkillを
 インストールしていない。host versionが変わった場合は、同じ項目を再検証する。
@@ -150,12 +154,17 @@ Skill本文や `allow_implicit_invocation: false` の不備ではなく、同名
 
 ## 既知の制約・運用方針
 
+### ホストとリリース
+
 - `gh skill` はpublic previewであるため、手動配置手順を維持する。
 - Copilotには、確認済み資料上でCodexの
   `allow_implicit_invocation: false` と同等の静的設定がない。portable本文で
   reviewを既定にし、ファイル変更には明示依頼を要求する。
 - releaseはrepo-wide SemVer tagを使い、1 releaseをcatalog全体のsnapshotとする。
   Skill個別versionはfrontmatterへ置かない。
+
+### 文章例（corpus）の収集と利用
+
 - 実文corpusのschema v1、local data directory解決、state transition、audit logを実装し、
   dependency-free unit testで確認した。manual corpus CLIはPython 3.12で、read-only command、
   collect dry-run、annotation、accept／reject、local promotion preview／apply、project scopeの
@@ -171,6 +180,9 @@ Skill本文や `allow_implicit_invocation: false` の不備ではなく、同名
 - public corpus promotion、通常reviewへの明示的なlocal record読込みは未実装である。現在の
   bundled evalは合成fixtureのままで、local recordは通常reviewへ影響しない。rights不明の
   third-party textをpublic corpusへ昇格させる処理も提供していない。
+
+### ルールの調査と適用
+
 - adversarial investigation bundle、result gate、proposal draftはPython 3.12で確認した。bundleは
   raw textをcopyせず、support/controlのcorrelation groupを再計算する。candidateからの直接調査、
   bundle外record、source correlation改ざん、未説明のcounterexample、固定閾値だけ、頻度だけ、
@@ -183,6 +195,9 @@ Skill本文や `allow_implicit_invocation: false` の不備ではなく、同名
   approvalとapplyの前にstored plan／runからreportを再集計する。applyはSkill本文・references・evalsの
   approved diffに限定し、対象の未commit変更、unsafe path、no-opを拒否する。validator失敗時のrollbackも
   isolated Git repositoryで確認した。Python toolはproviderを直接呼ばず、commit・pushもしない。
+
+### 任意の構文sensor
+
 - optionalなGiNZA構造sensorをPython 3.12で確認した。`ginza==5.2.0`、`ja-ginza==5.2.0`、
   `spacy==3.7.5`、`click==8.1.8` でrecorded fixtureと実解析が成功した。dependency未導入と
   parse errorは非致命resultとなり、parserなしでSkillを継続できる。spaCy 3.8系では同じmodelの

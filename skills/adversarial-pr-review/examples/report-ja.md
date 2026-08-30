@@ -5,7 +5,8 @@
 - Target: `base...head` の決済retry変更
 - Base / head: `main` / review対象branch
 - Level / minimum / depth / mode: `A2` / `A1` / `standard` / `review`
-- Selection rationale: 正規権限のrequestを並行・再送でき、idempotencyと金額反映を扱うためA2
+- Selection rationale: 正規権限を持つclientが同じrequestを並行・再送でき、idempotencyと
+  金額反映を扱うためA2
 - Excluded scope: 外部決済事業者の本番挙動
 
 ## Findings
@@ -32,8 +33,8 @@
 
 ## Hypotheses
 
-- 外部決済APIも同じkeyを原子的にdeduplicateする可能性はあるが、確認できていない。この挙動だけでは
-  local ledgerとbalanceのatomicityを証明できないため、F-001の根拠には使っていない。
+- 外部決済APIも同じkeyを原子的にdeduplicateする可能性はあるが、確認できていない。また、その挙動
+  だけではlocal ledgerとbalanceのatomicityを証明できないため、F-001の根拠には含めていない。
 
 ## Evidence ledger
 
@@ -47,12 +48,12 @@
 
 ## Unexecuted validation
 
-本番providerへのrequestと課金を伴うintegration testは実行していない。代替としてcaller、transaction
-境界、migration、refund実装を静的に確認した。local concurrency testもfixtureが未整備のため未実施。
+本番providerへのrequestと課金を伴うintegration testは実行していない。代わりに、caller、transaction
+境界、migration、refund実装をコード上で確認した。local concurrency testはfixtureが未整備のため未実施。
 
 ## Residual risks
 
-- 外部providerのdeduplication contractとtimeout時のresponse semanticsは未確認。
+- 外部providerが重複を除外する条件と、timeout時のresponseが何を示すかは未確認。
 - A3以上のtenant改ざんやcredential compromiseは、このA2 reviewの上限外。
 
-このreportは指定scopeでのreview結果であり、安全性や無欠陥を保証しない。
+このreportが示すのは、指定scopeで確認した結果だけであり、安全性や無欠陥は保証しない。

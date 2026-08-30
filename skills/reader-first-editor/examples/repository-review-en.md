@@ -1,7 +1,7 @@
 # 英語文書のrepository-review例
 
-英語の対象文書には英語で結果を返す。次の例では、外部citationの存在と外部内容の
-検証を分ける。
+英語の対象文書には英語で結果を返す。次の例では、外部citationが記載されていることと、
+リンク先の内容を確認したことを区別し、読者が確認済みの範囲を判断できるようにする。
 
 ## Target
 
@@ -25,4 +25,4 @@ Reviewed scope: the target document and its repository-local references
 Not performed: external URL retrieval or open-world fact checking
 ```
 
-モデル知識を根拠に `VERIFIED` へ変更せず、対象fileも変更しない。
+モデル知識を根拠に `VERIFIED` へ変更しない。対象fileも変更しない。
