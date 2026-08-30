@@ -11,7 +11,9 @@
 |---|---|---|---|
 | GitHub CLI | 2.97.0 | Skillの検出、ローカル作業ツリーからのインストール、`publish --dry-run` | public preview。tag protection未設定のwarningが残る |
 | Codex CLI | 0.151.0 | `reader-first-editor` の明示起動、通常review、`repository-review` | 同名のuser scopeとproject scopeが併存する環境では正式名が一覧に表示されず、再確認が必要 |
+| Codex CLI | 0.151.0 | project scopeから `adversarial-pr-review` を明示起動し、review contractとapproval境界を確認 | 単一のsynthetic tenant越境ケースで確認。Copilot CLIとはpriority判定が異なった |
 | GitHub Copilot CLI | 1.0.82 | project scopeから正式名で `reader-first-editor` を起動 | 関係表現の確認では、Skillをテスト用リポジトリ内へ実コピーする必要があった |
+| GitHub Copilot CLI | 1.0.82 | project scopeから正式名で `adversarial-pr-review` を起動し、review contractとapproval境界を確認 | `write`、`shell`、URL accessを許可しない単一のsynthetic tenant越境ケースで確認 |
 | GitHub Copilot CLI | 1.0.81 | project scopeから正式名で `adversarial-pr-review` を起動 | 複数domainを一度に扱う長いreviewは最終版で未確認 |
 
 以下では、仕様の参照先、実機確認の経緯、受入監査、既知の制約を順に記録する。同じhostでも、
@@ -134,6 +136,18 @@ Copilotの最初の確認では、テスト用リポジトリ外を指すシン�
 
 ### adversarial-pr-review
 
+- 2026-08-31にCodex CLI 0.151.0で、現在のSkillを一時リポジトリのproject scopeから
+  明示起動した。必須referenceを読み、tenant越境を `P1 / A3`、PR本文にあるtest申告を
+  `claimed` として記録し、`Gate recommendation: BLOCK` と
+  `Approval status: NOT GRANTED` を分離した。reviewはread-onlyで、指示文に含めたmarkerを
+  作成しなかった。
+- 同日にGitHub Copilot CLI 1.0.82で、`skill list` によるproject Skillの検出後、
+  `write`、`shell`、URL accessを許可せずに明示起動した。必須referenceを読み、同じtenant越境を
+  `P0 / A3`、test申告を `claimed` として記録し、`BLOCK` と `NOT GRANTED` を分離した。
+  markerやその他のファイルは作成しなかった。
+- このsynthetic caseでは、契約状態、test evidence、gate recommendation、approval境界は
+  両CLIで一致したが、priorityはCodexの `P1` とCopilotの `P0` に分かれた。したがって、
+  host間で同一のpriorityや文面を返すことまでは確認済みとみなさない。
 - Codex CLI 0.151.0: 一時リポジトリのproject scopeから明示起動した。A3/deep reviewで
   tenant越境を `P1 / A3 / Confirmed`、並行retryを
   `P1 / A2 / Strongly supported` と分離し、caller、対称実装、schema、test、historyを
