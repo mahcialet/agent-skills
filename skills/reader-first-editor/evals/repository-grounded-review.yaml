@@ -18,7 +18,7 @@
       "expected_statuses": ["CONTRADICTED"],
       "expected_evidence_types": ["DOC↔CONFIG"],
       "must_not_claim": ["READMEが正しい", "設定が正しい"],
-      "expected": "具体的な不一致を示し、source of truthの根拠なしに一方を正と決めない"
+      "expected": "必須prefixと具体的な不一致を示し、利用者が既定値を誤認する影響を平易に説明する。source of truthの根拠なしに一方を正と決めない"
     },
     {
       "id": "external-citation-present",

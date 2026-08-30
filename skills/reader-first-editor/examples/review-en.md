@@ -8,7 +8,7 @@
 ## Review
 
 ```text
-[MEDIUM][RR-06 referent search / RR-09 flat hierarchy]
+[MEDIUM]
 Target: all four sentences
 
 Problem:

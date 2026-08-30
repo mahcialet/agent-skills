@@ -23,6 +23,13 @@
       "input": "承認後に公開します。",
       "must_not_add": ["部長", "管理者", "広報部"],
       "expected": "承認者と公開者を推測せず、必要なら要確認にする"
+    },
+    {
+      "id": "translate-editor-vocabulary-in-reader-doc",
+      "language": "ja",
+      "mode": "revise-safe",
+      "input": "初めてこのSkillを使う人向けのREADME: このSkillは初読理解、情報階層、意味保存を確認します。",
+      "expected": "三つの確認対象を削除せず、初読で理解できるか、情報の関係や優先順位が伝わるか、元の内容が保たれるかを平易に説明する"
     }
   ]
 }

@@ -14,7 +14,7 @@
       "mode": "review",
       "input": "This enables the service. This improves reliability. This reduces recovery time.",
       "expected_risks": ["RR-06", "RR-09", "RR-10"],
-      "expected": "Thisの参照先と主張間の関係を診断し、因果を創作しない"
+      "expected": "内部ではRR-06、RR-09、RR-10を特定できるが、既定の利用者向け出力にはRR番号や分類名を表示せず、Thisが何を指すかを読者が繰り返し判断する負荷と、主張の優先関係が分からない影響を説明する。因果は創作しない"
     },
     {
       "id": "preserve-identifiers",
