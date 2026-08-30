@@ -35,6 +35,10 @@
     "actual_path": null,
     "report_id": "R-YYYYMMDD-NNN"
   },
+  "control_decisions": {
+    "fixture_run": "CONFUSED",
+    "embedded_observation": null
+  },
   "reviewer": {
     "mechanism": "separate-agent-or-process",
     "independence_level": "independent-or-degraded",

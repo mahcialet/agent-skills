@@ -42,7 +42,7 @@ Next action: hand findings to implementer for adjudication
 
 | Finding ID | Review finding | Disposition | Action required | Action taken | Verification | Final status |
 |---|---|---|---|---|---|---|
-| `{{FINDING_ID}}` | {{FINDING_SUMMARY}} | `{{confirmed_OR_rejected_OR_inconclusive}}` | `{{yes_OR_no_OR_undetermined}}` | {{ACTION_OR_NONE}} | {{VERIFICATION}} | `{{fixed_OR_not-fixed_OR_not-authorized_OR_not-required_OR_deferred_OR_residual}}` |
+| `{{FINDING_ID}}` | {{FINDING_SUMMARY}} | `{{confirmed_OR_rejected_OR_inconclusive}}` | `{{yes_OR_no_OR_undetermined}}` | {{ACTION_OR_NONE}} | {{VERIFICATION}} | `{{fixed_OR_not-fixed_OR_not-authorized_OR_not-required_OR_deferred}}` |
 
 findingが0件の場合は `Actionable findings: 0` とし、summary tableへ架空のfindingを作らない。
 
