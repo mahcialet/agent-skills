@@ -1,6 +1,6 @@
 # ライセンスとプライバシー
 
-状態: planned（未実装）
+状態: 一部implemented（local record validationのみ）
 
 corpus recordはsourceのprovenanceと、raw textを保存・再配布できる権利を分離して記録する。
 public repositoryであること、repositoryにlicenseがあること、textを匿名化したことだけでは、
@@ -41,8 +41,8 @@ secret、credential、個人情報を保存しない。raw textの保存前にre
 利用者が確認できるようにする。
 
 project-local dataは誤commitを避ける必要がある。toolはignore状態を確認するが、利用者の
-`.gitignore` を無断で変更しない。unignoredなdirectoryへのwriteは警告または明示overrideを
-要求する。
+`.gitignore` を無断で変更しない。unignoredなdirectoryへのwriteは拒否し、明示overrideが
+ある場合だけ続行する。
 
 ## Public promotion
 

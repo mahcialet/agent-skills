@@ -80,13 +80,35 @@ Copilot CLI:
 
 実文、review履歴、採用・却下判断を、インストール済みSkillとは別のlocal dataへ蓄積し、
 corpusとruleの候補を保守的に評価するworkflowを整備しています。schema v1、local data
-directoryの解決、state transition、audit logは実装済みです。操作用CLI、GitHub収集、
-promotion、通常reviewからのlocal corpus利用は未実装で、現在の通常reviewやbundled evalには
-影響しません。
+directoryの解決、state transition、audit log、manual corpus CLI、local promotionは実装済み
+です。GitHub収集、public promotion、rule investigation、通常reviewからのlocal corpus利用は
+未実装で、現在の通常reviewやbundled evalには影響しません。
 
 設計上は、候補の収集、corpusへのpromotion、behavior-changing ruleのpromotionを別のgateに
 分けます。収集したcandidateやpromoted local corpusを通常reviewへ暗黙に読み込まず、
 明示的なapplyと人間の承認なしに `SKILL.md`、references、evalsを変更しません。
+
+manual CLIの例:
+
+```bash
+tool=skills/reader-first-editor/scripts/corpus_tool.py
+data_dir=/path/to/reader-first-editor-data
+
+python3 "$tool" --data-dir "$data_dir" corpus list
+python3 "$tool" --data-dir "$data_dir" corpus collect \
+  --record candidate.json --actor reviewer --reason "local candidate"
+python3 "$tool" --data-dir "$data_dir" corpus annotate <candidate-id> \
+  --annotation annotation.json --actor reviewer --reason "annotation confirmed"
+python3 "$tool" --data-dir "$data_dir" corpus accept <candidate-id> \
+  --actor reviewer --reason "regression sampleとして採用"
+python3 "$tool" --data-dir "$data_dir" corpus promote <candidate-id>
+python3 "$tool" --data-dir "$data_dir" corpus promote <candidate-id> --apply \
+  --actor reviewer --reason "local corpusへ昇格"
+```
+
+最後の二つは、最初がread-only preview、`--apply` 付きがlocal dataだけへの書込みです。
+どちらもcore ruleやbundled evalを変更しません。project scopeを使う場合は、projectの
+`.gitignore` に `.reader-first-editor/` を追加してください。
 
 - [コーパス運用](docs/corpus-workflow.md)
 - [コーパスデータモデル](docs/corpus-data-model.md)

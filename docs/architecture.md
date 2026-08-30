@@ -23,8 +23,8 @@ referencesに分け、必要なものだけを読みます。examplesとeval fix
 
 ## Reader-First Editorの育成基盤（一部implemented）
 
-schema v1、local data directoryの解決、state transition、audit logは実装済みです。
-corpus CLI、GitHub収集、rule investigation、通常reviewからの明示的なlocal corpus利用は
+schema v1、local data directoryの解決、state transition、audit log、manual corpus CLIは
+実装済みです。GitHub収集、rule investigation、通常reviewからの明示的なlocal corpus利用は
 未実装です。現在の通常reviewは、既存のbundled referencesとevalだけを使用します。
 
 育成基盤では、配布されるCoreと利用者固有のLocalを分離します。

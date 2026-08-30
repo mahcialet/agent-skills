@@ -1,10 +1,11 @@
 # コーパス運用
 
-状態: 一部implemented（local state基盤のみ）
+状態: 一部implemented（manual CLIとlocal promotionまで）
 
 この文書は、実文、review履歴、採用・却下判断をlocal corpus候補として蓄積し、
 明示的な審査を経てcorpusへ昇格するworkflowを定義する。schema v1、local data directory
-解決、state transition、audit logは実装済みである。操作用CLIとpromotionは未実装である。
+解決、state transition、audit log、manual CLI、local promotionは実装済みである。
+GitHub収集、public promotion、通常reviewへのlocal corpus読込みは未実装である。
 
 ## 原則
 
@@ -39,8 +40,8 @@ behavior-changing ruleへ直接遷移できないようにする。
 
 ## 初版CLIの方針
 
-初版はprovider-neutralかつ標準ライブラリ中心の `scripts/corpus_tool.py` を計画する。
-特定providerのAPIやCLIを内部から起動しない。networkなしで次を利用できる構成から始める。
+provider-neutralかつ標準ライブラリ中心の `scripts/corpus_tool.py` を実装している。
+特定providerのAPIやCLIを内部から起動せず、networkなしで次を利用できる。
 
 ```text
 corpus list
@@ -56,6 +57,10 @@ corpus promote <candidate-id> --apply
 `promote` の既定動作はdry-runとし、書込み対象、検証結果、拒否理由、生成予定diffを表示する。
 `--apply` がない場合はstateもcorpusも変更しない。
 
+`collect` には一record一fileのJSON、`annotate` には `annotations` objectだけを持つJSONを渡す。
+`accept` はannotated recordに限り、`reject` はcandidateまたはannotated recordを保存したまま
+rejectedへ移す。`validate` はrecord、state、auditの整合をread-onlyで確認する。
+
 ## Local data
 
 Local dataはインストール済みSkillのsource directoryから分離する。解決順は次を計画する。
@@ -66,7 +71,9 @@ Local dataはインストール済みSkillのsource directoryから分離する�
 
 実装済みのpath解決は、user scopeでXDG data directoryを優先し、Windows、macOS、Linuxの
 標準directoryへfallbackする。project scopeはopt-inである。`.gitignore` の確認と警告は
-CLI実装時に追加する計画で、利用者の `.gitignore` を無断で変更しない。
+write commandの実行前に行い、未保護なら拒否する。利用者の `.gitignore` を無断で変更しない。
+明示的な `--data-dir` がGit worktree内を指す場合もignore状態を確認する。
+`--allow-unignored-project-data` だけを利用者による明示overrideとして扱う。
 
 概念上のdirectoryは次のとおりである。
 

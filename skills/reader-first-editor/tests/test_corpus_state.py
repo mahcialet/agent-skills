@@ -222,6 +222,13 @@ class RecordTests(unittest.TestCase):
         with self.assertRaises(RecordValidationError):
             validate_corpus_record(record)
 
+    def test_non_candidate_requires_reviewer_decision(self) -> None:
+        record = sample_record()
+        record["id"] = deterministic_candidate_id(record)
+        record["decision"]["state"] = "accepted"
+        with self.assertRaises(RecordValidationError):
+            validate_corpus_record(record)
+
 
 class StoreTests(unittest.TestCase):
     def setUp(self) -> None:
@@ -249,6 +256,18 @@ class StoreTests(unittest.TestCase):
             self.store.create_candidate(sample_record(), actor="tester", reason="")
         self.assertFalse(self.store.root.exists())
 
+    def test_internal_state_directory_symlink_is_rejected(self) -> None:
+        outside = Path(self.temp.name) / "outside"
+        outside.mkdir()
+        self.store.root.mkdir(parents=True)
+        try:
+            (self.store.root / "candidates").symlink_to(outside, target_is_directory=True)
+        except OSError as exc:
+            self.skipTest(f"symlinkを作成できません: {exc}")
+        with self.assertRaises(StoreError):
+            self.store.create_candidate(sample_record(), actor="collector", reason="symlink test")
+        self.assertEqual(list(outside.iterdir()), [])
+
     def test_valid_state_transitions_preserve_record_and_append_audit(self) -> None:
         created = self.store.create_candidate(sample_record(), actor="collector", reason="fixture")
         annotated = self.store.transition(
@@ -262,6 +281,7 @@ class StoreTests(unittest.TestCase):
         self.assertEqual(accepted["source"], created["source"])
         events = self.store.audit_path.read_text(encoding="utf-8").splitlines()
         self.assertEqual(len(events), 3)
+        self.assertEqual(self.store.validate_store(), [])
 
     def test_invalid_transition_is_rejected_without_moving_record(self) -> None:
         created = self.store.create_candidate(sample_record(), actor="collector", reason="fixture")
@@ -284,6 +304,10 @@ class StoreTests(unittest.TestCase):
         path.write_text("{broken", encoding="utf-8")
         with self.assertRaises(StoreError):
             self.store.load_record(created["id"])
+
+    def test_record_id_cannot_escape_state_directory(self) -> None:
+        with self.assertRaises(StoreError):
+            self.store.load_record("../../outside")
 
     def test_create_rolls_back_when_audit_commit_fails(self) -> None:
         record_id = deterministic_candidate_id(sample_record())

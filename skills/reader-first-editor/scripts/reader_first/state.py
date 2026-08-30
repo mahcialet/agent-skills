@@ -16,6 +16,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 SCHEMA_VERSION = 1
+TOOL_VERSION = "0.1.0"
 STATE_DIRECTORIES = {
     "candidate": "candidates",
     "annotated": "annotated",
@@ -29,6 +30,17 @@ ALLOWED_TRANSITIONS = {
     "accepted": set(),
     "rejected": set(),
     "promoted": set(),
+}
+AUDIT_ALLOWED_TRANSITIONS = {
+    **ALLOWED_TRANSITIONS,
+    "accepted": {"promoted"},
+}
+AUDIT_ACTION_BY_TRANSITION = {
+    ("candidate", "annotated"): "annotate",
+    ("candidate", "rejected"): "transition",
+    ("annotated", "accepted"): "transition",
+    ("annotated", "rejected"): "transition",
+    ("accepted", "promoted"): "promote-local",
 }
 SAMPLE_TYPES = {
     "positive-reviewed",
@@ -347,6 +359,12 @@ def validate_corpus_record(record: dict) -> None:
             raise RecordValidationError(f"decision.{key}はstringまたはnullである必要があります")
     if not isinstance(decision["reason"], str):
         raise RecordValidationError("decision.reasonはstringである必要があります")
+    if decision["state"] != "candidate":
+        for key in ("reviewer", "decided_at", "reason"):
+            if not isinstance(decision[key], str) or not decision[key].strip():
+                raise RecordValidationError(
+                    f"{decision['state']} recordには空でないdecision.{key}が必要です"
+                )
     if record_id != deterministic_candidate_id(record):
         raise RecordValidationError("idがsource identityから再計算した値と一致しません")
 
@@ -374,6 +392,19 @@ def deterministic_candidate_id(record: dict) -> str:
         _canonical_identity(record), ensure_ascii=False, sort_keys=True, separators=(",", ":")
     ).encode("utf-8")
     return f"rfe-{hashlib.sha256(payload).hexdigest()[:20]}"
+
+
+def prepare_candidate_record(record: dict) -> dict:
+    """入力recordをcanonicalなcandidateへ正規化し、schemaを検証する。"""
+
+    prepared = deepcopy(record)
+    prepared["id_material"] = deepcopy(ID_MATERIAL)
+    prepared["id"] = deterministic_candidate_id(prepared)
+    decision = _require_object(prepared, "decision")
+    if decision.get("state") != "candidate":
+        raise InvalidTransitionError("新規recordのstateはcandidateである必要があります")
+    validate_corpus_record(prepared)
+    return prepared
 
 
 def _utc_now() -> str:
@@ -412,6 +443,8 @@ class LocalCorpusStore:
     def _store_lock(self):
         self.root.mkdir(parents=True, exist_ok=True)
         lock_path = self.root / ".store.lock"
+        if lock_path.is_symlink():
+            raise StoreError("store lockをsymlinkにできません")
         with lock_path.open("a+b") as handle:
             if os.name == "nt":
                 import msvcrt
@@ -436,17 +469,78 @@ class LocalCorpusStore:
                 finally:
                     fcntl.flock(handle.fileno(), fcntl.LOCK_UN)
 
+    @contextmanager
+    def _read_lock(self):
+        lock_path = self.root / ".store.lock"
+        if not lock_path.exists():
+            yield
+            return
+        if lock_path.is_symlink():
+            raise StoreError("store lockをsymlinkにできません")
+        mode = "r+b" if os.name == "nt" else "rb"
+        with lock_path.open(mode) as handle:
+            if os.name == "nt":
+                import msvcrt
+
+                handle.seek(0)
+                msvcrt.locking(handle.fileno(), msvcrt.LK_LOCK, 1)
+                try:
+                    yield
+                finally:
+                    handle.seek(0)
+                    msvcrt.locking(handle.fileno(), msvcrt.LK_UNLCK, 1)
+            else:
+                import fcntl
+
+                fcntl.flock(handle.fileno(), fcntl.LOCK_SH)
+                try:
+                    yield
+                finally:
+                    fcntl.flock(handle.fileno(), fcntl.LOCK_UN)
+
     def initialize(self) -> None:
-        for directory in (*STATE_DIRECTORIES.values(), "investigations", "proposals", "cache", "audit"):
-            (self.root / directory).mkdir(parents=True, exist_ok=True)
-        self.pending_dir.mkdir(parents=True, exist_ok=True)
         with self._store_lock():
+            for directory in (*STATE_DIRECTORIES.values(), "investigations", "proposals", "cache", "audit"):
+                self._ensure_directory(self.root / directory)
+            self._ensure_directory(self.pending_dir)
             self._recover_pending()
+
+    def _ensure_directory(self, path: Path) -> None:
+        if path.is_symlink():
+            raise StoreError(f"store内部directoryをsymlinkにできません: {path}")
+        path.mkdir(parents=True, exist_ok=True)
+        if not path.is_dir() or not _is_relative_to(path.resolve(), self.root):
+            raise StoreError(f"store root外のdirectoryは使用できません: {path}")
+
+    def _assert_safe_layout(self) -> None:
+        for directory in (*STATE_DIRECTORIES.values(), "investigations", "proposals", "cache", "audit"):
+            path = self.root / directory
+            if path.is_symlink():
+                raise StoreError(f"store内部directoryをsymlinkにできません: {path}")
+            if path.exists() and not _is_relative_to(path.resolve(), self.root):
+                raise StoreError(f"store root外へ解決されるdirectoryがあります: {path}")
+
+    def _assert_safe_path(self, path: Path) -> None:
+        try:
+            relative = path.relative_to(self.root)
+        except ValueError as exc:
+            raise StoreError(f"store root外のpathは使用できません: {path}") from exc
+        current = self.root
+        for part in relative.parts[:-1]:
+            current = current / part
+            if current.is_symlink():
+                raise StoreError(f"store内部pathにsymlinkがあります: {current}")
+        if not _is_relative_to(path.parent.resolve(), self.root):
+            raise StoreError(f"store root外へ解決されるpathは使用できません: {path}")
 
     def _state_path(self, state: str, record_id: str) -> Path:
         if state not in STATE_DIRECTORIES:
             raise StoreError(f"未知のstateです: {state}")
-        return self.root / STATE_DIRECTORIES[state] / f"{record_id}.json"
+        if not re.fullmatch(r"rfe-[0-9a-f]{20}", record_id):
+            raise StoreError("record IDの形式が不正です")
+        path = self.root / STATE_DIRECTORIES[state] / f"{record_id}.json"
+        self._assert_safe_path(path)
+        return path
 
     def _locations(self, record_id: str) -> list[tuple[str, Path]]:
         return [
@@ -460,6 +554,7 @@ class LocalCorpusStore:
         self._atomic_write_text(path, text)
 
     def _atomic_write_text(self, path: Path, text: str) -> None:
+        self._assert_safe_path(path)
         path.parent.mkdir(parents=True, exist_ok=True)
         fd, temp_name = tempfile.mkstemp(prefix=f".{path.name}.", dir=path.parent)
         try:
@@ -476,6 +571,7 @@ class LocalCorpusStore:
             raise
 
     def _audit_events(self) -> list[dict]:
+        self._assert_safe_path(self.audit_path)
         if not self.audit_path.exists():
             return []
         events: list[dict] = []
@@ -499,10 +595,11 @@ class LocalCorpusStore:
         reason: str,
         old_state: str | None,
         new_state: str,
+        timestamp: str | None = None,
     ) -> dict:
         return {
             "event_id": str(uuid.uuid4()),
-            "timestamp": self.clock(),
+            "timestamp": timestamp or self.clock(),
             "action": action,
             "record_id": record_id,
             "actor": actor,
@@ -510,6 +607,7 @@ class LocalCorpusStore:
             "old_state": old_state,
             "new_state": new_state,
             "schema_version": SCHEMA_VERSION,
+            "tool_version": TOOL_VERSION,
         }
 
     def _atomic_append_audit(self, event: dict) -> None:
@@ -562,13 +660,7 @@ class LocalCorpusStore:
         if not actor.strip() or not reason.strip():
             raise StoreError("audit用のactorとreasonが必要です")
         self.initialize()
-        prepared = deepcopy(record)
-        prepared["id_material"] = deepcopy(ID_MATERIAL)
-        prepared["id"] = deterministic_candidate_id(prepared)
-        decision = _require_object(prepared, "decision")
-        if decision.get("state") != "candidate":
-            raise InvalidTransitionError("新規recordのstateはcandidateである必要があります")
-        validate_corpus_record(prepared)
+        prepared = prepare_candidate_record(record)
         with self._store_lock():
             if self._locations(prepared["id"]):
                 raise DuplicateRecordError(f"同じcandidateがすでに存在します: {prepared['id']}")
@@ -602,10 +694,250 @@ class LocalCorpusStore:
             raise StoreError(f"directoryとdecision.stateが一致しません: {path}")
         return data
 
+    def _require_reviewer_decision_unlocked(self, record: dict, expected_state: str) -> None:
+        record_id = record["id"]
+        matching = [event for event in self._audit_events() if event.get("record_id") == record_id]
+        if not matching:
+            raise RecordValidationError("reviewer decisionを示すaudit eventがありません")
+        chain_errors = self._audit_chain_errors(record, matching)
+        if chain_errors:
+            raise RecordValidationError(chain_errors[0])
+        event = matching[-1]
+        decision = record["decision"]
+        if (
+            event.get("new_state") != expected_state
+            or event.get("actor") != decision.get("reviewer")
+            or event.get("timestamp") != decision.get("decided_at")
+            or event.get("reason") != decision.get("reason")
+        ):
+            raise RecordValidationError("recordとreviewer decision auditが一致しません")
+
+    def _audit_chain_errors(self, record: dict, events: list[dict]) -> list[str]:
+        record_id = record["id"]
+        errors: list[str] = []
+        if not events:
+            return [f"{record_id}: audit eventがありません"]
+        first = events[0]
+        if (
+            first.get("old_state") is not None
+            or first.get("new_state") != "candidate"
+            or first.get("action") != "collect"
+        ):
+            errors.append(f"{record_id}: audit chainはcollectによるcandidate作成から始める必要があります")
+        previous_state = first.get("new_state")
+        for index, event in enumerate(events[1:], start=2):
+            old_state = event.get("old_state")
+            new_state = event.get("new_state")
+            if not isinstance(old_state, str) or not isinstance(new_state, str):
+                errors.append(f"{record_id}: audit stateが{index}件目で不正です")
+                previous_state = new_state
+                continue
+            if old_state != previous_state:
+                errors.append(f"{record_id}: audit state chainが{index}件目で不連続です")
+            if old_state not in AUDIT_ALLOWED_TRANSITIONS or new_state not in AUDIT_ALLOWED_TRANSITIONS[old_state]:
+                errors.append(f"{record_id}: auditに不正な遷移があります: {old_state} -> {new_state}")
+            expected_action = AUDIT_ACTION_BY_TRANSITION.get((old_state, new_state))
+            if expected_action is not None and event.get("action") != expected_action:
+                errors.append(
+                    f"{record_id}: {old_state} -> {new_state}のactionは"
+                    f"{expected_action}である必要があります"
+                )
+            previous_state = new_state
+        if previous_state != record["decision"]["state"]:
+            errors.append(f"{record_id}: 最終audit stateとrecord stateが一致しません")
+        if record["decision"]["state"] != "candidate":
+            final = events[-1]
+            decision = record["decision"]
+            if (
+                final.get("actor") != decision.get("reviewer")
+                or final.get("timestamp") != decision.get("decided_at")
+                or final.get("reason") != decision.get("reason")
+            ):
+                errors.append(f"{record_id}: decisionと最終audit eventが一致しません")
+        return errors
+
     def load_record(self, record_id: str) -> dict:
+        if not self.root.exists():
+            raise StoreError(f"recordが見つかりません: {record_id}")
+        self._assert_safe_layout()
+        if self.pending_dir.exists() and any(self.pending_dir.glob("*.json")):
+            raise StoreError("未回復のpending transactionがあります。write操作前にstoreを初期化してください")
+        with self._read_lock():
+            return self._load_record_unlocked(record_id)
+
+    def list_records(self, states: set[str] | None = None) -> list[dict]:
+        """Storeを変更せずrecord summaryを返す。"""
+
+        if not self.root.exists():
+            return []
+        self._assert_safe_layout()
+        selected = set(STATE_DIRECTORIES) if states is None else set(states)
+        unknown = selected - STATE_DIRECTORIES.keys()
+        if unknown:
+            raise StoreError(f"未知のstateです: {', '.join(sorted(unknown))}")
+        if self.pending_dir.exists() and any(self.pending_dir.glob("*.json")):
+            raise StoreError("未回復のpending transactionがあります")
+        records: list[dict] = []
+        with self._read_lock():
+            for state in sorted(selected):
+                directory = self.root / STATE_DIRECTORIES[state]
+                if not directory.exists():
+                    continue
+                for path in sorted(directory.glob("*.json")):
+                    record = self._load_record_unlocked(path.stem)
+                    records.append(
+                        {
+                            "id": record["id"],
+                            "state": state,
+                            "language": record["language"],
+                            "genre": record["genre"],
+                            "sample_type": record["sample_type"],
+                            "quality_class": record["quality_class"],
+                            "expected_behavior": record["annotations"]["expected_behavior"],
+                            "local_only": record["rights"]["local_only"],
+                        }
+                    )
+        return sorted(records, key=lambda item: item["id"])
+
+    def validate_store(self) -> list[str]:
+        """Storeを変更せずrecord、state、auditの整合を検証する。"""
+
+        if not self.root.exists():
+            return []
+        errors: list[str] = []
+        try:
+            self._assert_safe_layout()
+        except StoreError as exc:
+            return [str(exc)]
+        pending = sorted(self.pending_dir.glob("*.json")) if self.pending_dir.exists() else []
+        if pending:
+            errors.append(f"未回復のpending transactionが{len(pending)}件あります")
+        records: dict[str, dict] = {}
+        with self._read_lock():
+            for state, directory_name in STATE_DIRECTORIES.items():
+                directory = self.root / directory_name
+                if not directory.exists():
+                    continue
+                for path in sorted(directory.glob("*.json")):
+                    try:
+                        record = json.loads(path.read_text(encoding="utf-8"))
+                        validate_corpus_record(record)
+                        if record["decision"]["state"] != state:
+                            errors.append(f"{path}: directoryとdecision.stateが一致しません")
+                        if record["id"] in records:
+                            errors.append(f"{record['id']}: 複数stateに同じrecordがあります")
+                        records[record["id"]] = record
+                    except (OSError, json.JSONDecodeError, RecordValidationError) as exc:
+                        errors.append(f"{path}: {exc}")
+            try:
+                events = self._audit_events()
+            except StoreError as exc:
+                errors.append(str(exc))
+                events = []
+        event_ids: set[str] = set()
+        by_record: dict[str, list[dict]] = {}
+        for event in events:
+            event_id = event["event_id"]
+            if event_id in event_ids:
+                errors.append(f"audit event IDが重複しています: {event_id}")
+            event_ids.add(event_id)
+            for key in ("record_id", "actor", "reason", "timestamp", "tool_version"):
+                if not isinstance(event.get(key), str) or not event[key].strip():
+                    errors.append(f"audit event {event_id}: {key}がありません")
+            by_record.setdefault(str(event.get("record_id")), []).append(event)
+        for record_id, record in records.items():
+            record_events = by_record.get(record_id, [])
+            errors.extend(self._audit_chain_errors(record, record_events))
+        for record_id in by_record.keys() - records.keys():
+            errors.append(f"{record_id}: auditだけが存在しrecordがありません")
+        return errors
+
+    def annotate(self, record_id: str, annotations: dict, *, actor: str, reason: str) -> dict:
+        """Candidateへ人間のannotationを保存し、annotatedへ遷移する。"""
+
+        if not actor.strip() or not reason.strip():
+            raise StoreError("audit用のactorとreasonが必要です")
         self.initialize()
         with self._store_lock():
-            return self._load_record_unlocked(record_id)
+            before = self._load_record_unlocked(record_id)
+            if before["decision"]["state"] != "candidate":
+                raise InvalidTransitionError("annotateできるのはcandidateだけです")
+            record = deepcopy(before)
+            record["annotations"] = deepcopy(annotations)
+            record["decision"] = {
+                "state": "annotated",
+                "reviewer": actor,
+                "decided_at": self.clock(),
+                "reason": reason,
+            }
+            validate_corpus_record(record)
+            if not record["annotations"]["rationale"].strip():
+                raise RecordValidationError("annotation rationaleが必要です")
+            event = self._make_event(
+                action="annotate",
+                record_id=record_id,
+                actor=actor,
+                reason=reason,
+                old_state="candidate",
+                new_state="annotated",
+                timestamp=record["decision"]["decided_at"],
+            )
+            self._commit_transaction(before=before, after=record, event=event)
+            return record
+
+    def promotion_preview(self, record_id: str) -> dict:
+        """Local corpus promotionの計画をread-onlyで返す。"""
+
+        record = self.load_record(record_id)
+        if record["decision"]["state"] != "accepted":
+            raise InvalidTransitionError("promotionにはaccepted recordが必要です")
+        if not record["annotations"]["rationale"].strip():
+            raise RecordValidationError("promotionにはannotation rationaleが必要です")
+        with self._read_lock():
+            self._require_reviewer_decision_unlocked(record, "accepted")
+        return {
+            "record_id": record_id,
+            "target": "local",
+            "current_state": "accepted",
+            "next_state": "promoted",
+            "apply_required": True,
+            "will_modify": [str(self._state_path("accepted", record_id)), str(self._state_path("promoted", record_id))],
+            "will_not_modify": ["SKILL.md", "references/", "examples/", "evals/"],
+            "changes_rule_behavior": False,
+        }
+
+    def promote_local(self, record_id: str, *, actor: str, reason: str) -> dict:
+        """Gateを再確認し、accepted recordをlocal promoted corpusへ移す。"""
+
+        if not actor.strip() or not reason.strip():
+            raise StoreError("audit用のactorとreasonが必要です")
+        self.initialize()
+        with self._store_lock():
+            before = self._load_record_unlocked(record_id)
+            if before["decision"]["state"] != "accepted":
+                raise InvalidTransitionError("promotionにはaccepted recordが必要です")
+            if not before["annotations"]["rationale"].strip():
+                raise RecordValidationError("promotionにはannotation rationaleが必要です")
+            self._require_reviewer_decision_unlocked(before, "accepted")
+            record = deepcopy(before)
+            record["decision"] = {
+                "state": "promoted",
+                "reviewer": actor,
+                "decided_at": self.clock(),
+                "reason": reason,
+            }
+            validate_corpus_record(record)
+            event = self._make_event(
+                action="promote-local",
+                record_id=record_id,
+                actor=actor,
+                reason=reason,
+                old_state="accepted",
+                new_state="promoted",
+                timestamp=record["decision"]["decided_at"],
+            )
+            self._commit_transaction(before=before, after=record, event=event)
+            return record
 
     def transition(self, record_id: str, target_state: str, *, actor: str, reason: str) -> dict:
         if not actor.strip() or not reason.strip():
@@ -634,12 +966,13 @@ class LocalCorpusStore:
             }
             validate_corpus_record(record)
             event = self._make_event(
-                action="transition",
+                action=AUDIT_ACTION_BY_TRANSITION[(old_state, target_state)],
                 record_id=record_id,
                 actor=actor,
                 reason=reason,
                 old_state=old_state,
                 new_state=target_state,
+                timestamp=record["decision"]["decided_at"],
             )
             self._commit_transaction(before=before, after=record, event=event)
             return record

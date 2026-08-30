@@ -7,6 +7,7 @@ import argparse
 import json
 import re
 import statistics
+import subprocess
 import sys
 from pathlib import Path
 
@@ -47,6 +48,11 @@ REQUIRED_SCHEMAS = {
     "corpus-record.schema.json",
     "investigation.schema.json",
     "rule-proposal.schema.json",
+}
+REQUIRED_TOOL_FILES = {
+    "scripts/corpus_tool.py",
+    "scripts/reader_first/__init__.py",
+    "scripts/reader_first/state.py",
 }
 
 
@@ -173,6 +179,25 @@ def validate_schemas(schema_dir: Path) -> list[str]:
     return errors
 
 
+def validate_tooling(skill_dir: Path) -> list[str]:
+    errors: list[str] = []
+    for relative in sorted(REQUIRED_TOOL_FILES):
+        if not (skill_dir / relative).is_file():
+            errors.append(f"missing required corpus tool file: {relative}")
+    tool = skill_dir / "scripts" / "corpus_tool.py"
+    if tool.is_file():
+        result = subprocess.run(
+            [sys.executable, str(tool), "--version"],
+            cwd=skill_dir,
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        if result.returncode or not result.stdout.strip():
+            errors.append(f"corpus_tool.py --version failed: {result.stderr.strip()}")
+    return errors
+
+
 def sentence_metrics(text: str) -> dict[str, object]:
     sentences = [s.strip() for s in re.split(r"(?<=[。！？.!?])\s*", text) if s.strip()]
     lengths = [len(s) for s in sentences]
@@ -190,7 +215,8 @@ def main() -> int:
     parser.add_argument("--schema-dir", type=Path, default=Path(__file__).parent.parent / "schemas")
     parser.add_argument("--metrics", help="Print descriptive tripwires for text; never pass/fail quality")
     args = parser.parse_args()
-    errors = validate(args.eval_dir) + validate_schemas(args.schema_dir)
+    skill_dir = Path(__file__).parent.parent
+    errors = validate(args.eval_dir) + validate_schemas(args.schema_dir) + validate_tooling(skill_dir)
     if errors:
         for error in errors:
             print(f"ERROR: {error}", file=sys.stderr)
@@ -199,7 +225,7 @@ def main() -> int:
         print(json.dumps(sentence_metrics(args.metrics), ensure_ascii=False))
     print(
         f"validated {len(list(args.eval_dir.glob('*.yaml')))} eval suites "
-        f"and {len(REQUIRED_SCHEMAS)} schemas"
+        f"and {len(REQUIRED_SCHEMAS)} schemas and corpus tooling"
     )
     return 0
 
