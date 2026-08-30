@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Render or atomically install canonical Behavior Profiles into AGENTS.md."""
+"""Render, install, or uninstall canonical Behavior Profiles in AGENTS.md."""
 
 from __future__ import annotations
 
@@ -14,14 +14,31 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Sequence
 
+from validate_behavior_profiles import ProfileParseError, parse_profile
+
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
 BEHAVIOR_ROOT = REPOSITORY_ROOT / "behavior-profiles"
 
 BEGIN_MARKER_TEXT = "<!-- BEGIN agent-skills behavior-profiles -->"
 END_MARKER_TEXT = "<!-- END agent-skills behavior-profiles -->"
+OWNERSHIP_MARKER_PREFIX_TEXT = (
+    "<!-- agent-skills behavior-profiles owned-separator: "
+)
+OWNERSHIP_MARKER_SUFFIX_TEXT = " -->"
 BEGIN_MARKER = BEGIN_MARKER_TEXT.encode("ascii")
 END_MARKER = END_MARKER_TEXT.encode("ascii")
+OWNERSHIP_MARKER_PREFIX = OWNERSHIP_MARKER_PREFIX_TEXT.encode("ascii")
+OWNERSHIP_MARKER_SUFFIX = OWNERSHIP_MARKER_SUFFIX_TEXT.encode("ascii")
+OWNED_SEPARATORS = {
+    "none": b"",
+    "lf": b"\n",
+    "lf-lf": b"\n\n",
+    "crlf": b"\r\n",
+}
+OWNED_SEPARATOR_NAMES = {
+    separator: name for name, separator in OWNED_SEPARATORS.items()
+}
 TEMP_PREFIX = ".install-behavior-profiles."
 
 
@@ -49,6 +66,16 @@ class TargetSnapshot:
     identity: tuple[int, int] | None
 
 
+@dataclass(frozen=True)
+class ManagedRegion:
+    """Validated managed bytes, including the recorded leading separator."""
+
+    start: int
+    begin: int
+    end: int
+    separator: bytes
+
+
 def _read_json_object(path: Path) -> dict[str, Any]:
     try:
         raw = path.read_text(encoding="utf-8")
@@ -62,38 +89,9 @@ def _read_json_object(path: Path) -> dict[str, Any]:
 
 def _parse_canonical_profile(path: Path) -> tuple[dict[str, str], str]:
     try:
-        text = path.read_text(encoding="utf-8")
-    except (OSError, UnicodeError) as exc:
-        raise InstallerError(f"cannot read canonical profile {path}: {exc}") from exc
-
-    lines = text.splitlines()
-    if not lines or lines[0] != "---":
-        raise InstallerError(f"canonical profile frontmatter is missing: {path}")
-    try:
-        closing = lines.index("---", 1)
-    except ValueError as exc:
-        raise InstallerError(
-            f"canonical profile frontmatter is not closed: {path}"
-        ) from exc
-
-    metadata: dict[str, str] = {}
-    for line_number, line in enumerate(lines[1:closing], start=2):
-        if not line.strip():
-            continue
-        if line[0].isspace() or ":" not in line:
-            raise InstallerError(
-                f"unsupported canonical frontmatter at {path}:{line_number}"
-            )
-        key, raw_value = line.split(":", 1)
-        key = key.strip()
-        value = raw_value.strip()
-        if not key or not value or key in metadata:
-            raise InstallerError(
-                f"invalid canonical frontmatter at {path}:{line_number}"
-            )
-        metadata[key] = value
-
-    body = "\n".join(lines[closing + 1 :]).strip()
+        metadata, body = parse_profile(path)
+    except (OSError, UnicodeError, ProfileParseError) as exc:
+        raise InstallerError(f"cannot parse canonical profile {path}: {exc}") from exc
     if not body:
         raise InstallerError(f"canonical profile body is empty: {path}")
     return metadata, body
@@ -164,7 +162,11 @@ def _catalog_profiles(behavior_root: Path = BEHAVIOR_ROOT) -> dict[str, ProfileS
             raise InstallerError(
                 f"catalog/profile version mismatch for {name}: {metadata.get('version')!r}"
             )
-        if BEGIN_MARKER_TEXT in body or END_MARKER_TEXT in body:
+        if (
+            BEGIN_MARKER_TEXT in body
+            or END_MARKER_TEXT in body
+            or OWNERSHIP_MARKER_PREFIX_TEXT in body
+        ):
             raise InstallerError(f"canonical profile contains managed marker: {source_path}")
         profiles[name] = ProfileSource(name=name, version=version, body=body)
     return profiles
@@ -197,6 +199,7 @@ def render_managed_block(profiles: Sequence[ProfileSource]) -> bytes:
         raise InstallerError("cannot render an empty profile selection")
     parts = [
         BEGIN_MARKER_TEXT,
+        f"{OWNERSHIP_MARKER_PREFIX_TEXT}none{OWNERSHIP_MARKER_SUFFIX_TEXT}",
         "<!-- Generated from canonical behavior-profiles/catalog.json; edit the source package instead. -->",
         "",
         "このmanaged blockは指定順でProfileを配置する。Profile間のsemantic conflictを解決せず、",
@@ -239,10 +242,29 @@ def _marker_line_end(data: bytes, position: int, marker: bytes) -> int | None:
     return None
 
 
-def _managed_span(data: bytes) -> tuple[int, int] | None:
+def _ownership_marker(separator: bytes) -> bytes:
+    try:
+        name = OWNED_SEPARATOR_NAMES[separator]
+    except KeyError as exc:
+        raise InstallerError("unsupported managed separator") from exc
+    return OWNERSHIP_MARKER_PREFIX + name.encode("ascii") + OWNERSHIP_MARKER_SUFFIX
+
+
+def _block_with_owned_separator(block: bytes, separator: bytes) -> bytes:
+    default_marker = _ownership_marker(b"")
+    if block.count(OWNERSHIP_MARKER_PREFIX) != 1 or block.count(default_marker) != 1:
+        raise InstallerError("generated block has malformed separator ownership")
+    return block.replace(default_marker, _ownership_marker(separator), 1)
+
+
+def _managed_region(data: bytes) -> ManagedRegion | None:
     begin_count = data.count(BEGIN_MARKER)
     end_count = data.count(END_MARKER)
     if begin_count == 0 and end_count == 0:
+        if OWNERSHIP_MARKER_PREFIX in data:
+            raise InstallerError(
+                "separator ownership corruption: ownership marker has no managed block"
+            )
         return None
     if begin_count != 1 or end_count != 1:
         raise InstallerError(
@@ -259,25 +281,89 @@ def _managed_span(data: bytes) -> tuple[int, int] | None:
         raise InstallerError("managed marker corruption: markers must be exact lines")
     if end < begin_line_end:
         raise InstallerError("managed marker corruption: nested or overlapping markers")
-    return begin, end_line_end
+
+    if data.count(OWNERSHIP_MARKER_PREFIX) != 1:
+        raise InstallerError(
+            "separator ownership corruption: expected exactly one ownership marker"
+        )
+    ownership_end = data.find(b"\n", begin_line_end)
+    if ownership_end < 0:
+        raise InstallerError(
+            "separator ownership corruption: ownership marker is not a complete line"
+        )
+    ownership_line = data[begin_line_end:ownership_end]
+    if ownership_line.endswith(b"\r"):
+        ownership_line = ownership_line[:-1]
+    if not (
+        ownership_line.startswith(OWNERSHIP_MARKER_PREFIX)
+        and ownership_line.endswith(OWNERSHIP_MARKER_SUFFIX)
+    ):
+        raise InstallerError(
+            "separator ownership corruption: ownership marker must follow BEGIN"
+        )
+    encoded_name = ownership_line[
+        len(OWNERSHIP_MARKER_PREFIX) : -len(OWNERSHIP_MARKER_SUFFIX)
+    ]
+    try:
+        name = encoded_name.decode("ascii")
+        separator = OWNED_SEPARATORS[name]
+    except (UnicodeDecodeError, KeyError) as exc:
+        raise InstallerError(
+            "separator ownership corruption: unknown owned separator"
+        ) from exc
+    start = begin - len(separator)
+    if start < 0 or data[start:begin] != separator:
+        raise InstallerError(
+            "separator ownership corruption: recorded separator does not match target"
+        )
+    return ManagedRegion(
+        start=start,
+        begin=begin,
+        end=end_line_end,
+        separator=separator,
+    )
+
+
+def _managed_span(data: bytes) -> tuple[int, int] | None:
+    region = _managed_region(data)
+    if region is None:
+        return None
+    return region.start, region.end
+
+
+def _append_separator(existing: bytes) -> bytes:
+    if not existing or existing.endswith((b"\n\n", b"\r\n\r\n")):
+        return b""
+    if existing.endswith(b"\r\n"):
+        return b"\r\n"
+    if existing.endswith(b"\n"):
+        return b"\n"
+    return b"\n\n"
 
 
 def merge_managed_block(existing: bytes, block: bytes) -> bytes:
     """Append or replace one valid managed block while preserving outside bytes."""
 
-    span = _managed_span(existing)
-    if span is not None:
-        start, end = span
-        return existing[:start] + block + existing[end:]
-    if not existing:
-        return block
-    if existing.endswith(b"\n\n"):
-        separator = b""
-    elif existing.endswith(b"\n"):
-        separator = b"\n"
-    else:
-        separator = b"\n\n"
-    return existing + separator + block
+    region = _managed_region(existing)
+    if region is not None:
+        replacement = _block_with_owned_separator(block, region.separator)
+        return (
+            existing[: region.start]
+            + region.separator
+            + replacement
+            + existing[region.end :]
+        )
+    separator = _append_separator(existing)
+    return existing + separator + _block_with_owned_separator(block, separator)
+
+
+def remove_managed_block(existing: bytes) -> bytes:
+    """Remove one validated managed region and its recorded separator."""
+
+    region = _managed_region(existing)
+    if region is None:
+        return existing
+    return existing[: region.start] + existing[region.end :]
 
 
 def _normalize_target(raw_target: Path | str) -> Path:
@@ -384,6 +470,8 @@ def _assert_snapshot_unchanged(snapshot: TargetSnapshot) -> None:
         raise InstallerError(f"target became unsafe before replacement: {snapshot.path}")
     if (observed.st_dev, observed.st_ino) != snapshot.identity:
         raise InstallerError(f"target identity changed before replacement: {snapshot.path}")
+    if stat.S_IMODE(observed.st_mode) != snapshot.mode:
+        raise InstallerError(f"target mode changed before replacement: {snapshot.path}")
     if _read_regular_file(snapshot.path, observed) != snapshot.data:
         raise InstallerError(f"target content changed before replacement: {snapshot.path}")
 
@@ -445,7 +533,12 @@ def _unified_diff(before: bytes, after: bytes) -> bytes:
         tofile=b"b/AGENTS.md",
         lineterm=b"\n",
     )
-    return b"".join(lines)
+    rendered: list[bytes] = []
+    for line in lines:
+        rendered.append(line)
+        if not line.endswith((b"\n", b"\r")):
+            rendered.extend([b"\n", b"\\ No newline at end of file\n"])
+    return b"".join(rendered)
 
 
 def install_target(raw_target: Path | str, block: bytes, *, apply: bool) -> bytes:
@@ -461,15 +554,32 @@ def install_target(raw_target: Path | str, block: bytes, *, apply: bool) -> byte
     return b""
 
 
+def uninstall_target(raw_target: Path | str, *, apply: bool) -> bytes:
+    """Return an uninstall dry-run diff, or atomically remove the managed region."""
+
+    snapshot = inspect_target(raw_target)
+    updated = remove_managed_block(snapshot.data)
+    if not apply:
+        return _unified_diff(snapshot.data, updated)
+    if updated == snapshot.data:
+        return b""
+    _atomic_write(snapshot, updated)
+    return b""
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        description="Render or install canonical Behavior Profiles in AGENTS.md."
+        description="Render, install, or uninstall canonical Behavior Profiles in AGENTS.md."
     )
     parser.add_argument(
         "--profile",
         action="append",
-        required=True,
         help="Profile name from behavior-profiles/catalog.json; repeat to preserve order.",
+    )
+    parser.add_argument(
+        "--uninstall",
+        action="store_true",
+        help="Remove the managed block from --target; dry-run unless --apply is given.",
     )
     parser.add_argument("--target", type=Path, help="AGENTS.md target; default is stdout.")
     parser.add_argument(
@@ -485,12 +595,21 @@ def main(argv: Sequence[str] | None = None) -> int:
     args = parser.parse_args(argv)
     if args.apply and args.target is None:
         parser.error("--apply requires --target")
+    if args.uninstall and args.profile:
+        parser.error("--uninstall cannot be combined with --profile")
+    if args.uninstall and args.target is None:
+        parser.error("--uninstall requires --target")
+    if not args.uninstall and not args.profile:
+        parser.error("at least one --profile is required")
     try:
-        block = render_profiles(args.profile)
-        if args.target is None:
-            output = block
+        if args.uninstall:
+            output = uninstall_target(args.target, apply=args.apply)
         else:
-            output = install_target(args.target, block, apply=args.apply)
+            block = render_profiles(args.profile)
+            if args.target is None:
+                output = block
+            else:
+                output = install_target(args.target, block, apply=args.apply)
     except InstallerError as exc:
         parser.error(str(exc))
     if output:

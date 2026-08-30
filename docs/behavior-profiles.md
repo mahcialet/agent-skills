@@ -58,7 +58,9 @@ python3 scripts/install_behavior_profiles.py \
   --profile independent-adversarial-verification
 ```
 
-`--target` だけを指定すると、既存fileとの差分を表示して停止する。
+`--target` だけを指定すると、既存fileとの差分を表示して停止する。既存fileの最終行に
+改行がない場合も、dry-runは `\ No newline at end of file` を独立した行に表示し、変更前後の
+行を連結しない。
 
 ```bash
 python3 scripts/install_behavior_profiles.py \
@@ -79,8 +81,14 @@ python3 scripts/install_behavior_profiles.py \
 
 `--apply` はtargetとparentが安全な通常pathで、managed markerが0組または正しい1組のときだけ
 atomic writeする。片側だけのmarker、複数block、nested block、symlink target、存在しないparentは
-fail closedとする。既存blockがなければ文書を保持して末尾へ追加し、あればblock内だけを置換する。
-同じ入力の2回目applyはno-opである。自動commit、push、PR作成はしない。
+fail closedとする。既存blockがなければ文書を保持して末尾へ追加し、あればinstallerが記録した
+separatorを含むmanaged領域だけを置換する。同じ入力の2回目applyはno-opである。自動commit、
+push、PR作成はしない。
+
+既存targetのidentity、contentまたはpermission modeがsnapshot後の再確認までに変化した場合も
+writeを拒否する。これは検出できた競合変更を古いsnapshotで上書きしないための確認であり、他processを
+lockしたり、最後の確認後に発生するraceを完全に排除したりする保証ではない。`atomic write` は途中までの
+fileをtarget pathへ公開しない性質を指し、process間の排他制御を意味しない。
 
 ### Nested scope
 
@@ -98,16 +106,39 @@ Nested fileの適用範囲と優先順位はhostによって異なる。Rootとn
 
 ### Uninstall
 
-PoCでは自動uninstall commandを提供しない。次のmarkerを含むblock全体だけを手動で削除し、
-その外側を保持する。
+`--uninstall --target` は削除予定のdiffを表示するだけで、fileを変更しない。
+
+```bash
+python3 scripts/install_behavior_profiles.py \
+  --uninstall \
+  --target /path/to/repository/AGENTS.md
+```
+
+確認後、明示的に削除するときだけ `--apply` を追加する。
+
+```bash
+python3 scripts/install_behavior_profiles.py \
+  --uninstall \
+  --target /path/to/repository/AGENTS.md \
+  --apply
+```
+
+Installerは、初回install時に追加したseparatorの種類をBEGIN marker直後のownership markerへ記録する。
+Uninstallは次のmanaged領域と、その記録に一致するseparatorだけを削除し、install前からあったbytesを
+復元する。
 
 ```text
 <!-- BEGIN agent-skills behavior-profiles -->
+<!-- agent-skills behavior-profiles owned-separator: none|lf|lf-lf|crlf -->
 ...
 <!-- END agent-skills behavior-profiles -->
 ```
 
-削除前後のdiffを確認し、新しいhost sessionでactive instructionを再確認する。
+Ownership markerの欠損、重複、未知値、または実際のseparatorとの不一致はfail closedとする。
+Ownership marker導入前に生成された旧blockを推測して自動削除しない。旧blockはtargetのbackupとdiffを
+確認し、元の末尾改行を判断できる場合だけ手動で移行する。通常はmarkerや直前の改行を手作業で片側だけ
+削除せず、dry-runを確認してinstallerを使う。Uninstall後は新しいhost sessionでactive instructionを
+再確認する。
 
 ## Profile composition
 

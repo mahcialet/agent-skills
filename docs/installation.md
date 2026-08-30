@@ -4,7 +4,7 @@
 編集内容を即座に反映させながら開発する方法でもインストールできる。
 
 Behavior ProfileはSkill installerではなく、`AGENTS.md` 用のdefault read-only installerを
-使う。Profileのstdout render、dry-run、明示的なapply、managed blockの手動removalは
+使う。Profileのstdout render、dry-run、明示的なapply、managed blockのdry-run uninstallは
 [Behavior Profilesの試験運用](behavior-profiles.md)を参照する。Profileをroot Skill catalogや
 `.agents/skills` へコピーしない。
 

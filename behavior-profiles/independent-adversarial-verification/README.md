@@ -132,8 +132,9 @@ PoCのinstall surfaceは、明示されたrootまたはnested `AGENTS.md` です
 その後にこのprofileのreview loopを適用する順序が分かりやすい構成です。semantic conflictの
 自動解決やhost間で同一のinstruction precedenceは保証しません。
 
-uninstallはinstallerのmanaged blockだけを削除し、block外を保持する手順で行います。markerを
-手作業で片側だけ削除せず、malformed markerとしてfail closedさせてから人間が内容を確認します。
+Uninstallは `--uninstall --target` のdry-runを確認し、明示的な `--apply` で行います。Installerは
+managed blockと記録済みseparatorだけを削除し、block外を保持します。Markerまたはseparatorの
+ownership情報が不正な場合はfail closedとし、手作業で片側だけ削除せず人間が内容を確認します。
 
 ## Pressure testとevidence
 

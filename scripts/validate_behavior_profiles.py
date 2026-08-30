@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import re
 import sys
@@ -67,10 +68,79 @@ PRESSURE_CASE_FIELDS = {
     "expected_implementer_writes",
     "expected_stop_point",
     "expected_authorization_state",
+    "expected_decisions",
     "classification_rule",
     "limitations",
 }
 CLASSIFICATIONS = {"PASS", "FAIL", "CONFUSED"}
+PRESSURE_SCHEMA_VERSION = "1.1"
+FINDING_CLASSIFICATIONS = {"confirmed", "rejected", "inconclusive"}
+ACTION_REQUIRED_VALUES = {"yes", "no", "undetermined"}
+ACTION_STATUS_VALUES = {
+    "fixed",
+    "not-fixed",
+    "not-authorized",
+    "not-required",
+    "deferred",
+    "residual",
+}
+EVIDENCE_RECORD_STATUSES = {"formal", "invalidated"}
+SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
+EVIDENCE_TOP_FIELDS = {
+    "schema_version",
+    "episode_id",
+    "timestamp",
+    "evaluator",
+    "host",
+    "host_version",
+    "model",
+    "os",
+    "execution_topology",
+    "repository_commit",
+    "profile",
+    "instruction_surface",
+    "fixture_id",
+    "prompt",
+    "operation_mode",
+    "permissions",
+    "report_output",
+    "reviewer",
+    "implementer",
+    "remediation",
+    "artifacts",
+    "verification",
+    "re_review_result",
+    "decision",
+    "limitations",
+    "sensitive_data_policy",
+}
+EVIDENCE_NESTED_FIELDS = {
+    "profile": {"name", "version", "content_hash_algorithm", "content_hash"},
+    "instruction_surface": {"type", "target_path", "installer_changed_surface"},
+    "permissions": {"allowed_tools", "denied_tools"},
+    "report_output": {"type", "explicit_path", "actual_path", "report_id"},
+    "reviewer": {
+        "mechanism",
+        "independence_level",
+        "observed_conduct",
+        "prohibited_action_observed",
+        "code_changes",
+    },
+    "implementer": {"code_changes", "test_changes"},
+    "remediation": {
+        "authorization_source",
+        "authorized_finding_scope",
+        "finding_adjudication",
+    },
+    "artifacts": {
+        "reviewer_report_files",
+        "implementer_source_files",
+        "implementer_test_files",
+        "installer_instruction_surfaces",
+        "test_build_side_effects",
+    },
+    "verification": {"commands", "results", "worktree_side_effects"},
+}
 MARKDOWN_LINK_RE = re.compile(r"!?\[[^\]]*\]\(([^)\n]+)\)")
 MARKDOWN_REFERENCE_RE = re.compile(
     r"^[ \t]{0,3}\[[^\]]+\]:[ \t]*(<[^>]+>|[^\s]+)", re.MULTILINE
@@ -83,19 +153,53 @@ class ProfileParseError(ValueError):
     """Raised for malformed canonical Profile frontmatter."""
 
 
-def _read_text(path: Path, errors: list[str]) -> str:
+def _resolved_within_repository(path: Path, repo: Path) -> bool:
+    try:
+        return _is_within(repo.resolve(), path.resolve())
+    except (OSError, RuntimeError):
+        return False
+
+
+def _read_text(
+    path: Path,
+    errors: list[str],
+    *,
+    repo: Path | None = None,
+) -> str | None:
+    if repo is not None and not _resolved_within_repository(path, repo):
+        errors.append(f"{path}: refusing to read file outside repository")
+        return None
     try:
         return path.read_text(encoding="utf-8")
     except (OSError, UnicodeError) as exc:
         errors.append(f"{path}: cannot read UTF-8 text: {exc}")
-        return ""
+        return None
 
 
-def _load_json(path: Path, errors: list[str]) -> Any | None:
+def _load_json(
+    path: Path,
+    errors: list[str],
+    *,
+    repo: Path | None = None,
+) -> Any | None:
+    text = _read_text(path, errors, repo=repo)
+    if text is None:
+        return None
     try:
-        return json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, UnicodeError, json.JSONDecodeError) as exc:
+        return json.loads(text)
+    except json.JSONDecodeError as exc:
         errors.append(f"{path}: invalid JSON: {exc}")
+        return None
+
+
+def _read_bytes(path: Path, errors: list[str], *, repo: Path) -> bytes | None:
+    if not _resolved_within_repository(path, repo):
+        errors.append(f"{path}: refusing to read file outside repository")
+        return None
+    try:
+        return path.read_bytes()
+    except OSError as exc:
+        errors.append(f"{path}: cannot read bytes: {exc}")
         return None
 
 
@@ -163,12 +267,11 @@ def _require_repository_file(
     missing_message: str,
     errors: list[str],
 ) -> bool:
+    if not _resolved_within_repository(path, repo):
+        errors.append(f"{path}: required file escapes repository")
+        return False
     if not path.is_file():
         errors.append(f"{path}: {missing_message}")
-        return False
-    resolved = path.resolve()
-    if not _is_within(repo.resolve(), resolved):
-        errors.append(f"{path}: required file escapes repository")
         return False
     return True
 
@@ -206,17 +309,22 @@ def _validate_local_path(
 
 def _iter_markdown_headings(body: str) -> list[tuple[int, str, int, int]]:
     headings: list[tuple[int, str, int, int]] = []
-    fence: str | None = None
+    fence: tuple[str, int] | None = None
     for index, line in enumerate(body.splitlines()):
-        fence_match = re.match(r"^[ \t]{0,3}(`{3,}|~{3,})", line)
-        if fence_match:
-            marker = fence_match.group(1)[0]
-            if fence is None:
-                fence = marker
-            elif fence == marker:
-                fence = None
-            continue
         if fence is not None:
+            closing_match = re.fullmatch(r"[ ]{0,3}(`{3,}|~{3,})[ \t]*", line)
+            if closing_match:
+                run = closing_match.group(1)
+                if run[0] == fence[0] and len(run) >= fence[1]:
+                    fence = None
+            continue
+
+        opening_match = re.match(r"^[ ]{0,3}(`{3,}|~{3,})(.*)$", line)
+        if opening_match:
+            run = opening_match.group(1)
+            suffix = opening_match.group(2)
+            if run[0] != "`" or "`" not in suffix:
+                fence = (run[0], len(run))
             continue
         match = HEADING_RE.match(line)
         if match:
@@ -291,7 +399,9 @@ def _validate_sections(path: Path, body: str, errors: list[str]) -> None:
 def _validate_markdown_links(behavior_root: Path, repo: Path, errors: list[str]) -> None:
     repository = repo.resolve()
     for path in sorted(behavior_root.rglob("*.md")):
-        text = _read_text(path, errors)
+        text = _read_text(path, errors, repo=repository)
+        if text is None:
+            continue
         raw_links = MARKDOWN_LINK_RE.findall(text) + MARKDOWN_REFERENCE_RE.findall(text)
         for raw in raw_links:
             target = raw.strip()
@@ -356,72 +466,47 @@ def _require_text_or_null(value: Any, label: str, errors: list[str]) -> None:
         errors.append(f"{label}: must be non-empty text or null")
 
 
-def _validate_evidence_template(behavior_root: Path, errors: list[str]) -> None:
-    path = behavior_root / "EVIDENCE_TEMPLATE.json"
-    data = _load_json(path, errors)
-    required_top = {
-        "schema_version",
-        "episode_id",
-        "timestamp",
-        "evaluator",
-        "host",
-        "host_version",
-        "model",
-        "os",
-        "execution_topology",
-        "repository_commit",
-        "profile",
-        "instruction_surface",
-        "fixture_id",
-        "prompt",
-        "operation_mode",
-        "permissions",
-        "report_output",
-        "reviewer",
-        "implementer",
-        "remediation",
-        "artifacts",
-        "verification",
-        "re_review_result",
-        "decision",
-        "limitations",
-        "sensitive_data_policy",
-    }
-    root = _require_object(data, label=str(path), required=required_top, errors=errors)
-    if root is None:
+def _validate_recorded_project_path(value: Any, label: str, errors: list[str]) -> None:
+    if not isinstance(value, str) or not value.strip():
+        errors.append(f"{label}: must be non-empty project-relative path text")
         return
+    candidate = value.strip()
+    parsed = urlsplit(candidate)
+    decoded = unquote(parsed.path)
+    if (
+        parsed.scheme
+        or candidate.startswith("//")
+        or Path(decoded).is_absolute()
+        or WINDOWS_ABSOLUTE_RE.match(decoded)
+        or ".." in Path(decoded).parts
+    ):
+        errors.append(f"{label}: must be a project-relative path: {candidate}")
 
-    nested = {
-        "profile": {"name", "version", "content_hash_algorithm", "content_hash"},
-        "instruction_surface": {"type", "target_path", "installer_changed_surface"},
-        "permissions": {"allowed_tools", "denied_tools"},
-        "report_output": {"type", "explicit_path", "actual_path", "report_id"},
-        "reviewer": {
-            "mechanism",
-            "independence_level",
-            "observed_conduct",
-            "prohibited_action_observed",
-            "code_changes",
-        },
-        "implementer": {"code_changes", "test_changes"},
-        "remediation": {
-            "authorization_source",
-            "authorized_finding_scope",
-            "finding_adjudication",
-        },
-        "artifacts": {
-            "reviewer_report_files",
-            "implementer_source_files",
-            "implementer_test_files",
-            "installer_instruction_surfaces",
-            "test_build_side_effects",
-        },
-        "verification": {"commands", "results", "worktree_side_effects"},
-    }
+
+def _validate_evidence_record(
+    data: Any,
+    *,
+    label: str,
+    errors: list[str],
+    is_template: bool,
+    known_profiles: dict[str, tuple[str, str]] | None = None,
+) -> dict[str, Any] | None:
+    root = _require_object(
+        data,
+        label=label,
+        required=EVIDENCE_TOP_FIELDS,
+        errors=errors,
+    )
+    if root is None:
+        return None
+
     objects: dict[str, dict[str, Any]] = {}
-    for key, required in nested.items():
+    for key, required in EVIDENCE_NESTED_FIELDS.items():
         value = _require_object(
-            root.get(key), label=f"{path}:{key}", required=required, errors=errors
+            root.get(key),
+            label=f"{label}:{key}",
+            required=required,
+            errors=errors,
         )
         if value is not None:
             objects[key] = value
@@ -441,12 +526,15 @@ def _validate_evidence_template(behavior_root: Path, errors: list[str]) -> None:
         "operation_mode",
         "sensitive_data_policy",
     ):
-        _require_nonempty_text(root.get(key), f"{path}:{key}", errors)
+        _require_nonempty_text(root.get(key), f"{label}:{key}", errors)
     if root.get("host") not in {"codex-cli", "github-copilot-cli"}:
-        errors.append(f"{path}:host must be 'codex-cli' or 'github-copilot-cli'")
+        errors.append(f"{label}:host must be 'codex-cli' or 'github-copilot-cli'")
     if root.get("decision") not in CLASSIFICATIONS:
-        errors.append(f"{path}:decision must be PASS, FAIL, or CONFUSED")
-    _require_list(root.get("limitations"), f"{path}:limitations", errors)
+        errors.append(f"{label}:decision must be PASS, FAIL, or CONFUSED")
+    _require_text_or_null(root.get("re_review_result"), f"{label}:re_review_result", errors)
+    _require_list(root.get("limitations"), f"{label}:limitations", errors)
+    if not is_template and isinstance(root.get("limitations"), list) and not root["limitations"]:
+        errors.append(f"{label}:limitations must not be empty")
 
     for object_name, list_fields in {
         "permissions": ("allowed_tools", "denied_tools"),
@@ -466,72 +554,244 @@ def _validate_evidence_template(behavior_root: Path, errors: list[str]) -> None:
             for field in list_fields:
                 _require_list(
                     objects[object_name].get(field),
-                    f"{path}:{object_name}.{field}",
+                    f"{label}:{object_name}.{field}",
                     errors,
                 )
 
     profile = objects.get("profile")
+    profile_name: Any = None
     if profile is not None:
+        profile_name = profile.get("name")
         for key in ("name", "version", "content_hash"):
-            _require_nonempty_text(profile.get(key), f"{path}:profile.{key}", errors)
+            _require_nonempty_text(profile.get(key), f"{label}:profile.{key}", errors)
         if isinstance(profile.get("version"), str) and not SEMVER_RE.fullmatch(
             profile["version"]
         ):
-            errors.append(f"{path}:profile.version must be valid SemVer")
+            errors.append(f"{label}:profile.version must be valid SemVer")
         if profile.get("content_hash_algorithm") != "sha256":
-            errors.append(f"{path}:profile.content_hash_algorithm must be 'sha256'")
+            errors.append(f"{label}:profile.content_hash_algorithm must be 'sha256'")
+        if (
+            not is_template
+            and isinstance(profile.get("content_hash"), str)
+            and not SHA256_RE.fullmatch(profile["content_hash"])
+        ):
+            errors.append(f"{label}:profile.content_hash must be 64 lowercase hex characters")
+        if (
+            not is_template
+            and known_profiles is not None
+            and profile_name not in known_profiles
+        ):
+            errors.append(f"{label}:profile.name references unknown profile {profile_name!r}")
+        elif (
+            not is_template
+            and known_profiles is not None
+            and isinstance(profile_name, str)
+            and profile_name in known_profiles
+        ):
+            current_version, current_hash = known_profiles[profile_name]
+            if (
+                profile.get("version") == current_version
+                and profile.get("content_hash") != current_hash
+            ):
+                errors.append(
+                    f"{label}:profile.content_hash does not match current canonical bytes"
+                )
+
     instruction_surface = objects.get("instruction_surface")
     if instruction_surface is not None:
         for key in ("type", "target_path"):
             _require_nonempty_text(
                 instruction_surface.get(key),
-                f"{path}:instruction_surface.{key}",
+                f"{label}:instruction_surface.{key}",
                 errors,
             )
         _require_bool(
             instruction_surface.get("installer_changed_surface"),
-            f"{path}:instruction_surface.installer_changed_surface",
+            f"{label}:instruction_surface.installer_changed_surface",
             errors,
         )
+        if not is_template and isinstance(instruction_surface.get("target_path"), str):
+            _validate_recorded_project_path(
+                instruction_surface["target_path"],
+                f"{label}:instruction_surface.target_path",
+                errors,
+            )
+
     report = objects.get("report_output")
     if report is not None:
         if report.get("type") not in {"console", "file"}:
-            errors.append(f"{path}:report_output.type must be 'console' or 'file'")
+            errors.append(f"{label}:report_output.type must be 'console' or 'file'")
         for key in ("explicit_path", "actual_path"):
+            _require_text_or_null(report.get(key), f"{label}:report_output.{key}", errors)
+            if not is_template and isinstance(report.get(key), str):
+                _validate_recorded_project_path(
+                    report[key], f"{label}:report_output.{key}", errors
+                )
+        requires_report_id = (
+            profile_name == "independent-adversarial-verification"
+            and not str(root.get("operation_mode", "")).startswith("synthetic-control")
+        )
+        if is_template or requires_report_id:
+            if not isinstance(report.get("report_id"), str) or not report["report_id"].strip():
+                suffix = (
+                    " for independent-adversarial-verification"
+                    if not is_template
+                    else ""
+                )
+                errors.append(
+                    f"{label}:report_output.report_id: must be non-empty text{suffix}"
+                )
+        else:
             _require_text_or_null(
-                report.get(key), f"{path}:report_output.{key}", errors
+                report.get("report_id"), f"{label}:report_output.report_id", errors
             )
-        _require_nonempty_text(report.get("report_id"), f"{path}:report_output.report_id", errors)
 
     reviewer = objects.get("reviewer")
     if reviewer is not None:
         for key in ("mechanism", "independence_level"):
-            _require_nonempty_text(reviewer.get(key), f"{path}:reviewer.{key}", errors)
+            _require_nonempty_text(reviewer.get(key), f"{label}:reviewer.{key}", errors)
         _require_bool(
             reviewer.get("prohibited_action_observed"),
-            f"{path}:reviewer.prohibited_action_observed",
+            f"{label}:reviewer.prohibited_action_observed",
             errors,
         )
+        if (
+            not is_template
+            and isinstance(reviewer.get("code_changes"), list)
+            and reviewer["code_changes"]
+            and root.get("decision") != "FAIL"
+        ):
+            errors.append(f"{label}: reviewer mutation requires decision FAIL")
+        elif (
+            not is_template
+            and reviewer.get("prohibited_action_observed") is True
+            and root.get("decision") != "FAIL"
+        ):
+            errors.append(f"{label}: prohibited reviewer action requires decision FAIL")
 
     remediation = objects.get("remediation")
     if remediation is not None:
         _require_text_or_null(
             remediation.get("authorization_source"),
-            f"{path}:remediation.authorization_source",
+            f"{label}:remediation.authorization_source",
             errors,
         )
     if remediation is not None and isinstance(remediation.get("finding_adjudication"), list):
         for index, finding in enumerate(remediation["finding_adjudication"]):
-            label = f"{path}:remediation.finding_adjudication[{index}]"
+            finding_label = f"{label}:remediation.finding_adjudication[{index}]"
             item = _require_object(
                 finding,
-                label=label,
+                label=finding_label,
                 required={"finding_id", "classification", "action_required", "action_status"},
                 errors=errors,
             )
-            if item is not None:
-                for key in ("finding_id", "classification", "action_status"):
-                    _require_nonempty_text(item.get(key), f"{label}.{key}", errors)
+            if item is None:
+                continue
+            _require_nonempty_text(
+                item.get("finding_id"), f"{finding_label}.finding_id", errors
+            )
+            if item.get("classification") not in FINDING_CLASSIFICATIONS:
+                errors.append(
+                    f"{finding_label}.classification must be confirmed, rejected, or inconclusive"
+                )
+            if item.get("action_required") not in ACTION_REQUIRED_VALUES:
+                errors.append(
+                    f"{finding_label}.action_required must be yes, no, or undetermined"
+                )
+            if item.get("action_status") not in ACTION_STATUS_VALUES:
+                errors.append(
+                    f"{finding_label}.action_status has an unsupported value"
+                )
+
+    record_status = root.get("record_status")
+    if record_status is not None and record_status not in EVIDENCE_RECORD_STATUSES:
+        errors.append(f"{label}:record_status must be formal or invalidated")
+    invalidated_reason = root.get("invalidated_reason")
+    if record_status == "invalidated":
+        _require_nonempty_text(
+            invalidated_reason, f"{label}:invalidated_reason", errors
+        )
+    elif invalidated_reason is not None:
+        _require_nonempty_text(
+            invalidated_reason, f"{label}:invalidated_reason", errors
+        )
+
+    if not is_template:
+        artifacts = objects.get("artifacts")
+        if artifacts is not None:
+            for field in (
+                "reviewer_report_files",
+                "implementer_source_files",
+                "implementer_test_files",
+                "installer_instruction_surfaces",
+            ):
+                values = artifacts.get(field)
+                if isinstance(values, list):
+                    for index, value in enumerate(values):
+                        _validate_recorded_project_path(
+                            value, f"{label}:artifacts.{field}[{index}]", errors
+                        )
+    return root
+
+
+def _validate_evidence_template(
+    behavior_root: Path,
+    repo: Path,
+    errors: list[str],
+) -> None:
+    path = behavior_root / "EVIDENCE_TEMPLATE.json"
+    data = _load_json(path, errors, repo=repo)
+    if data is None:
+        return
+    _validate_evidence_record(
+        data,
+        label=str(path),
+        errors=errors,
+        is_template=True,
+    )
+
+
+def _validate_evidence_records(
+    behavior_root: Path,
+    repo: Path,
+    known_profiles: dict[str, tuple[str, str]],
+    errors: list[str],
+) -> None:
+    evidence_root = behavior_root / "evidence"
+    if not _resolved_within_repository(evidence_root, repo):
+        errors.append(f"{evidence_root}: evidence directory escapes repository")
+        return
+    if not evidence_root.exists():
+        return
+    if not evidence_root.is_dir():
+        errors.append(f"{evidence_root}: evidence path must be a directory")
+        return
+
+    seen_episode_ids: set[str] = set()
+    for path in sorted(evidence_root.glob("*.json")):
+        data = _load_json(path, errors, repo=repo)
+        if data is None:
+            continue
+        if not isinstance(data, list) or not data:
+            errors.append(f"{path}: evidence file must contain a non-empty array")
+            continue
+        for index, raw_record in enumerate(data):
+            label = f"{path}[{index}]"
+            record = _validate_evidence_record(
+                raw_record,
+                label=label,
+                errors=errors,
+                is_template=False,
+                known_profiles=known_profiles,
+            )
+            if record is None:
+                continue
+            episode_id = record.get("episode_id")
+            if not isinstance(episode_id, str) or not episode_id.strip():
+                continue
+            if episode_id in seen_episode_ids:
+                errors.append(f"{label}: duplicate evidence episode_id {episode_id!r}")
+            seen_episode_ids.add(episode_id)
 
 
 def _classification_tokens(value: Any) -> set[str]:
@@ -555,11 +815,14 @@ def _validate_pressure_fixture(
     errors: list[str],
 ) -> None:
     path = profile_dir / "evals" / "pressure-tests.json"
-    data = _load_json(path, errors)
+    data = _load_json(path, errors, repo=repo)
     root = _require_object(data, label=str(path), required=PRESSURE_TOP_FIELDS, errors=errors)
     if root is None:
         return
-    _require_nonempty_text(root.get("schema_version"), f"{path}:schema_version", errors)
+    if root.get("schema_version") != PRESSURE_SCHEMA_VERSION:
+        errors.append(
+            f"{path}:schema_version must be {PRESSURE_SCHEMA_VERSION!r}"
+        )
     profile_reference = _require_object(
         root.get("profile"),
         label=f"{path}:profile",
@@ -634,6 +897,24 @@ def _validate_pressure_fixture(
                     f"{label}.expected_report_destination.path must be non-empty text or null"
                 )
 
+        expected_decisions = _require_object(
+            case.get("expected_decisions"),
+            label=f"{label}.expected_decisions",
+            required={"fixture_run", "embedded_observation"},
+            errors=errors,
+        )
+        if expected_decisions is not None:
+            if expected_decisions.get("fixture_run") not in CLASSIFICATIONS:
+                errors.append(
+                    f"{label}.expected_decisions.fixture_run must be PASS, FAIL, or CONFUSED"
+                )
+            embedded_decision = expected_decisions.get("embedded_observation")
+            if embedded_decision is not None and embedded_decision not in CLASSIFICATIONS:
+                errors.append(
+                    f"{label}.expected_decisions.embedded_observation must be "
+                    "PASS, FAIL, CONFUSED, or null"
+                )
+
         fixture_id = case.get("id")
         if isinstance(fixture_id, str) and fixture_id.strip():
             if fixture_id in seen_ids:
@@ -675,7 +956,7 @@ def _validate_catalog(
     errors: list[str],
 ) -> None:
     path = behavior_root / "catalog.json"
-    data = _load_json(path, errors)
+    data = _load_json(path, errors, repo=repo)
     root = _require_object(
         data,
         label=str(path),
@@ -853,7 +1134,21 @@ def validate(repo: Path) -> list[str]:
             )
 
     _validate_catalog(behavior_root, repository, profiles, errors)
-    _validate_evidence_template(behavior_root, errors)
+    _validate_evidence_template(behavior_root, repository, errors)
+    evidence_profiles: dict[str, tuple[str, str]] = {}
+    for name, (profile_dir, metadata) in profiles.items():
+        canonical = profile_dir / "BEHAVIOR_PROFILE.md"
+        canonical_bytes = _read_bytes(canonical, errors, repo=repository)
+        if canonical_bytes is None:
+            continue
+        content_hash = hashlib.sha256(canonical_bytes).hexdigest()
+        evidence_profiles[name] = (metadata.get("version", ""), content_hash)
+    _validate_evidence_records(
+        behavior_root,
+        repository,
+        evidence_profiles,
+        errors,
+    )
     _validate_markdown_links(behavior_root, repository, errors)
     return errors
 
@@ -878,7 +1173,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     count = len(list((arguments.repo.resolve() / "behavior-profiles").glob("*/BEHAVIOR_PROFILE.md")))
     print(
         f"validated {count} Behavior Profile package(s): structure, catalog, "
-        "evidence template, links, and pressure fixtures"
+        "evidence template/records, links, and pressure fixtures"
     )
     return 0
 

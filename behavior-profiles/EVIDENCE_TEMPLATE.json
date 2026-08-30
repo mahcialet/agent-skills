@@ -1,5 +1,7 @@
 {
   "schema_version": "1.0",
+  "record_status": "formal",
+  "invalidated_reason": null,
   "episode_id": "BP-YYYYMMDD-HOST-FIXTURE-NNN",
   "timestamp": "YYYY-MM-DDTHH:MM:SSZ",
   "evaluator": "human-or-agent-identifier",

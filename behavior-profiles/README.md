@@ -43,7 +43,8 @@ python3 scripts/install_behavior_profiles.py \
 ```
 
 targetなしではstdoutへrenderするだけである。`--target` のみではdry-run diffを表示し、
-`--target ... --apply` がある場合だけ対象fileを更新する。詳しくは
+`--target ... --apply` がある場合だけ対象fileを更新する。`--uninstall --target` も既定は
+dry-runで、`--apply` を加えた場合だけmanaged領域を削除する。詳しくは
 [`docs/behavior-profiles.md`](../docs/behavior-profiles.md) を参照する。
 
 Installerはhostごとのinstruction precedenceやProfile間のsemantic conflictを解決したと
@@ -57,7 +58,8 @@ python3 scripts/validate_behavior_profiles.py
 ./scripts/validate-skills.sh
 ```
 
-前者はfrontmatter、section構造、local link、catalog、fixture等のpackage構造を検査する。
+前者はfrontmatter、section構造、local link、catalog、fixture、存在する実episode evidenceの
+record構造を検査する。
 実際のAgent episodeは別に評価し、`PASS` / `FAIL` / `CONFUSED` とlimitationsを記録する。
 Synthetic fixtureやpackage validationをAgent behaviorの証拠として扱ってはならない。
 2026-08-31のsanitized CLI recordは [`evidence/`](evidence/README.md) に置く。
@@ -72,12 +74,14 @@ Synthetic fixtureやpackage validationをAgent behaviorの証拠として扱っ�
 
 ## Removal
 
-Profileを外す場合は、`AGENTS.md` 内の次のmarkerを含むblockだけを削除する。
+Profileを外す場合は、まず削除予定のdiffを確認する。
 
-```text
-<!-- BEGIN agent-skills behavior-profiles -->
-...
-<!-- END agent-skills behavior-profiles -->
+```bash
+python3 scripts/install_behavior_profiles.py \
+  --uninstall \
+  --target /path/to/repository/AGENTS.md
 ```
 
-managed block外はProfile installerの管理対象ではない。
+確認後、同じcommandへ `--apply` を加える。Installerはmanaged blockと、install時に追加して
+ownership markerへ記録したseparatorだけを削除する。Ownership情報が欠損または矛盾する場合は
+fail closedとし、block外のbytesを推測して削除しない。
