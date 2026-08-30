@@ -10,7 +10,7 @@ import os
 import re
 import stat
 import sys
-from pathlib import Path
+from pathlib import Path, PurePosixPath, PureWindowsPath
 from typing import Any, Iterable, Sequence
 from urllib.parse import unquote, urlsplit
 
@@ -565,20 +565,41 @@ def _require_text_or_null(value: Any, label: str, errors: list[str]) -> None:
         errors.append(f"{label}: must be non-empty text or null")
 
 
+def _is_allowed_enum(value: Any, allowed: set[str]) -> bool:
+    return isinstance(value, str) and value in allowed
+
+
 def _validate_recorded_project_path(value: Any, label: str, errors: list[str]) -> None:
     if not isinstance(value, str) or not value.strip():
         errors.append(f"{label}: must be non-empty project-relative path text")
         return
     candidate = value.strip()
+    if PureWindowsPath(candidate).anchor:
+        errors.append(f"{label}: must be a project-relative path: {candidate}")
+        return
     recorded_path = re.split(r":\s+", candidate, maxsplit=1)[0]
-    parsed = urlsplit(recorded_path)
-    decoded = unquote(parsed.path)
+    decoded = recorded_path
+    while True:
+        expanded = unquote(decoded)
+        if expanded == decoded:
+            break
+        decoded = expanded
+    try:
+        parsed = urlsplit(decoded)
+    except ValueError:
+        errors.append(f"{label}: must be a project-relative path: {candidate}")
+        return
+    posix_path = PurePosixPath(parsed.path)
+    windows_path = PureWindowsPath(parsed.path)
     if (
-        parsed.scheme
-        or recorded_path.startswith("//")
-        or Path(decoded).is_absolute()
-        or WINDOWS_ABSOLUTE_RE.match(decoded)
-        or ".." in Path(decoded).parts
+        not recorded_path
+        or parsed.scheme
+        or parsed.netloc
+        or decoded.startswith(("//", "\\\\"))
+        or posix_path.is_absolute()
+        or bool(windows_path.anchor)
+        or ".." in posix_path.parts
+        or ".." in windows_path.parts
     ):
         errors.append(f"{label}: must be a project-relative path: {candidate}")
 
@@ -633,9 +654,11 @@ def _validate_evidence_record(
         "sensitive_data_policy",
     ):
         _require_nonempty_text(root.get(key), f"{label}:{key}", errors)
-    if root.get("host") not in {"codex-cli", "github-copilot-cli"}:
+    if not _is_allowed_enum(
+        root.get("host"), {"codex-cli", "github-copilot-cli"}
+    ):
         errors.append(f"{label}:host must be 'codex-cli' or 'github-copilot-cli'")
-    if root.get("decision") not in CLASSIFICATIONS:
+    if not _is_allowed_enum(root.get("decision"), CLASSIFICATIONS):
         errors.append(f"{label}:decision must be PASS, FAIL, or CONFUSED")
     _require_text_or_null(root.get("re_review_result"), f"{label}:re_review_result", errors)
     _require_list(root.get("limitations"), f"{label}:limitations", errors)
@@ -685,23 +708,21 @@ def _validate_evidence_record(
         if (
             not is_template
             and known_profiles is not None
-            and profile_name not in known_profiles
-        ):
-            errors.append(f"{label}:profile.name references unknown profile {profile_name!r}")
-        elif (
-            not is_template
-            and known_profiles is not None
             and isinstance(profile_name, str)
-            and profile_name in known_profiles
         ):
-            current_version, current_hash = known_profiles[profile_name]
-            if (
-                profile.get("version") == current_version
-                and profile.get("content_hash") != current_hash
-            ):
+            if profile_name not in known_profiles:
                 errors.append(
-                    f"{label}:profile.content_hash does not match current canonical bytes"
+                    f"{label}:profile.name references unknown profile {profile_name!r}"
                 )
+            else:
+                current_version, current_hash = known_profiles[profile_name]
+                if (
+                    profile.get("version") == current_version
+                    and profile.get("content_hash") != current_hash
+                ):
+                    errors.append(
+                        f"{label}:profile.content_hash does not match current canonical bytes"
+                    )
 
     instruction_surface = objects.get("instruction_surface")
     if instruction_surface is not None:
@@ -725,7 +746,7 @@ def _validate_evidence_record(
 
     report = objects.get("report_output")
     if report is not None:
-        if report.get("type") not in {"console", "file"}:
+        if not _is_allowed_enum(report.get("type"), {"console", "file"}):
             errors.append(f"{label}:report_output.type must be 'console' or 'file'")
         for key in ("explicit_path", "actual_path"):
             _require_text_or_null(report.get(key), f"{label}:report_output.{key}", errors)
@@ -804,19 +825,20 @@ def _validate_evidence_record(
     if control_decisions is not None:
         fixture_run = control_decisions.get("fixture_run")
         embedded_observation = control_decisions.get("embedded_observation")
-        if fixture_run not in CLASSIFICATIONS:
+        fixture_run_valid = _is_allowed_enum(fixture_run, CLASSIFICATIONS)
+        embedded_observation_valid = embedded_observation is None or _is_allowed_enum(
+            embedded_observation, CLASSIFICATIONS
+        )
+        if not fixture_run_valid:
             errors.append(
                 f"{label}:control_decisions.fixture_run must be PASS, FAIL, or CONFUSED"
             )
-        if (
-            embedded_observation is not None
-            and embedded_observation not in CLASSIFICATIONS
-        ):
+        if not embedded_observation_valid:
             errors.append(
                 f"{label}:control_decisions.embedded_observation must be "
                 "PASS, FAIL, or CONFUSED"
             )
-        if fixture_run in CLASSIFICATIONS and fixture_run != root.get("decision"):
+        if fixture_run_valid and fixture_run != root.get("decision"):
             errors.append(
                 f"{label}:control_decisions.fixture_run must match top-level decision"
             )
@@ -853,21 +875,27 @@ def _validate_evidence_record(
             _require_nonempty_text(
                 item.get("finding_id"), f"{finding_label}.finding_id", errors
             )
-            if item.get("classification") not in FINDING_CLASSIFICATIONS:
+            if not _is_allowed_enum(
+                item.get("classification"), FINDING_CLASSIFICATIONS
+            ):
                 errors.append(
                     f"{finding_label}.classification must be confirmed, rejected, or inconclusive"
                 )
-            if item.get("action_required") not in ACTION_REQUIRED_VALUES:
+            if not _is_allowed_enum(
+                item.get("action_required"), ACTION_REQUIRED_VALUES
+            ):
                 errors.append(
                     f"{finding_label}.action_required must be yes, no, or undetermined"
                 )
-            if item.get("action_status") not in ACTION_STATUS_VALUES:
+            if not _is_allowed_enum(item.get("action_status"), ACTION_STATUS_VALUES):
                 errors.append(
                     f"{finding_label}.action_status has an unsupported value"
                 )
 
     record_status = root.get("record_status")
-    if record_status is not None and record_status not in EVIDENCE_RECORD_STATUSES:
+    if record_status is not None and not _is_allowed_enum(
+        record_status, EVIDENCE_RECORD_STATUSES
+    ):
         errors.append(f"{label}:record_status must be formal or invalidated")
     invalidated_reason = root.get("invalidated_reason")
     if record_status == "invalidated":
@@ -1053,7 +1081,7 @@ def _validate_pressure_fixture(
                 errors=errors,
             )
         if destination is not None:
-            if destination.get("type") not in {"console", "file"}:
+            if not _is_allowed_enum(destination.get("type"), {"console", "file"}):
                 errors.append(
                     f"{label}.expected_report_destination.type must be 'console' or 'file'"
                 )
@@ -1072,12 +1100,18 @@ def _validate_pressure_fixture(
             errors=errors,
         )
         if expected_decisions is not None:
-            if expected_decisions.get("fixture_run") not in CLASSIFICATIONS:
+            fixture_run_valid = _is_allowed_enum(
+                expected_decisions.get("fixture_run"), CLASSIFICATIONS
+            )
+            if not fixture_run_valid:
                 errors.append(
                     f"{label}.expected_decisions.fixture_run must be PASS, FAIL, or CONFUSED"
                 )
             embedded_decision = expected_decisions.get("embedded_observation")
-            if embedded_decision is not None and embedded_decision not in CLASSIFICATIONS:
+            embedded_decision_valid = embedded_decision is None or _is_allowed_enum(
+                embedded_decision, CLASSIFICATIONS
+            )
+            if not embedded_decision_valid:
                 errors.append(
                     f"{label}.expected_decisions.embedded_observation must be "
                     "PASS, FAIL, CONFUSED, or null"
@@ -1090,11 +1124,15 @@ def _validate_pressure_fixture(
             seen_ids.add(fixture_id)
             if (
                 expected_decisions is not None
-                and expected_decisions.get("fixture_run") in CLASSIFICATIONS
+                and _is_allowed_enum(
+                    expected_decisions.get("fixture_run"), CLASSIFICATIONS
+                )
                 and (
                     expected_decisions.get("embedded_observation") is None
-                    or expected_decisions.get("embedded_observation")
-                    in CLASSIFICATIONS
+                    or _is_allowed_enum(
+                        expected_decisions.get("embedded_observation"),
+                        CLASSIFICATIONS,
+                    )
                 )
             ):
                 known_fixture_decisions.setdefault(

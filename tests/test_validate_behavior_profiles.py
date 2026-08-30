@@ -584,6 +584,75 @@ class BehaviorProfileValidatorTestCase(unittest.TestCase):
             f"unsupported secure read capability was not rejected: {errors!r}",
         )
 
+    def test_repository_parent_replacement_does_not_reanchor_reader(self) -> None:
+        if (
+            not validator.OPEN_SUPPORTS_DIR_FD
+            or not hasattr(os, "O_NOFOLLOW")
+            or not hasattr(os, "O_DIRECTORY")
+        ):
+            self.skipTest("secure component-relative open is unavailable")
+        probe_target = Path(self.temporary_directory.name) / "symlink-probe-target"
+        probe_link = Path(self.temporary_directory.name) / "symlink-probe-link"
+        probe_target.mkdir()
+        try:
+            probe_link.symlink_to(probe_target, target_is_directory=True)
+        except (OSError, NotImplementedError):
+            self.skipTest("directory symlinks are unavailable")
+        else:
+            probe_link.unlink()
+
+        trusted_parent = Path(self.temporary_directory.name) / "trusted-parent"
+        repository = trusted_parent / "repository"
+        original_repository = (
+            Path(self.temporary_directory.name) / "repository-before-replacement"
+        )
+        outside_parent = Path(self.temporary_directory.name) / "outside-parent"
+        outside_repository = outside_parent / repository.name
+        inside_file = repository / "sentinel.txt"
+        outside_file = outside_repository / inside_file.name
+        self.write_text(inside_file, "INSIDE_SENTINEL")
+        self.write_text(outside_file, "OUTSIDE_SENTINEL")
+        original_os_open = os.open
+        swapped = False
+
+        def replace_repository_parent() -> None:
+            nonlocal swapped
+            if swapped:
+                return
+            trusted_parent.rename(original_repository)
+            trusted_parent.symlink_to(outside_parent, target_is_directory=True)
+            swapped = True
+
+        def interposed_os_open(
+            path: str | bytes | os.PathLike[str] | os.PathLike[bytes],
+            flags: int,
+            mode: int = 0o777,
+            *,
+            dir_fd: int | None = None,
+        ) -> int:
+            path_text = os.fspath(path)
+            if (
+                path_text == str(repository)
+                or (path_text == trusted_parent.name and dir_fd is not None)
+            ):
+                replace_repository_parent()
+            return original_os_open(path, flags, mode, dir_fd=dir_fd)
+
+        observed: bytes | None = None
+        with mock.patch.object(os, "open", interposed_os_open):
+            try:
+                with validator.RepositoryReader(repository) as reader:
+                    observed = reader.read_bytes(inside_file)
+            except OSError:
+                pass
+
+        self.assertTrue(swapped, "the repository-parent replacement was not exercised")
+        self.assertNotEqual(
+            b"OUTSIDE_SENTINEL",
+            observed,
+            "the reader was re-anchored through the replacement symlink",
+        )
+
     def test_missing_iav_template_is_rejected(self) -> None:
         (
             self.behavior_root
@@ -800,6 +869,122 @@ class BehaviorProfileValidatorTestCase(unittest.TestCase):
         self.write_evidence_records([record])
         self.assertEqual([], self.errors())
 
+    def test_malformed_evidence_enums_are_controlled_validation_errors(self) -> None:
+        cases = (
+            (("host",), [], "host must be 'codex-cli' or 'github-copilot-cli'"),
+            (("decision",), [], "decision must be PASS, FAIL, or CONFUSED"),
+            (("report_output", "type"), [], "report_output.type must be"),
+            (
+                ("control_decisions", "fixture_run"),
+                [],
+                "control_decisions.fixture_run must be PASS, FAIL, or CONFUSED",
+            ),
+            (
+                ("control_decisions", "embedded_observation"),
+                [],
+                "control_decisions.embedded_observation must be PASS, FAIL, or CONFUSED",
+            ),
+            (
+                ("remediation", "finding_adjudication", 0, "classification"),
+                [],
+                "classification must be confirmed, rejected, or inconclusive",
+            ),
+            (
+                ("remediation", "finding_adjudication", 0, "action_required"),
+                [],
+                "action_required must be yes, no, or undetermined",
+            ),
+            (
+                ("remediation", "finding_adjudication", 0, "action_status"),
+                [],
+                "action_status has an unsupported value",
+            ),
+            (("record_status",), [], "record_status must be formal or invalidated"),
+            (("profile", "name"), [], "profile.name: must be non-empty text"),
+        )
+
+        def set_nested_value(
+            root: dict[str, object], path: tuple[str | int, ...], value: object
+        ) -> None:
+            target: object = root
+            for component in path[:-1]:
+                target = target[component]  # type: ignore[index]
+            target[path[-1]] = value  # type: ignore[index]
+
+        for path, malformed, expected in cases:
+            with self.subTest(path=path):
+                record = evidence_template()
+                record["profile"]["name"] = "scope-control"  # type: ignore[index]
+                record["control_decisions"] = {
+                    "fixture_run": "CONFUSED",
+                    "embedded_observation": None,
+                }
+                set_nested_value(record, path, malformed)
+                self.write_evidence_records([record])
+                try:
+                    errors = self.errors()
+                except TypeError as exc:
+                    self.fail(f"malformed enum raised TypeError for {path!r}: {exc}")
+                self.assertTrue(
+                    any(expected in error for error in errors),
+                    f"missing controlled error {expected!r}: {errors!r}",
+                )
+
+    def test_malformed_pressure_fixture_enums_are_controlled_errors(self) -> None:
+        path = self.behavior_root / "scope-control" / "evals" / "pressure-tests.json"
+        cases = (
+            (
+                ("fixtures", 0, "expected_report_destination", "type"),
+                [],
+                "expected_report_destination.type must be 'console' or 'file'",
+            ),
+            (
+                ("fixtures", 0, "expected_decisions", "fixture_run"),
+                [],
+                "expected_decisions.fixture_run must be PASS, FAIL, or CONFUSED",
+            ),
+            (
+                ("fixtures", 0, "expected_decisions", "embedded_observation"),
+                [],
+                "expected_decisions.embedded_observation must be",
+            ),
+        )
+
+        def set_nested_value(
+            root: dict[str, object], keys: tuple[str | int, ...], value: object
+        ) -> None:
+            target: object = root
+            for key in keys[:-1]:
+                target = target[key]  # type: ignore[index]
+            target[keys[-1]] = value  # type: ignore[index]
+
+        for keys, malformed, expected in cases:
+            with self.subTest(path=keys):
+                data = pressure_fixture("scope-control", "fixture-1")
+                set_nested_value(data, keys, malformed)
+                self.write_json(path, data)
+                try:
+                    errors = self.errors()
+                except TypeError as exc:
+                    self.fail(f"malformed enum raised TypeError for {keys!r}: {exc}")
+                self.assertTrue(
+                    any(expected in error for error in errors),
+                    f"missing controlled error {expected!r}: {errors!r}",
+                )
+
+    def test_malformed_action_status_returns_controlled_main_failure(self) -> None:
+        record = evidence_template()
+        record["profile"]["name"] = "scope-control"  # type: ignore[index]
+        record["remediation"]["finding_adjudication"][0][  # type: ignore[index]
+            "action_status"
+        ] = []
+        self.write_evidence_records([record])
+        error_output = io.StringIO()
+        with contextlib.redirect_stderr(error_output):
+            result = validator.main([str(self.repo)])
+        self.assertEqual(1, result)
+        self.assertIn("action_status has an unsupported value", error_output.getvalue())
+
     def test_evidence_reviewer_mutation_requires_fail_decision(self) -> None:
         record = evidence_template()
         record["profile"]["name"] = "independent-adversarial-verification"  # type: ignore[index]
@@ -881,6 +1066,71 @@ class BehaviorProfileValidatorTestCase(unittest.TestCase):
                     ),
                     f"absolute write path for {field} was accepted: {errors!r}",
                 )
+
+    def test_evidence_cross_platform_path_escapes_are_rejected(self) -> None:
+        record = evidence_template()
+        record["profile"]["name"] = (  # type: ignore[index]
+            "independent-adversarial-verification"
+        )
+        record["reviewer"]["code_changes"] = [  # type: ignore[index]
+            r"\\server\share\review.py"
+        ]
+        record["reviewer"]["prohibited_action_observed"] = True  # type: ignore[index]
+        record["implementer"]["code_changes"] = [  # type: ignore[index]
+            r"\tmp\implementation.py"
+        ]
+        record["implementer"]["test_changes"] = [  # type: ignore[index]
+            r"src\..\outside.py",
+            "file%3A///tmp/test.py",
+        ]
+        record["decision"] = "FAIL"
+        self.write_evidence_records([record])
+
+        errors = self.errors()
+        for field in (
+            "reviewer.code_changes[0]",
+            "implementer.code_changes[0]",
+            "implementer.test_changes[0]",
+            "implementer.test_changes[1]",
+        ):
+            with self.subTest(field=field):
+                self.assertTrue(
+                    any(
+                        f"{field}: must be a project-relative path" in error
+                        for error in errors
+                    ),
+                    f"cross-platform path escape for {field} was accepted: {errors!r}",
+                )
+
+    def test_recorded_project_path_cross_platform_boundaries(self) -> None:
+        rejected = (
+            r"C:\workspace\file.py",
+            r"C:drive-relative.py",
+            "C: drive-relative.py",
+            r"\\?\C:\workspace\file.py",
+            "%2Ftmp/encoded-absolute.py",
+            r"src%5C..%5Coutside.py",
+            "https%3A//example.invalid/file.py",
+            "file%253A///tmp/double-encoded.py",
+        )
+        accepted = (
+            "src/module.py",
+            r"src\module.py",
+            "src/path%20with%20spaces.py",
+            "src/module.py: 変更理由",
+            "docs/..notes.md",
+        )
+
+        for value in rejected:
+            with self.subTest(value=value, expected="reject"):
+                errors: list[str] = []
+                validator._validate_recorded_project_path(value, "path", errors)
+                self.assertTrue(errors, f"path escape was accepted: {value!r}")
+        for value in accepted:
+            with self.subTest(value=value, expected="accept"):
+                errors = []
+                validator._validate_recorded_project_path(value, "path", errors)
+                self.assertEqual([], errors)
 
     def test_evidence_recorded_write_paths_accept_relative_path_descriptions(self) -> None:
         record = evidence_template()
