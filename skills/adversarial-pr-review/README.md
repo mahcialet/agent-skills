@@ -19,6 +19,31 @@ A0〜A4で指定できます。
 判定として `BLOCK` / `CONDITIONAL` / `PASS` を返します。どちらのmodeでも、GitHub上のreview、
 status、label、mergeは変更しません。
 
+## 判断基準と証拠を整理する
+
+reviewを始める前に、変更目的、判断基準、期待する結果、起きてはならない結果、申告された影響範囲を
+`review contract` として整理します。判断基準が十分かどうかは、`specification_status` を
+`sufficient`、`partial`、`missing` の3状態で示します。`partial` や `missing` でもreview全体は
+中止しません。業務要件への適合判断は保留しつつ、その情報に依存しないcorrectness、regression、
+security、data integrity、failure handlingを確認します。不明な要件、担当者、runbookは創作せず、
+必要な判断だけを保留します。
+
+要件や禁止結果は、`requirement traceability` として実装箇所、test、その他の証拠と対応付け、
+`Satisfied`、`Violated`、`Unverified`、`Not applicable`、`Conflicting requirements` の
+いずれかで状況を示します。申告された影響（`declared impact`）と、差分外の探索で見つけた影響
+（`discovered impact`）は分けて示します。
+申告されていない影響を見つけただけではfindingにせず、到達可能な問題と根拠を確認してから
+報告します。
+
+testの証跡は、成功したという申告だけの `claimed`、CI結果や保存済みlogを確認した `observed`、
+reviewerが安全な環境で実行した `executed` に分けます。申告だけの結果を、確認済みまたは実行済みと
+表現しません。
+
+`mode=gate` の `BLOCK` / `CONDITIONAL` / `PASS` は、確認できた範囲に基づくAIのrecommendationです。
+人間によるapprovalではなく、`PASS` もmerge許可や安全保証を意味しません。最終判断者を確認できない
+場合は、もっともらしい担当者を補わず `unresolved` とします。gateの出力では
+`Approval status: NOT GRANTED` と `Human approval required: yes` を維持します。
+
 ## 明示起動
 
 Codex:
@@ -83,6 +108,13 @@ findingが0件でも安全を保証しません。結果には、確認したsco
 残っているリスクを示します。
 出力はユーザーが使用した言語を優先し、指定が不明な場合は日本語を既定にします。
 
+## 設計背景と出典
+
+レビュー領域とchecklist候補の整理、review contract、人間によるapprovalとの境界には、公開記事を
+conceptual referenceとして利用しています。記事の文章、画像、datasetは転載せず、Skillの手順、
+A0〜A4、evidence workflow、安全境界、examples、evalsはこのリポジトリ向けに実装しています。
+参照した記事のmetadata、取り入れた概念、加えた変更は [NOTICE.md](NOTICE.md) に記録しています。
+
 ## ポータビリティ
 
 CodexとGitHub Copilot CLIは、共通のレビュー手順を記した同じ `SKILL.md` を使います。
@@ -90,5 +122,5 @@ CodexとGitHub Copilot CLIは、共通のレビュー手順を記した同じ `S
 Skillディレクトリ全体を `.agents/skills/adversarial-pr-review` へ配置してください。
 このモノレポから利用する場合は、root repositoryのインストール手順も参照できます。
 
-This is an independent review aid, not a penetration test, formal verification,
-security certification, or guarantee. See [NOTICE.md](NOTICE.md) for attribution.
+本Skillは独立したreview支援であり、penetration test、formal verification、security certification、
+安全保証の代わりにはなりません。

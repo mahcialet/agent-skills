@@ -24,6 +24,14 @@ version、scope、同名Skillの有無など、実行条件が異なる結果を
 | Codex | `SKILL.md`の`name`/`description`、`.agents/skills`、`agents/openai.yaml`、`allow_implicit_invocation: false` | [OpenAI Docs](https://developers.openai.com/codex/skills/) |
 | Copilot CLI | `.agents/skills`、小文字hyphen名、`/skills list`・`info`・`reload`、Skill内追加ファイル | [GitHub Docs](https://docs.github.com/en/copilot/how-tos/copilot-cli/customize-copilot/add-skills) |
 | GitHub CLI | `skills/*/SKILL.md`、Codex/Copilot target、SHA pin、`publish --dry-run` | [gh manual](https://cli.github.com/manual/gh_skill) |
+| GitHub-hosted Copilot code review | PRのhead branchからrepository custom instructions、agent instructions、agent skillsを読む | [GitHub Docs](https://docs.github.com/en/copilot/concepts/agents/code-review) |
+
+GitHub-hosted Copilot code reviewは、このリポジトリで実機確認したhostの組合せには含めない。
+PRのhead側にあるinstructionsやskillsは、このSkillがreview対象のdataと命令を分離する前にhostから
+読み込まれる可能性がある。そのため、CLIでbase側のtrusted instructionとhead側のreview dataを
+分けることを前提にした安全境界を、Skillの起動前まで保証できない。安全性が必要なreviewでは、
+base側を信頼できる作業環境で対象差分を取得し、Codex CLIまたはGitHub Copilot CLIからこのSkillを
+明示起動するtrusted CLI review pathを使用する。
 
 CodexとCopilotが共通して使う挙動は、各 `skills/<skill-name>/SKILL.md` に定義する。
 ホスト別のコピーは手作業で作らない。Codex固有の `agents/openai.yaml` にはUIと起動ポリシー
