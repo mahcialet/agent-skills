@@ -7,6 +7,13 @@
 Report `BPR-ABB20C9-20260831-01` の再現、裁定、回帰testとの対応は
 [`BPR-ABB20C9-20260831-01-remediation.md`](BPR-ABB20C9-20260831-01-remediation.md) に記録する。
 
+## Tooling remediation
+
+`BPR-EE18236-NF001` / `BPR-EE18236-NF002` に対する
+再現、裁定、修正、回帰test、acceptance criteriaとの対応は
+[`BPR-EE18236-remediation.md`](BPR-EE18236-remediation.md) に記録する。これはvalidatorと
+Evidence契約のdeterministic tooling evidenceであり、CLI実機episodeの集計には加えない。
+
 ## 2026-08-31 CLI実機確認
 
 | Host / collection | Evidence | 正式episode | 無効化した履歴 | Behavior判定 | Review対象・埋込み観測の判定 |
