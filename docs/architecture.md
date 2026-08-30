@@ -25,8 +25,9 @@ referencesに分け、必要なものだけを読みます。examplesとeval fix
 
 schema v1、local data directoryの解決、state transition、audit log、manual corpus CLI、
 public GitHub PRのreference-only収集、adversarial investigation bundle、proposal draftは
-実装済みです。regression runner、rule apply、通常reviewからの明示的なlocal corpus利用は
-未実装です。現在の通常reviewは、既存のbundled referencesとevalだけを使用します。
+実装済みです。provider-neutralなregression plan・result取込み・report、人間の承認artifact、
+限定したrule applyも実装済みです。通常reviewからの明示的なlocal corpus利用は未実装です。
+現在の通常reviewは、既存のbundled referencesとevalだけを使用します。
 
 育成基盤では、配布されるCoreと利用者固有のLocalを分離します。
 
@@ -41,7 +42,9 @@ Local
 ├── accepted / rejected records
 ├── promoted corpus
 ├── investigations
-└── rule proposals
+├── rule proposals
+├── regression plans / runs / reports
+└── rule approvals
 ```
 
 Local dataはインストール済みSkillのsource directoryへ保存できません。user scopeを既定とし、
@@ -53,11 +56,13 @@ deterministicな処理とAgent reasoningの責務も分離します。
 
 | 担当 | 責務 |
 |---|---|
-| Skill内のtool | 収集、正規化、provenance保存、state transition、schema validation、diff、audit、bundle生成 |
-| Agent | pattern仮説、反例探索、境界分析、semantic risk、保守的なrule proposal |
-| 人間 | rights判断、annotation、corpus promotion、behavior-changing ruleの最終承認 |
+| Skill内のtool | 収集、正規化、provenance保存、state transition、schema validation、diff、audit、bundle・regression plan生成、result集約、apply gate |
+| Agent | pattern仮説、反例探索、境界分析、semantic risk、保守的なrule proposal、provider上でのeval実行 |
+| 人間 | rights判断、annotation、corpus promotion、regression結果の確認、behavior-changing ruleの最終承認 |
 
-toolから特定providerのAPIやCLIを直接呼ばず、Agent向けbundleをCodexとCopilotで共通利用
-できる形式にします。詳細は
+toolから特定providerのAPIやCLIを直接呼ばず、Agent向けbundleとregression planをCodexと
+Copilotで共通利用できる形式にします。承認はproposalを直接変更せず、reportとexact diff hashを
+固定した別artifactとして保存します。`rules apply` は許可対象pathだけを変更し、validator失敗時は
+rollbackします。自動commit・pushは行いません。詳細は
 [corpus workflow](../skills/reader-first-editor/docs/corpus-workflow.md)と
 [Agent investigation](../skills/reader-first-editor/docs/agent-investigation.md)に記載します。

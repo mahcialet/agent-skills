@@ -16,7 +16,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 SCHEMA_VERSION = 1
-TOOL_VERSION = "0.3.0"
+TOOL_VERSION = "0.4.0"
 STATE_DIRECTORIES = {
     "candidate": "candidates",
     "annotated": "annotated",
@@ -657,7 +657,15 @@ class LocalCorpusStore:
 
     def initialize(self) -> None:
         with self._store_lock():
-            for directory in (*STATE_DIRECTORIES.values(), "investigations", "proposals", "cache", "audit"):
+            for directory in (
+                *STATE_DIRECTORIES.values(),
+                "investigations",
+                "proposals",
+                "regressions",
+                "approvals",
+                "cache",
+                "audit",
+            ):
                 self._ensure_directory(self.root / directory)
             self._ensure_directory(self.pending_dir)
             self._recover_pending()
@@ -670,7 +678,15 @@ class LocalCorpusStore:
             raise StoreError(f"store root外のdirectoryは使用できません: {path}")
 
     def _assert_safe_layout(self) -> None:
-        for directory in (*STATE_DIRECTORIES.values(), "investigations", "proposals", "cache", "audit"):
+        for directory in (
+            *STATE_DIRECTORIES.values(),
+            "investigations",
+            "proposals",
+            "regressions",
+            "approvals",
+            "cache",
+            "audit",
+        ):
             path = self.root / directory
             if path.is_symlink():
                 raise StoreError(f"store内部directoryをsymlinkにできません: {path}")
@@ -721,6 +737,44 @@ class LocalCorpusStore:
         path = self.root / "proposals" / f"{proposal_id}.json"
         self._assert_safe_path(path)
         return path
+
+    def regression_plan_path(self, plan_id: str) -> Path:
+        if not re.fullmatch(r"rfrp-[0-9a-f]{20}", plan_id):
+            raise StoreError("regression plan IDの形式が不正です")
+        path = self.root / "regressions" / "plans" / f"{plan_id}.json"
+        self._assert_safe_path(path)
+        return path
+
+    def regression_run_path(self, plan_id: str, run_id: str) -> Path:
+        if not re.fullmatch(r"rfrp-[0-9a-f]{20}", plan_id):
+            raise StoreError("regression plan IDの形式が不正です")
+        if not re.fullmatch(r"rfrr-[0-9a-f]{20}", run_id):
+            raise StoreError("regression run IDの形式が不正です")
+        path = self.root / "regressions" / "runs" / plan_id / f"{run_id}.json"
+        self._assert_safe_path(path)
+        return path
+
+    def regression_report_path(self, report_id: str) -> Path:
+        if not re.fullmatch(r"rfrt-[0-9a-f]{20}", report_id):
+            raise StoreError("regression report IDの形式が不正です")
+        path = self.root / "regressions" / "reports" / f"{report_id}.json"
+        self._assert_safe_path(path)
+        return path
+
+    def rule_approval_path(self, approval_id: str) -> Path:
+        if not re.fullmatch(r"rfa-[0-9a-f]{20}", approval_id):
+            raise StoreError("rule approval IDの形式が不正です")
+        path = self.root / "approvals" / f"{approval_id}.json"
+        self._assert_safe_path(path)
+        return path
+
+    def list_regression_run_paths(self, plan_id: str) -> list[Path]:
+        directory = self.regression_run_path(plan_id, "rfrr-" + "0" * 20).parent
+        if not directory.exists():
+            return []
+        self._assert_safe_layout()
+        self._assert_safe_path(directory / "placeholder.json")
+        return sorted(directory.glob("rfrr-*.json"))
 
     def read_artifact(self, path: Path) -> dict:
         if not self.root.exists():

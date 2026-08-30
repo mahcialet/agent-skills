@@ -1,0 +1,76 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/mahcialet/agent-skills/reader-first-editor/regression-plan.schema.json",
+  "title": "Reader-First Editor regression plan",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["id", "schema_version", "proposal_id", "diff_hash", "created_at", "providers", "cases", "requirements"],
+  "properties": {
+    "id": {"type": "string", "pattern": "^rfrp-[0-9a-f]{20}$"},
+    "schema_version": {"const": 1},
+    "proposal_id": {"type": "string", "pattern": "^rfp-[0-9a-f]{20}$"},
+    "diff_hash": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+    "created_at": {"type": "string", "minLength": 1},
+    "providers": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["provider", "model", "model_version", "host_version", "repeats"],
+        "properties": {
+          "provider": {"type": "string", "minLength": 1},
+          "model": {"type": "string", "minLength": 1},
+          "model_version": {"type": "string", "minLength": 1},
+          "host_version": {"type": "string", "minLength": 1},
+          "repeats": {"type": "integer", "minimum": 1}
+        }
+      }
+    },
+    "cases": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "source", "category", "suite", "mode", "language", "expected_behavior", "input", "expected", "must_preserve", "must_not"],
+        "properties": {
+          "id": {"type": "string", "minLength": 1},
+          "source": {"enum": ["bundled", "corpus", "proposal"]},
+          "category": {"enum": ["existing", "corpus", "positive", "negative", "boundary"]},
+          "suite": {"type": "string", "minLength": 1},
+          "mode": {"type": "string", "minLength": 1},
+          "language": {"enum": ["ja", "en"]},
+          "expected_behavior": {"enum": ["change", "no-change", "review-only", "context-dependent"]},
+          "input": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["kind", "value", "record_id", "record_path", "content_hash", "requires_network"],
+            "properties": {
+              "kind": {"enum": ["embedded", "record-reference", "immutable-reference"]},
+              "value": {"type": ["string", "null"]},
+              "record_id": {"type": ["string", "null"]},
+              "record_path": {"type": ["string", "null"]},
+              "content_hash": {"type": ["string", "null"]},
+              "requires_network": {"type": "boolean"}
+            }
+          },
+          "expected": {"type": "string", "minLength": 1},
+          "must_preserve": {"type": "array", "items": {"type": "string"}},
+          "must_not": {"type": "array", "items": {"type": "string"}}
+        }
+      }
+    },
+    "requirements": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["required_providers", "all_repeats_required", "all_cases_required", "unsupported_is_failure"],
+      "properties": {
+        "required_providers": {"type": "array", "minItems": 2, "uniqueItems": true, "items": {"type": "string"}},
+        "all_repeats_required": {"const": true},
+        "all_cases_required": {"const": true},
+        "unsupported_is_failure": {"const": true}
+      }
+    }
+  }
+}

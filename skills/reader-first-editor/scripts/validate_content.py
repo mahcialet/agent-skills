@@ -48,6 +48,10 @@ REQUIRED_SCHEMAS = {
     "corpus-record.schema.json",
     "investigation-bundle.schema.json",
     "investigation.schema.json",
+    "regression-plan.schema.json",
+    "regression-report.schema.json",
+    "regression-run.schema.json",
+    "rule-approval.schema.json",
     "rule-proposal.schema.json",
 }
 REQUIRED_TOOL_FILES = {
@@ -55,6 +59,7 @@ REQUIRED_TOOL_FILES = {
     "scripts/reader_first/__init__.py",
     "scripts/reader_first/github.py",
     "scripts/reader_first/investigation.py",
+    "scripts/reader_first/regression.py",
     "scripts/reader_first/state.py",
 }
 REQUIRED_GITHUB_FIXTURES = {

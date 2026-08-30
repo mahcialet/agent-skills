@@ -81,6 +81,10 @@ corpus recordとは別に、次のdeterministic IDを持つimmutableなlocal art
 rfb-...  investigation bundle
 rfi-...  Agentのinvestigation result
 rfp-...  rule proposal draft
+rfrp-... regression plan
+rfrr-... regression run
+rfrt-... regression report
+rfa-...  human rule approval
 ```
 
 bundle IDはhypothesis、scope、support／control record IDから生成する。result IDはAgent output、
@@ -90,3 +94,11 @@ proposal IDはresult、rule diff、eval候補から生成し、同じ内容の�
 bundleはrecord本文をcopyせず、authoritativeなlocal record pathとcontent hashを持つ。読込み時に
 record summary、correlation group、source analysis、readinessをlocal storeと再照合し、外部編集で
 食い違ったartifactを拒否する。
+
+regression planはproposal ID、exact diff hash、provider matrix、全caseを固定する。promoted corpusは
+raw textをplanへ複製せず、record pathとcontent hashで参照する。runはprovider、model、version、
+host、repeat indexを固定し、reportはplanと全runから再計算できる集約値を持つ。
+
+approvalはpass済みreportとexact diffに対する人間の判断を、proposalとは別のimmutable artifactへ
+保存する。proposalの `human_approval` fieldを後からtrueへ書き換えない。apply時はproposal、report、
+approvalのIDとdiff hashを再照合する。

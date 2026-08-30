@@ -96,8 +96,14 @@
   raw textをcopyせず、support/controlのcorrelation groupを再計算する。candidateからの直接調査、
   bundle外record、source correlation改ざん、未説明のcounterexample、固定閾値だけ、頻度だけ、
   duplicate rule、provenance未確認の `PROMOTE` を拒否する。proposalはhuman-unapproved、全regression
-  `not-run` で始まり、local保存時もcore fileを変更しない。regression runnerとrule applyは
-  未実装である。
+  `not-run` で始まり、local保存時もcore fileを変更しない。
+- provider-neutralなregression plan、result取込み、report集約、human approval、rule apply gateを
+  Python 3.12で確認した。planはbundled eval全件、promoted corpus、proposalのpositive／negative／
+  boundary evalとprovider・model・host・repeat metadataを固定し、corpus raw textを複製しない。
+  missing／duplicate repeat、semantic regression、no-change mismatch、unsupported resultをpassにしない。
+  approvalとapplyの前にstored plan／runからreportを再集計する。applyはSkill本文・references・evalsの
+  approved diffに限定し、対象の未commit変更、unsafe path、no-opを拒否する。validator失敗時のrollbackも
+  isolated Git repositoryで確認した。Python toolはproviderを直接呼ばず、commit・pushもしない。
 - 自動日本語構文解析器は導入していない。将来導入する場合もoptionalな構造sensorに限定し、
   parserなしでSkillを継続できる設計とする。現在の数値はtripwireだけに使い、hard thresholdで
   可読性を判定しない。A/B検証も未実施である。

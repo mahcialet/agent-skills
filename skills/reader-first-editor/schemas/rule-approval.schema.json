@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/mahcialet/agent-skills/reader-first-editor/rule-approval.schema.json",
+  "title": "Reader-First Editor rule approval",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["id", "schema_version", "proposal_id", "report_id", "diff_hash", "approved", "reviewer", "approved_at", "reason"],
+  "properties": {
+    "id": {"type": "string", "pattern": "^rfa-[0-9a-f]{20}$"},
+    "schema_version": {"const": 1},
+    "proposal_id": {"type": "string", "pattern": "^rfp-[0-9a-f]{20}$"},
+    "report_id": {"type": "string", "pattern": "^rfrt-[0-9a-f]{20}$"},
+    "diff_hash": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+    "approved": {"const": true},
+    "reviewer": {"type": "string", "minLength": 1},
+    "approved_at": {"type": "string", "minLength": 1},
+    "reason": {"type": "string", "minLength": 1}
+  }
+}

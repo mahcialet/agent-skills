@@ -24,6 +24,16 @@ from reader_first.investigation import (
     validate_bundle_against_store,
     validate_investigation_result,
 )
+from reader_first.regression import (
+    apply_rule_patch,
+    build_regression_plan,
+    build_regression_report,
+    build_rule_approval,
+    preview_rule_apply,
+    validate_regression_plan,
+    validate_regression_run,
+    validate_report_against_runs,
+)
 from reader_first.state import (
     STATE_DIRECTORIES,
     TOOL_VERSION,
@@ -207,6 +217,52 @@ def build_parser() -> argparse.ArgumentParser:
     proposal_parser.add_argument("--result-id", required=True)
     proposal_parser.add_argument("--rule-diff", type=Path, required=True)
     proposal_parser.add_argument("--apply", action="store_true")
+
+    plan_parser = rule_commands.add_parser(
+        "regression-plan",
+        help="bundled・corpus・proposal evalのprovider-neutralな実行計画を作る",
+    )
+    plan_parser.add_argument("--proposal-id", required=True)
+    plan_parser.add_argument("--provider-matrix", type=Path, required=True)
+    plan_parser.add_argument("--candidate-evals", type=Path, required=True)
+    plan_parser.add_argument("--corpus-record", action="append", required=True)
+    plan_parser.add_argument("--eval-dir", type=Path, default=SKILL_DIR / "evals")
+    plan_parser.add_argument("--apply", action="store_true")
+
+    ingest_parser = rule_commands.add_parser(
+        "regression-ingest",
+        help="外部runnerのprovider/model付きresultを検証してlocal保存する",
+    )
+    ingest_parser.add_argument("--plan-id", required=True)
+    ingest_parser.add_argument("--result", type=Path, required=True)
+    ingest_parser.add_argument("--apply", action="store_true")
+
+    report_parser = rule_commands.add_parser(
+        "regression-report",
+        help="全provider・repeatのresultを保守的なgate reportへ集約する",
+    )
+    report_parser.add_argument("--plan-id", required=True)
+    report_parser.add_argument("--apply", action="store_true")
+
+    approval_parser = rule_commands.add_parser(
+        "approve",
+        help="pass済みreportとexact diffを人間が明示承認する",
+    )
+    approval_parser.add_argument("--proposal-id", required=True)
+    approval_parser.add_argument("--report-id", required=True)
+    approval_parser.add_argument("--reviewer", required=True)
+    approval_parser.add_argument("--reason", required=True)
+    approval_parser.add_argument("--apply", action="store_true")
+
+    apply_parser = rule_commands.add_parser(
+        "apply",
+        help="regressionとhuman approvalを再確認してrule patchを適用する",
+    )
+    apply_parser.add_argument("--proposal-id", required=True)
+    apply_parser.add_argument("--report-id", required=True)
+    apply_parser.add_argument("--approval-id", required=True)
+    apply_parser.add_argument("--repository-root", type=Path, required=True)
+    apply_parser.add_argument("--apply", action="store_true")
     return parser
 
 
@@ -439,6 +495,168 @@ def run(args: argparse.Namespace) -> int:
                 "modified_core": [],
             }
         )
+        return 0
+    if command == "regression-plan":
+        proposal = store.read_artifact(store.rule_proposal_path(args.proposal_id))
+        plan = build_regression_plan(
+            proposal,
+            store,
+            eval_dir=args.eval_dir,
+            provider_matrix=_read_json(args.provider_matrix),
+            candidate_evals=_read_json(args.candidate_evals),
+            corpus_record_ids=args.corpus_record,
+        )
+        path = store.regression_plan_path(plan["id"])
+        if not args.apply:
+            _print_json(
+                {
+                    "dry_run": True,
+                    "plan": plan,
+                    "will_modify": [],
+                    "changes_rule_behavior": False,
+                }
+            )
+            return 0
+        _ensure_project_write_safe(args, data_dir)
+        store.write_artifact(path, plan)
+        _print_json(
+            {
+                "created": plan["id"],
+                "path": str(path),
+                "providers": len(plan["providers"]),
+                "cases": len(plan["cases"]),
+                "changes_rule_behavior": False,
+                "modified_core": [],
+            }
+        )
+        return 0
+    if command == "regression-ingest":
+        plan = validate_regression_plan(
+            store.read_artifact(store.regression_plan_path(args.plan_id))
+        )
+        run = validate_regression_run(_read_json(args.result), plan)
+        path = store.regression_run_path(plan["id"], run["id"])
+        if not args.apply:
+            _print_json(
+                {
+                    "dry_run": True,
+                    "run": run,
+                    "will_modify": [],
+                    "changes_rule_behavior": False,
+                }
+            )
+            return 0
+        _ensure_project_write_safe(args, data_dir)
+        store.write_artifact(path, run)
+        _print_json(
+            {
+                "created": run["id"],
+                "path": str(path),
+                "provider": run["provider"],
+                "repeat_index": run["repeat_index"],
+                "changes_rule_behavior": False,
+                "modified_core": [],
+            }
+        )
+        return 0
+    if command == "regression-report":
+        plan = validate_regression_plan(
+            store.read_artifact(store.regression_plan_path(args.plan_id))
+        )
+        runs = [store.read_artifact(path) for path in store.list_regression_run_paths(plan["id"])]
+        report = build_regression_report(plan, runs)
+        path = store.regression_report_path(report["id"])
+        if not args.apply:
+            _print_json(
+                {
+                    "dry_run": True,
+                    "report": report,
+                    "will_modify": [],
+                    "changes_rule_behavior": False,
+                }
+            )
+            return 0 if report["status"] == "pass" else 1
+        _ensure_project_write_safe(args, data_dir)
+        store.write_artifact(path, report)
+        _print_json(
+            {
+                "created": report["id"],
+                "path": str(path),
+                "status": report["status"],
+                "blockers": report["blockers"],
+                "changes_rule_behavior": False,
+                "modified_core": [],
+            }
+        )
+        return 0 if report["status"] == "pass" else 1
+    if command == "approve":
+        proposal = store.read_artifact(store.rule_proposal_path(args.proposal_id))
+        report = store.read_artifact(store.regression_report_path(args.report_id))
+        plan = validate_regression_plan(
+            store.read_artifact(store.regression_plan_path(report["plan_id"]))
+        )
+        runs = [store.read_artifact(path) for path in store.list_regression_run_paths(plan["id"])]
+        report = validate_report_against_runs(report, plan, runs)
+        approval = build_rule_approval(
+            proposal,
+            report,
+            reviewer=args.reviewer,
+            reason=args.reason,
+        )
+        path = store.rule_approval_path(approval["id"])
+        if not args.apply:
+            _print_json(
+                {
+                    "dry_run": True,
+                    "approval": approval,
+                    "will_modify": [],
+                    "changes_rule_behavior": False,
+                }
+            )
+            return 0
+        _ensure_project_write_safe(args, data_dir)
+        store.write_artifact(path, approval)
+        _print_json(
+            {
+                "created": approval["id"],
+                "path": str(path),
+                "reviewer": approval["reviewer"],
+                "changes_rule_behavior": False,
+                "modified_core": [],
+            }
+        )
+        return 0
+    if command == "apply":
+        proposal = store.read_artifact(store.rule_proposal_path(args.proposal_id))
+        report = store.read_artifact(store.regression_report_path(args.report_id))
+        plan = validate_regression_plan(
+            store.read_artifact(store.regression_plan_path(report["plan_id"]))
+        )
+        runs = [store.read_artifact(path) for path in store.list_regression_run_paths(plan["id"])]
+        report = validate_report_against_runs(report, plan, runs)
+        approval = store.read_artifact(store.rule_approval_path(args.approval_id))
+        if not args.apply:
+            preview = preview_rule_apply(
+                proposal,
+                report,
+                approval,
+                repository_root=args.repository_root,
+            )
+            _print_json(
+                {
+                    "dry_run": True,
+                    **preview,
+                    "will_modify": [],
+                }
+            )
+            return 0
+        applied = apply_rule_patch(
+            proposal,
+            report,
+            approval,
+            repository_root=args.repository_root,
+        )
+        _print_json(applied)
         return 0
     raise StoreError(f"未対応commandです: {command}")
 

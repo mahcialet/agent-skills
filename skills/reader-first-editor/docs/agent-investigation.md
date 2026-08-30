@@ -1,12 +1,12 @@
 # Agentによる調査
 
-状態: 一部implemented（bundle、result gate、proposal draftまで）
+状態: implemented（bundleから明示applyまで）
 
 Agentはruleを積極的に考案する役ではなく、危険な一般化を壊す役として使う。toolは
 provider-neutralなinvestigation bundleを生成し、CodexまたはCopilotが明示起動された場合だけ
 そのbundleを読む。通常reviewへlocal corpusを暗黙に注入しない。bundle作成、Agent resultの
-runtime gate、human-unapproved proposal draftは実装済みである。regression実行とrule applyは
-未実装である。
+runtime gate、human-unapproved proposal draft、regression結果の集約、人間の明示承認、限定した
+rule applyを実装している。
 
 ## 既定姿勢
 
@@ -93,3 +93,12 @@ python3 "$tool" --data-dir "$data_dir" rules propose \
 このcommandも既定はpreviewで、`--apply` はlocal `proposals/` への保存だけを意味する。proposalの
 `human_approval.approved` は必ずfalse、regression statusは全て `not-run` で始まり、
 `SKILL.md`、references、evalsを変更しない。
+
+proposal後は、bundled eval、promoted corpus、positive／negative／boundary evalを含むplanを
+`rules regression-plan` で作る。CodexとGitHub Copilotで実行したresultは
+`rules regression-ingest` で取り込み、`rules regression-report` で全provider・repeatを集約する。
+toolはproviderを直接起動せず、planとresultの検証・保存・再集計だけを担う。
+
+全gateがpassのreportだけを `rules approve` で別artifactとして承認できる。`rules apply` は既定で
+previewを返し、`--apply` がある場合だけ、承認済みのexact diffを許可対象のSkill本文・reference・
+evalへ適用する。詳細なgateとartifactの関係は[ルール昇格](rule-promotion.md)を参照する。

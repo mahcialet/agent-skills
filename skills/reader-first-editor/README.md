@@ -82,8 +82,9 @@ Copilot CLI:
 corpusとruleの候補を保守的に評価するworkflowを整備しています。schema v1、local data
 directoryの解決、state transition、audit log、manual corpus CLI、local promotion、public
 GitHub PRのreference-only収集、adversarial investigation bundle、proposal draftは実装済みです。
-public promotion、regression runner、rule apply、通常reviewからのlocal corpus利用は未実装で、
-現在の通常reviewやbundled evalには影響しません。
+さらに、provider-neutralなregression plan・result取込み・report、人間の承認artifact、限定した
+rule applyも実装済みです。public promotionと通常reviewからのlocal corpus利用は未実装で、現在の
+通常reviewには影響しません。
 
 設計上は、候補の収集、corpusへのpromotion、behavior-changing ruleのpromotionを別のgateに
 分けます。収集したcandidateやpromoted local corpusを通常reviewへ暗黙に読み込まず、
@@ -133,6 +134,13 @@ rule investigationは、support／control recordを明示指定して `rules bun
 含む `PROMOTE` を拒否します。`rules propose --apply` もlocal proposalを保存するだけで、core rule、
 references、evalsを変更しません。詳細は[Agentによる調査](docs/agent-investigation.md)を参照して
 ください。
+
+proposal後は `rules regression-plan`、`rules regression-ingest`、`rules regression-report` で、
+bundled eval全件、promoted corpus、proposal evalをCodexとGitHub Copilotの結果から集約します。
+Python tool自体はproviderを起動しません。pass reportは `rules approve` で人間が別artifactとして
+承認し、`rules apply` は既定preview、`--apply` 付きで承認済みのexact diffだけを適用します。
+apply対象はSkill本文・references・evalsに限定され、validator失敗時はrollbackします。toolは
+commitもpushもしません。詳しくは[ルール昇格](docs/rule-promotion.md)を参照してください。
 
 - [コーパス運用](docs/corpus-workflow.md)
 - [コーパスデータモデル](docs/corpus-data-model.md)
