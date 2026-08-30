@@ -9,6 +9,36 @@
   金額反映を扱うためA2
 - Excluded scope: 外部決済事業者の本番挙動
 
+## Review contract
+
+- Specification status: partial
+- Purpose / actors: 正規clientによるtimeout後のretryを、二重反映せず処理する
+- Criteria sources:
+  - PR-declared criterion: PR description / retryは同じidempotency keyで安全に再送できる
+  - Repository contract: ledger schema、migration、既存refund実装
+  - Inferred invariant: 1つの論理requestは高々1回だけ残高へ反映される
+- Expected outcomes: 同じkeyのretryは既存結果を返し、ledgerとbalanceを1回だけ更新する
+- Forbidden outcomes: 同じ論理requestによる複数ledger entryまたは残高の二重反映
+- Declared scope / non-scope: payment APIとledger変更 / 外部providerの本番内部実装
+- Declared impact: payment API、ledger、balance
+- Unresolved decisions: 外部providerが同じkeyをdeduplicateする正確な条件
+- Stop / recovery / handoff: 二重反映を検出した場合のreconciliation手順とhandoff ownerは未確認
+- Final decision owner: unresolved
+
+## Requirement traceability
+
+| Source reference | Kind | Requirement / forbidden outcome | Implementation path | Test / evidence | Status |
+|---|---|---|---|---|---|
+| PR description / retry criterion | PR-declared criterion | 同じkeyのretryで二重反映しない | API → retry wrapper → `createPayment` → ledger / balance | PRのtest成功申告はclaimed。static pathはE-01〜E-04 | Violated |
+| Ledger and refund implementation | inferred invariant | 1つの論理requestは高々1回だけcommitされる | existence check → insert → balance update | unique constraintなし。refund pathはatomic insert | Violated |
+| Payment provider contract | reviewer hypothesis | provider側でも同じkeyをdeduplicateする | external API | versionと認証情報を確認できない | Unverified |
+
+## Impact comparison
+
+- Declared impact: payment API、ledger、balance
+- Discovered impact: timeout時に同じkeyを再送するretry worker
+- Undeclared impact requiring follow-up: reconciliation batchが重複entryをどう扱うか
+
 ## Findings
 
 ### F-001: 同じidempotency keyの並行requestが残高を二重反映する
@@ -17,6 +47,8 @@
 - Adversarial level: A2
 - Confidence: Strongly supported
 - Location: `src/payments/service.ts` の存在確認後にledgerへinsertする変更箇所
+- Contract / invariant reference: PR description / retry criterion、および
+  `Inferred invariant: one logical request produces at most one committed balance update`
 - Actor / trigger: 正規に認証されたclientが、同じidempotency keyで2requestを並行送信する
 - Precondition: 両transactionが相手の未commit rowを確認できず、同じaccountを更新できる
 - Code path: API handler → retry wrapper → `createPayment` → 存在確認 → ledger insert → balance update
@@ -45,6 +77,12 @@
 | E-03 | schema / migrations | ledger constraint | idempotency keyのunique constraintなし |
 | E-04 | symmetric implementation | refund path | atomic insertで重複を拒否している |
 | E-05 | external contract | payment provider | 認証情報がなく未確認 |
+
+## Test evidence
+
+| Test / check | Provenance | Source / command | Result | Limitation |
+|---|---|---|---|---|
+| payment policy tests | claimed | PR description | 18 passedと申告 | CI result、head SHA、logをreviewerは確認していない |
 
 ## Unexecuted validation
 

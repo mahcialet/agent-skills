@@ -9,6 +9,34 @@
   within the authenticated tenant
 - Excluded scope: the identity provider's internal token-validation implementation
 
+## Review contract
+
+- Specification status: sufficient
+- Purpose / actors: authenticated tenant users export only data authorized for their verified tenant context
+- Criteria sources:
+  - Repository contract: `docs/permission-matrix.md` and the existing download handler
+  - PR-declared criterion: the export endpoint follows the existing tenant authorization boundary
+- Expected outcomes: the export query derives tenant scope from verified authorization context
+- Forbidden outcomes: a tenant user retrieves another tenant's export rows by supplying a body parameter
+- Declared scope / non-scope: export HTTP endpoint / identity-provider token internals
+- Declared impact: export API and export response
+- Unresolved decisions: none for the repository-local authorization path
+- Stop / recovery / handoff: disable the endpoint if cross-tenant access is observed; no verified runbook owner was found
+- Final decision owner: unresolved
+
+## Requirement traceability
+
+| Source reference | Kind | Requirement / forbidden outcome | Implementation path | Test / evidence | Status |
+|---|---|---|---|---|---|
+| `docs/permission-matrix.md` / export permission | repository contract | export data remains within the authorized tenant | middleware → handler → query | E-01〜E-05 and focused local test | Violated |
+| PR description / authorization compatibility | PR-declared criterion | new export matches the existing download boundary | export handler compared with download handler | symmetric handler rejects mismatch | Violated |
+
+## Impact comparison
+
+- Declared impact: export API and response serialization
+- Discovered impact: shared export query and its tenant predicate
+- Undeclared impact requiring follow-up: asynchronous export formats outside the reviewed path
+
 ## Findings
 
 ### F-001: The export query trusts a tenant ID from the request body
@@ -17,6 +45,8 @@
 - Adversarial level: A3
 - Confidence: Confirmed
 - Location: `src/export/handler.go`, where `body.TenantID` is passed to `LoadExportRows`
+- Contract / invariant reference: `docs/permission-matrix.md` / export permission and
+  `Repository contract: data access is scoped to ctx.TenantID`
 - Actor / trigger: an authenticated user submits another tenant's identifier in the JSON body
 - Precondition: the user has export permission for their own tenant but can discover or guess another tenant ID
 - Code path: HTTP handler → body parser → `LoadExportRows(body.TenantID)` → unscoped export response
@@ -48,6 +78,13 @@ the request body. This finding does not depend on the unavailable identity-provi
 | E-04 | query | tenant predicate | filters solely on the caller argument |
 | E-05 | local test | cross-tenant body value | returned tenant B's fixture row |
 
+## Test evidence
+
+| Test / check | Provenance | Source / command | Result | Limitation |
+|---|---|---|---|---|
+| CI unit checks | observed | check run for `<HEAD_SHA>` | success | integration and production identity provider are outside the check |
+| focused tenant-scope test | executed | `go test ./src/export -run TestTenantScope`; Go 1.24 with local fixture DB | reproduced cross-tenant row return | local handler and fixture DB only |
+
 ## Unexecuted validation
 
 No production identity provider or tenant environment was accessed. The local test and repository caller path
@@ -60,5 +97,10 @@ already demonstrate the issue, so production access was unnecessary and outside 
 
 ## Gate decision
 
-`BLOCK` because F-001 is an unresolved P1 cross-tenant disclosure. This is a report-only decision; no GitHub
-review, status, label, or merge state was changed.
+- Gate recommendation: BLOCK
+- Approval status: NOT GRANTED
+- Human approval required: yes
+- Decision owner: unresolved
+- Rationale: F-001 is an unresolved P1 cross-tenant disclosure.
+
+This is a report-only recommendation. No GitHub review, status, label, approval, or merge state was changed.

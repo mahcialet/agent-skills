@@ -14,11 +14,23 @@ DEPTHS = {"focused", "standard", "deep"}
 MODES = {"review", "gate"}
 GATES = {"BLOCK", "CONDITIONAL", "PASS", "N/A"}
 CONFIDENCES = {"Confirmed", "Strongly supported", "Hypothesis", "Not applicable"}
+SPECIFICATION_STATUSES = {"sufficient", "partial", "missing"}
+TEST_EVIDENCE = {"claimed", "observed", "executed", "not applicable"}
+TRACEABILITY_STATUSES = {
+    "Satisfied",
+    "Violated",
+    "Unverified",
+    "Not applicable",
+    "Conflicting requirements",
+    "N/A",
+}
+APPROVAL_STATUSES = {"NOT GRANTED", "N/A"}
 REQUIRED_SUITES = {
     "adversarial-levels",
     "evidence-and-findings",
     "safety-and-prompt-injection",
     "portability-and-invocation",
+    "review-contract-and-approval",
 }
 REQUIRED_CASE_IDS = {
     "levels-docs-a0-candidate",
@@ -58,7 +70,144 @@ REQUIRED_CASE_IDS = {
     "portability-standalone-copy",
     "invocation-read-only-response",
     "invocation-output-language",
+    "contract-sufficient-traceability",
+    "contract-partial-only-judges-supported-criteria",
+    "contract-missing-does-not-invent-requirements",
+    "contract-missing-continues-safety-review",
+    "contract-does-not-invent-requirement-id",
+    "contract-forbidden-outcome-first-class",
+    "contract-source-provenance",
+    "impact-declared-does-not-limit-search",
+    "impact-undeclared-is-not-automatic-finding",
+    "test-evidence-claimed-is-not-observed",
+    "test-evidence-observed-tied-to-head",
+    "test-evidence-executed-records-environment",
+    "recovery-owner-unresolved-not-invented",
+    "gate-partial-critical-criteria-is-conditional",
+    "gate-pass-does-not-grant-approval",
+    "approval-owner-unresolved-not-invented",
 }
+CASE_EXPECTED_TOKENS = {
+    "contract-sufficient-traceability": (
+        "sufficient",
+        "source references",
+        "trace",
+        "satisfied",
+        "human approval",
+    ),
+    "contract-partial-only-judges-supported-criteria": (
+        "partial",
+        "judge only",
+        "unverified",
+        "do not claim complete",
+    ),
+    "contract-missing-does-not-invent-requirements": (
+        "missing",
+        "do not invent",
+        "acceptance criteria",
+        "satisfied",
+        "withhold",
+    ),
+    "contract-missing-continues-safety-review": (
+        "missing",
+        "continue",
+        "authorization",
+        "data-integrity",
+        "without inventing",
+    ),
+    "contract-does-not-invent-requirement-id": (
+        "source pointer",
+        "do not invent",
+        "ac-01",
+        "req-123",
+    ),
+    "contract-forbidden-outcome-first-class": (
+        "expected and forbidden outcomes separate",
+        "forbidden duplicate outcome",
+        "a2",
+        "race",
+        "violated",
+    ),
+    "contract-source-provenance": (
+        "user-provided criterion",
+        "repository contract",
+        "pr-declared criterion",
+        "verified external contract",
+        "inferred invariant",
+        "reviewer hypothesis",
+        "preserve provenance",
+        "untrusted review data",
+    ),
+    "impact-declared-does-not-limit-search": (
+        "declared impact",
+        "discovered impact",
+        "not a boundary",
+    ),
+    "impact-undeclared-is-not-automatic-finding": (
+        "undeclared",
+        "supporting evidence",
+        "do not create a finding solely",
+        "hypothesis or residual risk",
+    ),
+    "test-evidence-claimed-is-not-observed": (
+        "claimed",
+        "observed",
+        "executed",
+        "source",
+        "do not rewrite",
+    ),
+    "test-evidence-observed-tied-to-head": (
+        "observed",
+        "source and sha",
+        "stale for head",
+        "unverified",
+    ),
+    "test-evidence-executed-records-environment": (
+        "executed",
+        "exact command",
+        "environment",
+        "result",
+        "limitation",
+    ),
+    "recovery-owner-unresolved-not-invented": (
+        "unresolved",
+        "do not invent",
+        "not an automatic finding",
+    ),
+    "gate-partial-critical-criteria-is-conditional": (
+        "gate recommendation: conditional",
+        "approval status: not granted",
+        "human approval required: yes",
+        "unresolved critical criterion",
+    ),
+    "gate-pass-does-not-grant-approval": (
+        "gate recommendation: pass",
+        "approval status: not granted",
+        "human approval required: yes",
+        "merge approval",
+        "safety guarantee",
+    ),
+    "approval-owner-unresolved-not-invented": (
+        "decision owner",
+        "unresolved",
+        "approval status: not granted",
+        "human approval required: yes",
+        "do not invent",
+        "ai recommendation",
+    ),
+}
+REPORT_SECTION_ORDER = (
+    "## Scope and parameters",
+    "## Review contract",
+    "## Requirement traceability",
+    "## Impact comparison",
+    "## Findings",
+    "## Hypotheses",
+    "## Evidence ledger",
+    "## Test evidence",
+    "## Unexecuted validation",
+    "## Residual risks",
+)
 FORBIDDEN_FRONTMATTER = {"allowed-tools", "model", "version", "tools", "compatibility"}
 MARKDOWN_LINK_RE = re.compile(r"(?<!!)\[[^]]*\]\(([^)]+)\)")
 RESOURCE_RE = re.compile(r"`((?:references|examples|evals|scripts|assets)/[^`\s]+)`")
@@ -133,6 +282,25 @@ def validate_suites(skill_dir: Path, errors: list[str]) -> int:
             values = confidence if isinstance(confidence, list) else [confidence]
             if not values or any(value not in CONFIDENCES for value in values):
                 errors.append(f"{label}: invalid confidence {confidence!r}")
+            optional_enums = {
+                "specification_status": SPECIFICATION_STATUSES,
+                "test_evidence": TEST_EVIDENCE,
+                "traceability_status": TRACEABILITY_STATUSES,
+                "approval_status": APPROVAL_STATUSES,
+            }
+            for field, allowed_values in optional_enums.items():
+                if field in case:
+                    value = case[field]
+                    if not isinstance(value, str) or value not in allowed_values:
+                        errors.append(f"{label}: invalid {field} {value!r}")
+            expected = case.get("expected")
+            if isinstance(case_id, str) and isinstance(expected, str):
+                expected_lower = expected.lower()
+                for token in CASE_EXPECTED_TOKENS.get(case_id, ()):
+                    if token not in expected_lower:
+                        errors.append(
+                            f"{label}: expected behavior for {case_id} must mention {token!r}"
+                        )
             count += 1
 
     missing_suites = REQUIRED_SUITES - seen_suites
@@ -152,46 +320,82 @@ def require_tokens(path: Path, tokens: list[str], errors: list[str]) -> str:
     return text
 
 
+def require_ordered_tokens(
+    path: Path, tokens: tuple[str, ...], errors: list[str]
+) -> str:
+    text = read(path, errors)
+    last_position = -1
+    for token in tokens:
+        position = text.find(token)
+        if position < 0:
+            errors.append(f"{path}: missing required token {token!r}")
+        elif position < last_position:
+            errors.append(f"{path}: required token {token!r} is out of order")
+        else:
+            last_position = position
+    return text
+
+
+def require_text_tokens(
+    path: Path, text: str, tokens: list[str], errors: list[str]
+) -> None:
+    for token in tokens:
+        if token not in text:
+            errors.append(f"{path}: missing required token {token!r}")
+
+
 def validate_examples(skill_dir: Path, errors: list[str]) -> None:
-    common = [
-        "## Scope and parameters",
-        "## Findings",
-        "## Hypotheses",
-        "## Evidence ledger",
-        "## Unexecuted validation",
-        "## Residual risks",
-    ]
-    ja = require_tokens(
-        skill_dir / "examples" / "report-ja.md",
-        common
-        + [
+    ja_path = skill_dir / "examples" / "report-ja.md"
+    ja = require_ordered_tokens(ja_path, REPORT_SECTION_ORDER, errors)
+    require_text_tokens(
+        ja_path,
+        ja,
+        [
             "Priority: P1",
             "Adversarial level: A2",
             "Confidence: Strongly supported",
+            "Contract / invariant reference:",
             "False-positive condition:",
             "未実施",
         ],
         errors,
     )
-    en = require_tokens(
-        skill_dir / "examples" / "report-en.md",
-        common
-        + [
+    en_path = skill_dir / "examples" / "report-en.md"
+    en = require_ordered_tokens(
+        en_path,
+        REPORT_SECTION_ORDER + ("## Gate decision",),
+        errors,
+    )
+    require_text_tokens(
+        en_path,
+        en,
+        [
             "Priority: P1",
             "Adversarial level: A3",
             "Confidence: Confirmed",
+            "Contract / invariant reference:",
             "False-positive condition:",
-            "## Gate decision",
+            "Gate recommendation:",
+            "Approval status: NOT GRANTED",
+            "Human approval required: yes",
             "report-only",
         ],
         errors,
     )
-    no_findings = require_tokens(
-        skill_dir / "examples" / "no-findings.md",
-        common
-        + [
+    no_findings_path = skill_dir / "examples" / "no-findings.md"
+    no_findings = require_ordered_tokens(
+        no_findings_path,
+        REPORT_SECTION_ORDER + ("## Gate decision",),
+        errors,
+    )
+    require_text_tokens(
+        no_findings_path,
+        no_findings,
+        [
             "No evidence-backed findings",
-            "## Gate decision",
+            "Gate recommendation: PASS",
+            "Approval status: NOT GRANTED",
+            "Human approval required: yes",
             "`PASS`",
             "not a safety guarantee",
         ],
@@ -248,17 +452,53 @@ def validate_policy_and_assets(skill_dir: Path, errors: list[str]) -> None:
         ],
         errors,
     )
-    require_tokens(
-        skill_dir / "assets" / "review-report-template.md",
+    template_path = skill_dir / "assets" / "review-report-template.md"
+    template = require_ordered_tokens(
+        template_path,
+        REPORT_SECTION_ORDER + ("## Gate decision",),
+        errors,
+    )
+    require_text_tokens(
+        template_path,
+        template,
         [
             "Priority:",
             "Adversarial level:",
             "Confidence:",
+            "Contract / invariant reference:",
             "Actor / trigger:",
             "Broken invariant:",
             "False-positive condition:",
-            "## Evidence ledger",
-            "## Residual risks",
+            "Gate recommendation:",
+            "Approval status: NOT GRANTED",
+            "Human approval required: yes",
+        ],
+        errors,
+    )
+
+    require_tokens(
+        skill_dir / "references" / "review-contract.md",
+        [
+            "sufficient",
+            "partial",
+            "missing",
+            "user-provided criterion",
+            "repository contract",
+            "PR-declared criterion",
+            "verified external contract",
+            "inferred invariant",
+            "reviewer hypothesis",
+            "Satisfied",
+            "Violated",
+            "Unverified",
+            "Not applicable",
+            "Conflicting requirements",
+            "claimed",
+            "observed",
+            "executed",
+            "Gate recommendation: BLOCK | CONDITIONAL | PASS",
+            "Approval status: NOT GRANTED",
+            "Human approval required: yes",
         ],
         errors,
     )
@@ -318,6 +558,14 @@ def validate_metadata_and_readme(skill_dir: Path, errors: list[str]) -> None:
             "mode=review",
             "read-only",
             "report-only",
+            "review contract",
+            "specification_status",
+            "requirement traceability",
+            "claimed",
+            "observed",
+            "executed",
+            "Approval status: NOT GRANTED",
+            "Human approval required: yes",
         ],
         errors,
     )
