@@ -41,6 +41,7 @@ REQUIRED_SUITES = {
     "semantic-preservation",
     "reread-risk-ja",
     "interaction-clarity-ja",
+    "relationship-clarity-ja",
     "prose-pacing",
     "repository-grounded-review",
 }

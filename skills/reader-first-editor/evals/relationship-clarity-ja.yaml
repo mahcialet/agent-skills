@@ -1,0 +1,136 @@
+{
+  "suite": "relationship-clarity-ja",
+  "cases": [
+    {
+      "id": "flag-ambiguous-seihon",
+      "language": "ja",
+      "mode": "review",
+      "input": "SKILL.mdを正本とする。",
+      "must_not_claim": [
+        "SKILL.mdだけを直接編集する",
+        "ホスト別ファイルをSKILL.mdから生成する",
+        "不一致時はSKILL.mdを優先する"
+      ],
+      "expected": "『正本』を禁止語扱いせず、直接編集するファイル、生成元、不一致時の優先先、共有定義など複数の関係があり得ると診断する。原文は変更せず、一つの意味へ決め打ちしない"
+    },
+    {
+      "id": "no-flag-explicit-precedence",
+      "language": "ja",
+      "mode": "review",
+      "input": "内容が異なる場合は、SKILL.mdの記述を優先する。",
+      "expected": "不一致時の優先先が明示されているため、関係の省略として指摘せず、不要な言い換えを求めない"
+    },
+    {
+      "id": "no-flag-explicit-shared-definition",
+      "language": "ja",
+      "mode": "review",
+      "input": "CodexとCopilotが共有する挙動は、SKILL.mdに定義する。ホスト別のコピーは作らない。",
+      "expected": "共有する対象と定義場所が明示されているため、追加の抽象語や言い換えを要求しない"
+    },
+    {
+      "id": "preserve-legal-seihon",
+      "language": "ja",
+      "mode": "review",
+      "input": "署名済み契約書の正本を法務部が保管する。",
+      "must_preserve": ["署名済み契約書", "正本", "法務部", "保管する"],
+      "expected": "法務・記録管理上の具体的な用語として維持し、『原本』『公式版』などへ置き換えず、語の存在だけでは指摘しない"
+    },
+    {
+      "id": "preserve-locally-defined-seihon",
+      "language": "ja",
+      "mode": "review",
+      "input": "本手順では、承認済みPDFを『正本』と呼ぶ。",
+      "must_preserve": ["承認済みPDF", "正本"],
+      "expected": "対象が文書内で一意に定義されているため禁止語扱いしない"
+    },
+    {
+      "id": "no-flag-seihon-with-explicit-generation",
+      "language": "ja",
+      "mode": "review",
+      "input": "SKILL.mdを管理上の正本とする。変更はSKILL.mdにだけ加え、ホスト別ファイルはそこから生成する。",
+      "expected": "直接編集するファイルと生成方向が後続文に明示されているため、『正本』の存在だけでは指摘しない"
+    },
+    {
+      "id": "flag-ambiguous-compatibility-assurance",
+      "language": "ja",
+      "mode": "review",
+      "input": "CodexとCopilotの互換性を担保する。",
+      "must_not_claim": ["同じSKILL.mdを読み込む", "全fixtureが成功する"],
+      "expected": "対象機能、確認方法、完了条件が分からず、読者が互換性の意味を補う必要があると診断する。『担保』を『確保』へ置き換えるだけにしない"
+    },
+    {
+      "id": "no-flag-explicit-compatibility-check",
+      "language": "ja",
+      "mode": "review",
+      "input": "同じSKILL.mdをCodexとCopilotの双方で読み込み、代表的な評価ケースが両方で成功することを確認する。",
+      "expected": "対象、確認方法、完了条件が明示されているため、関係の不足を指摘しない"
+    },
+    {
+      "id": "flag-ambiguous-settings-reflection",
+      "language": "ja",
+      "mode": "review",
+      "input": "設定を各環境へ反映する。",
+      "must_not_claim": ["masterブランチへのマージで開始する", "ワークフローが配布する", "config/defaults.yamlが生成元である"],
+      "expected": "読者の行動に必要な入力元、反映先、実行のきっかけ、実行主体のうち、文脈から必要な不足だけを指摘する。全項目を機械的に要求しない"
+    },
+    {
+      "id": "no-flag-explicit-settings-distribution",
+      "language": "ja",
+      "mode": "review",
+      "input": "masterブランチへマージした後、ワークフローがconfig/defaults.yamlを各環境の設定へ配布する。",
+      "expected": "実行のきっかけ、主体、配布元、配布先、方向が明示されているため、不要な指摘をしない"
+    },
+    {
+      "id": "review-does-not-guess-seihon-target",
+      "language": "ja",
+      "mode": "review",
+      "input": "生成物と定義が異なる場合は正本に合わせる。",
+      "must_not_claim": ["生成物が正本である", "定義が正本である"],
+      "expected": "『正本』が生成物と定義のどちらかを推測せず、不一致時の優先先を要確認として分離する"
+    },
+    {
+      "id": "revise-safe-explicit-generation-context",
+      "language": "ja",
+      "mode": "revise-safe",
+      "input": "SKILL.mdだけを直接編集する。ホスト別ファイルはビルドスクリプトがSKILL.mdから生成する。SKILL.mdを正本とする。",
+      "must_preserve": ["SKILL.md", "ホスト別ファイル", "ビルドスクリプト", "直接編集", "生成する"],
+      "must_not_add": ["不一致時はSKILL.mdを優先する", "正式公開版"],
+      "expected": "周囲から確定できる直接編集対象と生成方向だけを使い、『SKILL.mdだけを直接編集し、ホスト別ファイルはビルドスクリプトで生成する』と重複を整理する"
+    },
+    {
+      "id": "revise-safe-keeps-ambiguous-relation",
+      "language": "ja",
+      "mode": "revise-safe",
+      "input": "SKILL.mdを正本とする。",
+      "must_preserve": ["SKILL.md", "正本"],
+      "must_not_add": ["直接編集", "生成元", "優先する", "共有定義"],
+      "expected": "関係を確定できないため推測して書き換えず、原文を維持して必要な関係を本文外の要確認として示す"
+    },
+    {
+      "id": "authoring-leaves-relation-todos",
+      "language": "ja",
+      "mode": "authoring",
+      "input": "CodexとCopilotの互換性を担保する方針を書いてください。確認方法と完了条件は未定です。",
+      "must_not_add": ["全fixture", "同じ出力", "100%", "SKILL.md"],
+      "expected": "互換性の対象、確認方法、完了条件を創作せず、具体化に必要なTODOとして示す"
+    },
+    {
+      "id": "jtf-only-does-not-clarify-relation",
+      "language": "ja",
+      "mode": "jtf-only",
+      "input": "SKILL.mdを正本とする。",
+      "must_preserve": ["SKILL.mdを正本とする。"],
+      "expected": "関係の明確化は行わず、表記対象がないため原文を変更しない"
+    },
+    {
+      "id": "repository-review-distinguishes-generation-from-precedence",
+      "language": "ja",
+      "mode": "repository-review",
+      "input": "文書は『SKILL.mdからホスト別ファイルを生成する』と記載する。リポジトリ内のビルドスクリプトと、生成されたファイルであることを示す記載は生成関係を支持するが、不一致時の優先先を定める記述はない。",
+      "expected_statuses": ["VERIFIED"],
+      "expected_evidence_types": ["DOC↔CODE"],
+      "must_not_claim": ["不一致時はSKILL.mdを優先する", "SKILL.mdが正式公開版である", "[SCRIPT]", "[REPOSITORY]"],
+      "expected": "ビルドスクリプトと、生成されたファイルであることを示す記載から生成関係だけをVERIFIEDとし、生成元を不一致時の優先先や正式版と同一視しない"
+    }
+  ]
+}

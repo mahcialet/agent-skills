@@ -18,7 +18,7 @@
       "expected_statuses": ["CONTRADICTED"],
       "expected_evidence_types": ["DOC↔CONFIG"],
       "must_not_claim": ["READMEが正しい", "設定が正しい"],
-      "expected": "必須prefixと具体的な不一致を示し、利用者が既定値を誤認する影響を平易に説明する。source of truthの根拠なしに一方を正と決めない"
+      "expected": "必須prefixと具体的な不一致を示し、利用者が既定値を誤認する影響を平易に説明する。どの資料が既定値を定めるか確認できなければ、一方を正と決めない"
     },
     {
       "id": "external-citation-present",
@@ -54,7 +54,7 @@
       "id": "conflicting-repository-evidence",
       "language": "ja",
       "mode": "repository-review",
-      "input": "README.mdはtimeoutを30秒、codeは60秒、test fixtureは45秒としている。source-of-truth宣言はない。",
+      "input": "README.mdはtimeoutを30秒、codeは60秒、test fixtureは45秒としている。どれを優先するかを定めた記述はない。",
       "expected_statuses": ["CONTRADICTED"],
       "expected_evidence_types": ["DOC↔CODE", "DOC↔TEST"],
       "must_not_claim": ["codeが常に正しい", "testが仕様である"],
