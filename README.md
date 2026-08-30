@@ -1,8 +1,8 @@
 # Agent Skills
 
-Codex、GitHub Copilot、およびオープンなAgent Skills形式に対応するホストで使える
-Skillを管理するモノレポです。外部リンクだけを集めた一覧ではなく、掲載する各Skillの
-正式な内容を収録しています。
+Codex、GitHub Copilot、およびオープンなAgent Skills形式に対応するホストで使うSkillを、
+一つのリポジトリで管理しています。外部リンクだけを集めた一覧ではありません。掲載する
+各Skillについて、実行に必要な本体と関連ファイルを収録しています。
 
 ## Skills
 
@@ -21,7 +21,7 @@ Skillを管理するモノレポです。外部リンクだけを集めた一覧
 
 <!-- END GENERATED SKILL CATALOG -->
 
-各Skillを使える場面、利用時に守る制約、第三者由来要素のattributionとlicense noticeは、
+各Skillを使える場面、利用時に守る制約、第三者由来要素の出典・著作者表示とライセンス通知は、
 それぞれのREADMEとNOTICEに記載しています。
 
 ## インストール
@@ -34,7 +34,7 @@ gh skill install mahcialet/agent-skills "${skill_name}" --agent codex --scope us
 gh skill install mahcialet/agent-skills "${skill_name}" --agent github-copilot --scope user
 ```
 
-`gh skill` はpublic previewです。手動配置とcommit SHA固定は
+`gh skill` はpublic previewです。手動配置とcommit SHAによる固定は
 [インストール](docs/installation.md)に記載しています。
 
 ## リポジトリガイド

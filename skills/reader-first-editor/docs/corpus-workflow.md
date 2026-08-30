@@ -1,11 +1,11 @@
 # コーパス運用
 
-状態: 一部implemented（manual CLI、public GitHub収集、local promotionまで）
+状態: 一部implemented（manual CLI、public GitHub収集、local promotionまで実装済み）
 
-この文書は、実文、review履歴、採用・却下判断をlocal corpus候補として蓄積し、明示的な審査を
-経てcorpusへ昇格するworkflowを定義する。schema v1、local data directory解決、state transition、
+この文書では、実文、review履歴、採用・却下判断をlocal corpus候補として蓄積し、人間の審査を
+経てcorpusへ昇格する手順を説明する。schema v1、local data directory解決、state transition、
 audit log、manual CLI、public GitHub PR収集、local promotionは実装済みである。一方、public
-promotionと、通常reviewでのlocal corpus読込みは未実装である。
+promotionと、通常のreviewでのlocal corpus読込みは未実装である。
 
 ## 原則
 
@@ -14,7 +14,7 @@ promotionと、通常reviewでのlocal corpus読込みは未実装である。
 > 候補は蓄積できるが、Skillへの反映には明示的な操作が必要である。
 
 `collect` が作るのはcandidateだけであり、`SKILL.md`、references、examples、bundled evalsは
-変更しない。candidate、accepted record、promoted local corpusも、通常reviewでは自動的に
+変更しない。candidate、accepted record、promoted local corpusも、通常のreviewでは自動的に
 読み込まない。
 
 ## 状態遷移
@@ -35,13 +35,13 @@ inspect / annotate
                 promoted
 ```
 
-corpus promotionは、実例を評価に使える状態へ移す処理であり、rule変更ではない。
+corpus promotionは、実例を評価に使える状態へ移す処理であり、ruleの変更ではない。
 candidateからbehavior-changing ruleへ直接遷移することはできない。
 
 ## CLIの実装範囲
 
 provider-neutralかつ標準ライブラリ中心の `scripts/corpus_tool.py` を実装している。
-特定providerのAPIやCLIを内部から起動することなく、networkなしで次の操作を利用できる。
+特定providerのAPIやCLIを内部から起動せず、networkに接続しない次の操作を利用できる。
 
 ```text
 corpus list
@@ -66,11 +66,11 @@ corpus collect-github --repository <owner/name> --pr-number <number> ...
 ## GitHub収集
 
 `collect-github` はpublic repositoryとPR番号を明示した場合だけGitHub REST APIへ接続する。
-通常review、manual collection、validationからnetwork収集を起動しない。`GH_TOKEN` または
+通常のreview、manual collection、validationからnetwork収集を起動しない。`GH_TOKEN` または
 `GITHUB_TOKEN` があればrequest headerだけに使用し、record、fixture、errorへ値を出力しない。
 
 全paginationを取得し、repository metadata、PR metadata、変更file、review submission、inline
-review commentのendpointが全て成功した後にcandidateを組み立てる。途中responseや親commentが
+review commentのendpointが全て成功してからcandidateを組み立てる。途中responseや親commentが
 欠けたthreadは拒否し、収集開始前のstateを維持する。private repositoryではrepository metadataの
 確認直後に停止し、その後のPR endpointを読まない。
 
@@ -105,7 +105,7 @@ Local dataはインストール済みSkillのsource directoryから分離する�
 2. 明示的なproject scopeの `<repository>/.reader-first-editor/`
 3. user scopeのdata directory
 
-実装済みのpath解決は、user scopeではXDG data directoryを優先し、Windows、macOS、Linuxの
+実装済みのpath解決では、user scopeではXDG data directoryを優先し、Windows、macOS、Linuxの
 標準directoryへfallbackする。project scopeはopt-inである。write commandの実行前に
 `.gitignore` の状態を確認し、未保護なら警告して拒否する。利用者の `.gitignore` は無断で
 変更しない。明示的な `--data-dir` がGit worktree内を指す場合もignore状態を確認する。
@@ -128,7 +128,7 @@ reader-first-editor-data/
 ## 収集するsample
 
 少なくとも `problematic`、`clean`、`borderline` を扱う。問題文だけを集めるのではない。
-長いが明確な文、自然な主語省略、必要な反復など、変更すべきでないsampleもnegative controlとして
+長くても明確な文、自然な主語省略、必要な反復など、変更すべきでないsampleもnegative controlとして
 保存する。
 
 GitHub由来のrecordは、`positive-reviewed`、`review-directed-revision`、`human-revision`、

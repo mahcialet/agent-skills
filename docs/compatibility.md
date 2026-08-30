@@ -5,6 +5,18 @@
 記載したversion、確認範囲（scope）、実行条件での動作だけであり、将来のhost versionでの
 動作は保証しない。
 
+## 確認済みの組合せ
+
+| 対象 | 確認したversion | 確認した範囲 | 既知の制約 |
+|---|---|---|---|
+| GitHub CLI | 2.97.0 | Skillの検出、ローカル作業ツリーからのインストール、`publish --dry-run` | public preview。tag protection未設定のwarningが残る |
+| Codex CLI | 0.151.0 | `reader-first-editor` の明示起動、通常review、`repository-review` | 同名のuser scopeとproject scopeが併存する環境では正式名が一覧に表示されず、再確認が必要 |
+| GitHub Copilot CLI | 1.0.82 | project scopeから正式名で `reader-first-editor` を起動 | 関係表現の確認では、Skillをテスト用リポジトリ内へ実コピーする必要があった |
+| GitHub Copilot CLI | 1.0.81 | project scopeから正式名で `adversarial-pr-review` を起動 | 複数domainを一度に扱う長いreviewは最終版で未確認 |
+
+以下では、仕様の参照先、実機確認の経緯、受入監査、既知の制約を順に記録する。同じhostでも、
+version、scope、同名Skillの有無など、実行条件が異なる結果を同一視しない。
+
 ## 仕様確認（2026-08-30）
 
 | 対象 | 確認した内容 | 参照 |
@@ -21,7 +33,7 @@ CodexとCopilotが共通して使う挙動は、各 `skills/<skill-name>/SKILL.m
 
 - GitHub CLI 2.97.0: `gh skill install --help` と
   `gh skill publish --help` で上記機能を確認。`publish --dry-run` と、ローカル
-  sourceから一時ディレクトリへのcopy installに成功した。2 Skill収録後の
+  sourceから一時ディレクトリへのコピーによるインストールに成功した。2 Skill収録後の
   `publish --dry-run` も成功した。tag protection未設定のwarningは残るが、この作業では
   tag／releaseを作成していない。
 
@@ -32,7 +44,7 @@ CodexとCopilotが共通して使う挙動は、各 `skills/<skill-name>/SKILL.m
   `review` を返した。書き込みを禁止したread-only sandboxで実行し、原文・ファイルは
   変更されなかった。
   Skill名を含めない同種の依頼ではSkillファイルを読み込まなかったため、
-  `allow_implicit_invocation: false` も実行trace上で確認した。
+  `allow_implicit_invocation: false` も実行記録上で確認した。
 - GitHub Copilot CLI 1.0.81: Nodeの一時実行で検証。`copilot skill list` がproject
   scopeの `reader-first-editor` を表示し、`agents/openai.yaml` の同梱は検出を
   阻害しなかった。`/reader-first-editor` の明示起動は書込み・shell toolを禁止した
@@ -41,53 +53,54 @@ CodexとCopilotが共通して使う挙動は、各 `skills/<skill-name>/SKILL.m
   scopeに配置したSkill本文と新しいcore referenceを読み、文書と設定の不一致を
   `CONTRADICTED`、根拠のない強い主張を `EVIDENCE-GAP / UNSUPPORTED`、外部URL付きの
   主張を `SUPPORTED-BY-CITATION`、外部の最新状況を `UNVERIFIED` と分離した。
-  外部URLを取得せず、対象fileも変更しなかった。
+  外部URLを取得せず、対象ファイルも変更しなかった。
   一方、現在の実行環境では、明示起動時の初期Skill一覧にproject Skillが表示されなかった。
-  repository内の定義を探索してから読み込んだため、確認済みなのは探索後の動作であり、
+  リポジトリ内の定義を探索してから読み込んだため、確認済みなのは探索後の動作であり、
   初期検出の成功ではない。
 - 同変更後のGitHub Copilot CLI 1.0.81では、`copilot skill list` が更新済みSkillを
-  project scopeから検出した。最初の代表caseでは、外部の最新状況を `UNSUPPORTED` と
+  project scopeから検出した。最初の代表的な評価ケースでは、外部の最新状況を `UNSUPPORTED` と
   判定した。そこで、共通のSkill本文に判定順と、各指摘の先頭へ3要素を必ず表示する規則を
   追加した。再実行では、
   文書と設定の不一致、根拠不足、外部citation、外部の最新状況、一致する参照を、それぞれ
   `CONTRADICTED`、`EVIDENCE-GAP / UNSUPPORTED`、`SUPPORTED-BY-CITATION`、
-  `UNVERIFIED`、`VERIFIED` と分離した。shell・write toolと外部URLを禁止した
-  非対話セッションで完了し、file変更はなかった。
+  `UNVERIFIED`、`VERIFIED` と分離した。`shell`・`write` toolと外部URLを禁止した
+  非対話セッションで完了し、ファイル変更はなかった。
 
-#### Phase 8実機確認
+<a id="phase-8実機確認"></a>
+
+#### 育成基盤を含む総合実機確認（Phase 8）
 
 2026-08-30にCodex CLI 0.151.0、GitHub Copilot CLI 1.0.82、`gpt-5.4` で確認した。
-isolated Git repositoryには、現行Skill、通常reviewが誤って読み込まないことを確認するための
-candidate／promoted local corpus（trap）、文書と設定の不一致を配置した。Codexでは書き込みを
-禁止したread-only sandboxを使い、Copilotではwrite toolを拒否した。どちらも外部URLを
+一時的なGitリポジトリには、現行Skill、通常reviewが誤って読み込まないことを確認するための
+candidate／promoted local corpus（確認用データ。test labelは `trap`）、文書と設定の不一致を配置した。Codexでは
+書き込みを禁止したread-only sandboxを使い、Copilotでは `write` toolを拒否した。どちらも外部URLを
 取得しなかった。
 
-| case | Codex | GitHub Copilot |
+| 確認項目 | Codex | GitHub Copilot |
 |---|---|---|
-| explicit invocation | 現行内容を一時的なunique名で起動し、必須referenceを読んだ | 正式な `/reader-first-editor` をproject scopeから起動した |
-| ordinary reviewとlocal corpus | candidate／promoted trapを読まず、通常reviewをCoreだけで実行した | trapを読まず、正式名のSkillを起動した |
+| 明示起動（explicit invocation） | 現行内容を一時的な固有名で起動し、必須の参照ファイルを読んだ | 正式な `/reader-first-editor` をproject scopeから起動した |
+| 通常reviewとlocal corpus（ordinary review） | candidate／promotedの確認用データ（`trap`）を読まず、通常reviewをCoreだけで実行した | 確認用データ（`trap`）を読まず、正式名のSkillを起動した |
 | `positive-reviewed` | 明快な条件文を「重大なriskなし」とし、変更不要と判定した | 同文を「重大なriskなし」「変更必須ではない」と判定した |
-| counterexample | 独立support 2件より未説明のclean counterexample 1件を優先し `HOLD` | 同じ条件で `HOLD` |
+| 反例（counterexample） | 独立したsupport 2件より未説明のclean counterexample 1件を優先し `HOLD` | 同じ条件で `HOLD` |
 | parser signal | `observation-only` の数値だけでRR label、可読性、改稿要否を確定しなかった | 同じく確定せず、原文・読者・目的・genreの確認を要求した |
 | repository-review | 5状態を分離し、外部URLを取得しなかった | 5状態を分離し、外部URLを取得しなかった |
-| Skill名なし | Skill referenceとlocal corpusを読まず、一文の説明だけを返した | `skill` toolを呼ばず、一文の説明だけを返した |
+| Skill名のない依頼 | Skillの参照ファイルとlocal corpusを読まず、一文の説明だけを返した | `skill` toolを呼ばず、一文の説明だけを返した |
 
-repository-reviewでは、存在する設定fileを `VERIFIED`、文書と設定のdefault不一致を
+repository-reviewでは、存在する設定ファイルを `VERIFIED`、文書と設定のdefault不一致を
 `CONTRADICTED`、根拠のない保証を `EVIDENCE-GAP / UNSUPPORTED`、外部link付きの記述を
-`SUPPORTED-BY-CITATION`、外部serviceの現在の提供状況を `UNVERIFIED` とした。全case後、
-isolated repositoryとsource repositoryのworktreeはcleanで、sourceのHEADは `origin/master` と
-一致した。
+`SUPPORTED-BY-CITATION`、外部serviceの現在の提供状況を `UNVERIFIED` とした。全項目の確認後、
+一時リポジトリとsource repositoryのworktreeはcleanで、sourceのHEADは `origin/master` と一致した。
 
-Codexでは、正式名での起動にhost側の制約が残る。確認環境には、古いuser-scope copyと
-現行のproject-scope copyが同名で存在していた。
+Codexでは、正式名での起動にhost側の制約が残る。確認環境には、古いuser-scopeのコピーと
+現行のproject-scopeのコピーが同名で存在していた。
 [公式OpenAI documentation](https://developers.openai.com/codex/skills/)は、同名Skillを
-mergeせず双方をselectorへ表示するとしている。しかし、Codex CLI 0.151.0の非対話実行では、
+mergeせず双方を選択肢へ表示するとしている。しかし、Codex CLI 0.151.0の非対話実行では、
 `$reader-first-editor` が利用可能一覧に表示されなかった。
 
-最小構成のprobe Skillと、現行内容をunique名にしたcloneは明示起動できた。この結果から、
+最小構成の確認用Skillと、現行内容を固有名にした複製は明示起動できた。この結果から、
 確認した現象はSkill本文や `allow_implicit_invocation: false` の不備ではなく、同名scopeの
-衝突に限定される。検証のためにuser-scope installationは変更していない。正式名については、
-重複installationを解消した環境で再確認する必要がある。
+衝突に限定される。検証のためにuser-scopeのインストール内容は変更していない。正式名については、
+重複するインストールを解消した環境で再確認する必要がある。
 
 #### 関係を一語で済ませる表現の実機確認
 
@@ -109,39 +122,42 @@ mergeせず双方をselectorへ表示するとしている。しかし、Codex C
 
 Copilotの最初の確認では、テスト用リポジトリ外を指すシンボリックリンクに対して
 追加の参照ファイルの読込みが拒否された。この結果は判定に含めず、現行Skillをテスト用リポジトリ内へ
-実コピーして再実行した。実コピー後は必要なreferenceを読み、上表の結果になった。
+実コピーして再実行した。実コピー後は必要な参照ファイルを読み、上表の結果になった。
 
 ### adversarial-pr-review
 
-- Codex CLI 0.151.0: disposable repoのproject scopeから明示起動した。A3/deep reviewで
+- Codex CLI 0.151.0: 一時リポジトリのproject scopeから明示起動した。A3/deep reviewで
   tenant越境を `P1 / A3 / Confirmed`、並行retryを
   `P1 / A2 / Strongly supported` と分離し、caller、対称実装、schema、test、historyを
-  evidence ledgerへ記録した。PR本文とhead側instructionはdataとして扱い、外部送信を含む
+  evidence ledgerへ記録した。PR本文とhead側instructionは検証対象のデータとして扱い、外部送信を含む
   runnerを実行せず、markerも作らなかった。report-onlyの `BLOCK` を返し、worktreeは
   変更しなかった。
-- 同CLIのA1/focusedで指摘がなかったcaseでは、日本語でfinding 0件、限定的な `PASS`、scope、
-  未実施検証、残余リスクを返した。Skill名のない通常のコード説明ではSkill fileを
-  読み込まず、`allow_implicit_invocation: false` をtrace上で確認した。
+- 同CLIのA1/focusedで指摘がなかった評価ケースでは、日本語で `finding` 0件（指摘0件）、限定的な `PASS`、scope、
+  未実施検証、残余リスクを返した。Skill名のない通常のコード説明ではSkillファイルを
+  読み込まず、`allow_implicit_invocation: false` を実行記録上で確認した。
 - GitHub Copilot CLI 1.0.81: `copilot skill list` がproject scopeから検出した。
-  `/adversarial-pr-review` のA2/focused reviewで必須reference 3件を読み、日本語でraceの
-  findingとdiff外のschema・caller evidenceを返した。shellとwrite toolを禁止した状態で
-  file変更やrunner実行はなかった。別のA3 reviewではtenant越境を検出し、PR本文と変更済み
+  `/adversarial-pr-review` のA2/focused reviewで必須の参照ファイル3件を読み、日本語でraceの
+  指摘とdiff外のschema・caller evidenceを返した。`shell` と `write` toolを禁止した状態で
+  ファイル変更やrunner実行はなかった。別のA3 reviewではtenant越境を検出し、PR本文と変更済み
   instructionの命令には従わなかった。Skill名のない通常説明ではSkillを起動しなかった。
-- Copilotの最終版実機確認はfocusedなA2/A3 caseで行った。複数domainを一度に扱う長い
-  combined reviewについては、必須referenceの振り分け規則を追加した後に、schemaどおりの
+- Copilotの最終版実機確認はfocusedなA2/A3の評価ケースで行った。複数のdomainを一度に扱う
+  長いreviewについては、必須の参照ファイルを振り分ける規則を追加した後に、schemaどおりの
   出力になることを再確認していない。そのため、成功済みとは扱わない。
 
-実機検証は一時repoで行い、user scopeやこのリポジトリの作業ツリーへSkillを
-インストールしていない。host versionが変わった場合は、同じ項目を再検証する。
+実機検証は一時リポジトリで行い、user scopeやこのリポジトリの作業ツリーへSkillを
+インストールしていない。hostのversionが変わった場合は、同じ項目を再検証する。
 
 ## Reader-First Editor受入監査
+
+この節は、Reader-First Editorの開発要件に対する受入監査であり、ホストの互換性一覧ではない。
+表内のstatus、command、schema key、artifact名は、実装や保存データと照合できるよう原表記を残す。
 
 ### 必須項目
 
 | 要件 | 判定 | 主な証拠 |
 |---|---|---|
 | 説明文書は日本語 | pass | `AGENTS.md`、`CONTRIBUTING.md`、Skill固有docs。license原文、CLI・schema keyは例外 |
-| collectionでSkill挙動を変えない | pass | collectはrecordだけを保存。Phase 8のlocal trap非読込み |
+| 候補収集（collection）でSkill挙動を変えない | pass | collectはrecordだけを保存。Phase 8のlocal `trap`を非読込み |
 | Localとinstalled Skill sourceを分離 | pass | data-dir resolver、Skill source guard、user／project scope test |
 | corpus promotionとrule promotionを分離 | pass | state workflow、investigation、regression、approval、applyを別artifact・commandで実装 |
 | promotionはdefault dry-run | pass | corpus／investigation／proposal／regression／approval／rule applyのCLI test |
@@ -159,8 +175,8 @@ Copilotの最初の確認では、テスト用リポジトリ外を指すシン�
 | parserなしでも動作 | pass | dependency未導入CLIとparse error test |
 | parserをground truthにしない | pass | runtime contract、A/B recommendation、Codex／Copilot実機case |
 | Codex／Copilot共通Skill | pass | portable sourceは1つの `SKILL.md`。provider別本文を持たない |
-| repository validation | pass | 96 unit tests、11 Schema、`validate-skills.sh`、publish dry-run |
-| 目的別commit・通常push | pass | Phase 1〜7を独立commitとして `master` へ通常push。force pushなし |
+| リポジトリ検証（repository validation） | pass | 96 unit tests、11 Schema、`validate-skills.sh`、publish dry-run |
+| 目的別のcommit・通常push | pass | Phase 1〜7を独立commitとして `master` へ通常push。force pushなし |
 
 ### 望ましい項目
 
@@ -181,33 +197,33 @@ Copilotの最初の確認では、テスト用リポジトリ外を指すシン�
 
 - `gh skill` はpublic previewであるため、手動配置手順を維持する。
 - Copilotには、確認済み資料上でCodexの
-  `allow_implicit_invocation: false` と同等の静的設定がない。portable本文で
+  `allow_implicit_invocation: false` と同等の静的設定がない。共通のSkill本文で
   reviewを既定にし、ファイル変更には明示依頼を要求する。
-- releaseはrepo-wide SemVer tagを使い、1 releaseをcatalog全体のsnapshotとする。
-  Skill個別versionはfrontmatterへ置かない。
+- releaseはリポジトリ全体のSemVer tagを使い、1 releaseをcatalog全体の固定記録とする。
+  Skill個別のversionはfrontmatterへ置かない。
 
 ### 文章例（corpus）の収集と利用
 
-- 実文corpusのschema v1、local data directory解決、state transition、audit logを実装し、
-  dependency-free unit testで確認した。manual corpus CLIはPython 3.12で、read-only command、
-  collect dry-run、annotation、accept／reject、local promotion preview／apply、project scopeの
+- public corpus promotionと、通常reviewからlocal recordを明示的に読み込む機能は未実装である。
+  現在のbundled evalは合成fixtureのままで、local recordは通常reviewへ影響しない。rights不明の
+  third-party textをpublic corpusへ昇格させる処理も提供していない。
+- 実文corpusのschema v1、local data directoryの解決、状態遷移、監査ログを実装し、
+  dependency-freeなunit testで確認した。manual corpus CLIはPython 3.12で、read-only command、
+  collectのdry-run、annotation、accept／reject、local promotionのpreview／apply、project scopeの
   ignore gateを確認した。
 - public GitHub collectorは、明示指定されたPRだけをnetworkから読み、変更済みMarkdown、
   immutable SHA、review submission、inline threadの構造metadataをreference-only candidateへ
   保存する。private repositoryは最初のrepository metadata確認後に拒否する。pagination、
-  partial thread、raw text入りfixtureの拒否をrecorded fixture testで確認した。
+  partial thread、raw text入りfixtureの拒否は、recorded fixture testで確認した。
 - `digital-go-jp/design-tokens` PR #138は2026-08-30のlive dry-runで、README.md、final headへの
   human approval、inline threadなしを確認し、`positive-reviewed` candidateとして分類した。
   PR #187はrecorded metadataで、旧SHAへのinline threadとfollow-up SHAへのapprovalを対応付け、
   `review-directed-revision` と分類した。どちらもPR本文、patch、review/comment本文を保存しない。
-- public corpus promotion、通常reviewへの明示的なlocal record読込みは未実装である。現在の
-  bundled evalは合成fixtureのままで、local recordは通常reviewへ影響しない。rights不明の
-  third-party textをpublic corpusへ昇格させる処理も提供していない。
 
 ### ルールの調査と適用
 
 - adversarial investigation bundle、result gate、proposal draftはPython 3.12で確認した。bundleは
-  raw textをcopyせず、support/controlのcorrelation groupを再計算する。candidateからの直接調査、
+  raw textを複製せず、support/controlのcorrelation groupを再計算する。candidateからの直接調査、
   bundle外record、source correlation改ざん、未説明のcounterexample、固定閾値だけ、頻度だけ、
   duplicate rule、provenance未確認の `PROMOTE` を拒否する。proposalはhuman-unapproved、全regression
   `not-run` で始まり、local保存時もcore fileを変更しない。
@@ -216,12 +232,15 @@ Copilotの最初の確認では、テスト用リポジトリ外を指すシン�
   boundary evalとprovider・model・host・repeat metadataを固定し、corpus raw textを複製しない。
   missing／duplicate repeat、semantic regression、no-change mismatch、unsupported resultをpassにしない。
   approvalとapplyの前にstored plan／runからreportを再集計する。applyはSkill本文・references・evalsの
-  approved diffに限定し、対象の未commit変更、unsafe path、no-opを拒否する。validator失敗時のrollbackも
-  isolated Git repositoryで確認した。Python toolはproviderを直接呼ばず、commit・pushもしない。
+  approved diffに限定し、対象の未commit変更、unsafe path、no-opを拒否する。validator失敗時に
+  変更を元へ戻すこと（rollback）も一時Gitリポジトリで確認した。Python toolはproviderを直接呼ばず、
+  commit・pushもしない。
 
 ### 任意の構文sensor
 
-- optionalなGiNZA構造sensorをPython 3.12で確認した。`ginza==5.2.0`、`ja-ginza==5.2.0`、
+実際のCodex／GitHub Copilot A/Bは未実施であり、optional sensorの既定利用は無効である。
+
+- 任意のGiNZA構造sensorをPython 3.12で確認した。`ginza==5.2.0`、`ja-ginza==5.2.0`、
   `spacy==3.7.5`、`click==8.1.8` でrecorded fixtureと実解析が成功した。dependency未導入と
   parse errorは非致命resultとなり、parserなしでSkillを継続できる。spaCy 3.8系では同じmodelの
   loadが失敗したため、導入例は実測済みversionをpinしている。
@@ -229,5 +248,4 @@ Copilotの最初の確認では、テスト用リポジトリ外を指すシン�
   曖昧性の判定を持たない。通常reviewから自動install・model download・解析を行わない。
   provider-neutralなA/B集約はpaired result、RR recall、false positive、unnecessary revision、
   semantic preservation、処理時間、parse failure、provider間disagreementを評価する。synthetic testでは
-  改善なし、回帰、pair不足、parser unavailableを `do-not-default` とすることを確認した。実際の
-  Codex／GitHub Copilot A/Bは未実施であり、optional sensorの既定利用は無効である。
+  改善なし、回帰、pair不足、parser unavailableを `do-not-default` とすることを確認した。

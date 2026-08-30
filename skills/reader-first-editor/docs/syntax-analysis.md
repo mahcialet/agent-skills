@@ -1,9 +1,9 @@
 # 日本語構文解析
 
-状態: optional sensor implemented、既定利用は無効
+状態: optional sensor implemented（既定利用は無効）
 
-GiNZA adapterが返すのは、日本語文の構造観測値である。可読性を合否判定するものではない。
-通常reviewからは自動起動せず、GiNZA、spaCy、modelをCoreの必須依存に含めない。そのため、
+GiNZA adapterが返すのは、日本語文の構造観測値であり、可読性の合否判定ではない。
+通常のreviewからは自動起動せず、GiNZA、spaCy、modelをCoreの必須依存に含めない。そのため、
 parserがない環境でもSkill全体の処理は継続する。
 
 ## 2026-08-30時点の確認結果
@@ -23,11 +23,12 @@ parserがない環境でもSkill全体の処理は継続する。
 
 `ginza==5.2.0` と `ja-ginza==5.2.0` のdependency宣言では、spaCy `<4.0.0,>=3.4.4` が許容される。
 ただし、2026-08-30のisolated testでは、spaCy 3.8系で `ja_ginza` のloadに失敗した。
-Python 3.12.13、`spacy==3.7.5`、`click==8.1.8` では解析に成功したため、導入例では実測済みversionを
-pinする。将来versionを変更する場合は、同じload testとrecorded fixtureを再実行する。
+Python 3.12.13、`spacy==3.7.5`、`click==8.1.8` では解析に成功した。このため、導入例では
+実測済みversionをpinしている。将来versionを変更する場合は、同じload testとrecorded fixtureを
+再実行する。
 
 初回installにはnetwork接続が必要である。約59 MBのmodel wheelに加え、spaCyやSudachiの依存も
-取得する。通常reviewがpackage installやmodel downloadを開始することはない。GiNZA modelは
+取得する。通常のreviewがpackage installやmodel downloadを開始することはない。GiNZA modelは
 packageに含まれるため、install済み環境での解析時にはmodelをnetworkから取得しない。
 
 ## 明示的な実行
@@ -73,7 +74,7 @@ uv run --python 3.12 \
 - 解析時間とwarning
 
 これらの観測値はtokenizationとparseに依存する。数値やmarkerだけを根拠に `RR-04` などを付与
-しない。一つのparseが返っただけでは、読者が文を一意に解釈できる証拠にもならない。合成文の
+しない。一つのparseが返っただけでは、読者が文を一意に解釈できる証拠にはならない。合成文の
 recorded resultは `tests/fixtures/syntax/ginza-5.2.0-ja-ginza-5.2.0.json` に保存している。
 
 ## LLM-onlyとのA/B
@@ -95,7 +96,7 @@ python3 skills/reader-first-editor/scripts/analyze_ja.py ab-report \
 ```
 
 reportはRR recall、false-positive rate、unnecessary-revision rate、semantic-preservation rate、
-expected-behavior accuracy、処理時間、parse-failure rateを条件間で比較する。さらに、provider別
+expected-behavior accuracy、処理時間、parse-failure rateを条件間で比較する。さらに、provider別の
 accuracyのspreadと、同じcaseに対するrisk判定のdisagreement rateも比較する。
 
 paired result不足、unsupported／error、parser unavailable、semantic regression、false positiveや

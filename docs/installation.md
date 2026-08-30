@@ -7,8 +7,8 @@
 
 | Skill | 主な用途 | 既定動作 |
 |---|---|---|
-| `reader-first-editor` | 日本語・英語の文章を、一度で理解しやすく、内容を変えずに整える | 原文やファイルを変更しない文章review |
-| `adversarial-pr-review` | 差分外の証拠とA0〜A4によるPR・diff review | GitHub上の状態やファイルを変更しないcode review |
+| `reader-first-editor` | 日本語・英語の文章を、一度で理解しやすく、内容を変えずに整える | 原文やファイルを変更しない文章レビュー |
+| `adversarial-pr-review` | 差分外の証拠とA0〜A4によるPR・diff review | GitHub上の状態やファイルを変更しないコードレビュー |
 
 以下の例では、最初に `skill_name` を設定する。コマンド例では
 `reader-first-editor` を使うが、`adversarial-pr-review` も指定できる。
@@ -16,34 +16,36 @@
 | 目的 | 推奨方法 | 特徴 |
 |---|---|---|
 | 通常利用 | `gh skill install` | GitHubから取得し、更新元を追跡できる |
-| 現在の作業ツリーを試す | `install-local.sh`（既定のcopy） | インストール後の内容が固定される |
+| 現在の作業ツリーを試す | `install-local.sh`（既定はコピー） | インストール後の内容が固定される |
 | Skillを開発する | `install-local.sh --link` | 作業ツリーの変更が即座に反映される |
-| `gh skill` を使えない環境 | 手動copy | 標準配置先へ自分でコピーする |
+| `gh skill` を使えない環境 | 手動コピー | 標準配置先へ自分でコピーする |
 
 コマンドは、特記がない限りこのリポジトリのルートで実行する。
 
-## scopeと配置先
+<a id="scopeと配置先"></a>
+
+## scope（適用範囲）と配置先
 
 `--scope` はSkillを利用できる範囲を指定する。
 
 | scope | 配置先 | 利用範囲 |
 |---|---|---|
-| `user` | `$HOME/.agents/skills/<skill-name>` | そのユーザーが起動するすべてのproject |
-| `project` | `<現在のリポジトリ>/.agents/skills/<skill-name>` | そのprojectと配下の作業ディレクトリ |
+| `user` | `$HOME/.agents/skills/<skill-name>` | そのユーザーが起動するすべてのプロジェクト |
+| `project` | `<現在のリポジトリ>/.agents/skills/<skill-name>` | そのプロジェクトと配下の作業ディレクトリ |
 
 CodexとGitHub Copilotは、どちらも上記の `.agents/skills` を読める。そのため、
 ローカル補助スクリプトの `--agent codex` と `--agent github-copilot` は同じ標準配置先を
 使用する。`--agent` では対象ホストを明示する。これにより、対象ホストの誤指定を
 検出でき、実行結果から対象を確認できる。
 
-個人の全projectで使うなら `user`、チームで共有するprojectだけに限定するなら
-`project` を選ぶ。project scopeの `.agents/skills` は、必要に応じて対象projectの
+個人の全プロジェクトで使うなら `user`、チームで共有するプロジェクトだけに限定するなら
+`project` を選ぶ。`project` scopeの `.agents/skills` は、必要に応じて対象プロジェクトの
 Gitで管理できる。
 
 ## GitHub CLI（public preview）
 
 GitHub CLI 2.97.0で、`skills/*/SKILL.md` の検出、CodexとGitHub Copilotへの
-インストール、タグまたはcommit SHAへのpinを確認している。通常利用ではこの方法を
+インストール、タグまたはcommit SHAによる固定を確認している。通常利用ではこの方法を
 推奨する。
 
 ```bash
@@ -82,18 +84,18 @@ gh skill install mahcialet/agent-skills adversarial-pr-review \
 
 `gh skill` はpublic previewであり、オプションや配置が変更される可能性がある。
 使用する内容を固定する必要がある環境では、`--pin` を指定する。例にある
-`REPLACE_WITH_COMMIT_SHA` は、内容を確認済みのcommit SHAへ置き換える。pinしない場合、
-installerはrepositoryのreleaseまたはdefault branchを解決するため、後日再インストールすると
-内容が変わる可能性がある。
+`REPLACE_WITH_COMMIT_SHA` は、内容を確認済みのcommit SHAへ置き換える。固定しない場合、
+インストーラーはリポジトリのreleaseまたはdefault branchを解決するため、後日
+再インストールすると内容が変わる可能性がある。
 
 `--from-local` は作業ツリーの内容をコピーする。コピー後に元ファイルを編集しても、
-インストール済みのcopyへは自動反映されない。元ファイルの変更を継続的に反映する
+インストール済みのコピーへは自動反映されない。元ファイルの変更を継続的に反映する
 開発では、後述の `--link` を使用する。
 
 ## ローカル補助スクリプト
 
-`scripts/install-local.sh` は、このリポジトリ内のSkillを標準配置先へcopyまたは
-symlinkで配置する。GitHubからのdownloadは行わない。
+`scripts/install-local.sh` は、このリポジトリ内のSkillを標準配置先へコピーするか、
+シンボリックリンクで配置する。GitHubからのdownloadは行わない。
 
 ```text
 Usage: ./scripts/install-local.sh <skill-name> \
@@ -105,12 +107,14 @@ Usage: ./scripts/install-local.sh <skill-name> \
 | option | 既定値 | 意味 |
 |---|---|---|
 | `<skill-name>` | なし | `reader-first-editor` または `adversarial-pr-review` |
-| `--scope` | `project` | user scopeまたはproject scopeを選ぶ |
+| `--scope` | `project` | `user` scopeまたは`project` scopeを選ぶ |
 | `--agent` | `codex` | 対象ホストを明示する |
-| `--link` | 無効 | copyではなくsymlinkを作る |
-| `--force` | 無効 | 既存先をbackupへ移してから置き換える |
+| `--link` | 無効 | コピーではなくシンボリックリンクを作る |
+| `--force` | 無効 | 既存先をバックアップへ移してから置き換える |
 
-### copyでインストールする
+<a id="copyでインストールする"></a>
+
+### コピーしてインストールする
 
 ```bash
 # ~/.agents/skills/reader-first-editor へcopyする
@@ -121,11 +125,11 @@ Usage: ./scripts/install-local.sh <skill-name> \
   --scope project --agent github-copilot
 ```
 
-copyすると、インストール時点の内容が独立したディレクトリに保存される。元の
-`skills/reader-first-editor` を後から編集しても、インストール済みcopyは変わらない。
+コピーすると、インストール時点の内容が独立したディレクトリに保存される。元の
+`skills/reader-first-editor` を後から編集しても、インストール済みのコピーは変わらない。
 普段使いや、検証済みの内容を意図せず変えたくない場合に適している。
 
-`adversarial-pr-review` をcopyする場合も同じである。
+`adversarial-pr-review` をコピーする場合も同じである。
 
 ```bash
 ./scripts/install-local.sh adversarial-pr-review --scope user --agent codex
@@ -140,7 +144,7 @@ copyすると、インストール時点の内容が独立したディレクト�
   --scope user --agent codex --link
 ```
 
-`--link` はファイルを複製せず、配置先にsymlinkを作る。上の例での配置先と
+`--link` はファイルを複製せず、配置先にシンボリックリンクを作る。上の例での配置先と
 元ディレクトリの関係は、次のとおりである。
 
 ```text
@@ -148,14 +152,14 @@ $HOME/.agents/skills/reader-first-editor
   -> <このリポジトリ>/skills/reader-first-editor
 ```
 
-このリポジトリのSkillを編集すると、symlink経由でSkillを読むホストにも変更が即座に
+このリポジトリのSkillを編集すると、シンボリックリンク経由でSkillを読むホストにも変更が即座に
 反映される。そのため、再インストールせずに動作を確認できる。Skill開発に使う場合は、
 次の点に注意する。
 
 - リポジトリを移動・rename・削除するとリンクが切れる。
-- branch切替えや未commitの編集も、そのまま利用内容へ反映される。
-- 検証済み内容を固定したい運用環境にはcopyまたはSHA pinを使う。
-- Codexでは開発用途に利用できる。Copilotでsymlinkを使う場合は、利用するOSと
+- ブランチ切替えや未commitの編集も、そのまま利用内容へ反映される。
+- 検証済み内容を固定したい運用環境にはコピーまたはSHA pinを使う。
+- Codexでは開発用途に利用できる。Copilotでシンボリックリンクを使う場合は、利用するOSと
   CLI versionで検出を確認する。
 
 ### 既存インストールを置き換える
@@ -172,14 +176,14 @@ $HOME/.agents/skills/reader-first-editor
   --scope user --agent codex --link --force
 ```
 
-`--force` を付けても既存内容は削除しない。たとえば次のような時刻付きbackupへ
-移動してから、新しいcopyまたはlinkを作る。
+`--force` を付けても既存内容は削除しない。たとえば次のような時刻付きバックアップへ
+移動してから、新しいコピーまたはリンクを作る。
 
 ```text
 reader-first-editor.backup.20260830153000
 ```
 
-不要になったbackupは、内容を確認してから手動で削除する。
+不要になったバックアップは、内容を確認してから手動で削除する。
 
 ## 手動コピー
 
@@ -223,7 +227,9 @@ $reader-first-editor 次の文をreviewしてください。書き換えは不�
 $adversarial-pr-review disposable repoのstaged changesをlevel=A1、depth=focusedでreviewしてください。
 ```
 
-各Skillの固有契約（mode、変更範囲、安全上の制約、出力）は、Skill READMEに記載する。
+各Skillの固有契約（mode、変更範囲、安全上の制約、出力）は、
+[`reader-first-editor` のREADME](../skills/reader-first-editor/README.md)と
+[`adversarial-pr-review` のREADME](../skills/adversarial-pr-review/README.md)に記載する。
 `reader-first-editor` の改稿にはmodeの明示が必要である。`adversarial-pr-review` のreviewと
 gateは、どちらも対象を変更せず、結果の報告だけを行う。
 
@@ -233,8 +239,8 @@ gateは、どちらも対象を変更せず、結果の報告だけを行う。
 
 - `gh skill install` で配置した場合: `gh skill update` を使い、適用前後の差分と
   更新元を確認する。
-- copyした場合: 新しいcommitをcheckoutし、既存先をbackupしたうえで再コピーする。
-- `--link` の場合: checkout中の作業ツリーがそのまま反映される。branch切替え前に
+- コピーした場合: 新しいcommitをcheckoutし、既存先をバックアップしたうえで再コピーする。
+- `--link` の場合: checkout中の作業ツリーがそのまま反映される。ブランチ切替え前に
   差分を確認する。
 
 運用環境では単なる「最新」ではなく、検証済みSHAを記録する。

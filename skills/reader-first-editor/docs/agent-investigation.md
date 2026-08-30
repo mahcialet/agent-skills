@@ -1,13 +1,15 @@
 # Agentによる調査
 
-状態: implemented（bundleから明示applyまで）
+状態: implemented（bundleの作成から明示的なapplyまで）
 
-Agentはruleを積極的に考案するためではなく、適用範囲が広すぎるruleを反証するために使う。
-通常reviewではlocal corpusを自動で読み込まない。toolが生成したprovider-neutralな
-investigation bundleを読むのは、CodexまたはCopilotが明示的に起動された場合だけである。
+Agentを使う目的は、ruleを積極的に考案することではない。適用範囲が広すぎるruleを見つけ、
+反例によって退けることを優先する。通常のreviewではlocal corpusを自動で読み込まない。
+toolが生成したprovider-neutralなinvestigation bundleを読むのは、CodexまたはCopilotが
+明示的に起動された場合だけである。
 
-bundle作成から限定したrule applyまでの経路は実装済みである。この経路には、Agent resultの
-runtime gate、human-unapproved proposal draft、regression結果の集約、人間による明示承認を含む。
+bundle作成から、対象を限定したrule applyまでの経路は実装済みである。この経路では、
+Agent resultのruntime gate、human-unapproved proposal draft、regression結果の集約、
+人間による明示承認を順に行う。
 
 ## 既定姿勢
 
@@ -15,29 +17,29 @@ runtime gate、human-unapproved proposal draft、regression結果の集約、人
 Default decision: DO NOT PROMOTE
 ```
 
-有用なruleを採用し損ねることより、有害なruleをcoreへ導入することを重く扱う。広いruleより
-狭いrule、処方箋より観察、早い採用より `HOLD` を選ぶ。
+有用なruleを採用し損ねることより、有害なruleをcoreへ導入することを重く扱う。そのため、
+広いruleより狭いrule、処方箋より観察、早い採用より `HOLD` を選ぶ。
 
 ## Investigationの順序
 
-1. 既存ruleで説明できるか確認する。
-2. 支持例のsource相関とconfounderを確認する。
+1. 既存ruleだけで説明できるか確認する。
+2. 支持例同士が同じsourceに由来して相関していないか、confounderがないか確認する。
 3. clean・borderline・rejected sampleから反例を探す。
-4. 最小反例を作り、仮説が広すぎる条件を特定する。
-5. 発火例と非発火例のminimal pairで境界を調べる。
+4. 最小反例を作り、仮説の適用範囲が広すぎる条件を特定する。
+5. 発火例と非発火例のminimal pairを使って境界を調べる。
 6. language、genre、reader、purpose、translation依存までscopeを縮める。
 7. semantic、unnecessary revision、register、literal、repository-reviewの回帰を調べる。
 8. 未説明の反例がなければproposal候補を作る。
 
 ## 役割
 
-- **Pattern Miner**: 共通特徴をruleではなく仮説として記録し、confounderを示す。
+- **Pattern Miner**: 共通する特徴をruleではなく仮説として記録し、confounderを示す。
 - **Counterexample Hunter**: 反例と修正不要な類似例を最優先で探す。
 - **Boundary Tester**: minimal pairから隠れた適用条件を特定する。
 - **Regression Analyst**: false positive、semantic damage、genre bias、provider差を比較する。
-- **Rule Reviewer**: 既存ruleで十分かを再確認し、既定をreject／hold側に置く。
+- **Rule Reviewer**: 既存ruleで十分かを再確認し、既定の判断をreject／hold側に置く。
 
-同じAgentが複数役を担う場合も、役割ごとにoutput sectionと判断を分ける。反証reviewには、
+同じAgentが複数の役割を担う場合も、役割ごとにoutput sectionと判断を分ける。反証reviewには、
 proposal作成時とは別のfresh contextを使うことが望ましい。
 
 ## Bundle
@@ -46,7 +48,7 @@ bundleには、仮説、対象scope、record ID、source correlation、支持例
 semantic invariants、既存rule、提案eval、未確認事項を含める。rightsを確認していないraw
 third-party textはbundleへ複製しない。reference-only recordでは、参照とhashだけを渡す。
 
-Agentの出力はproposal recordのdraftであり、toolのstate transitionや人間の承認を代行しない。
+Agentの出力はproposal recordのdraftにすぎず、toolのstate transitionや人間の承認を代行しない。
 未説明の反例があればdecisionを `HOLD` にし、情報が足りなければ
 `NEEDS_MORE_EVIDENCE` にする。
 
@@ -55,8 +57,8 @@ Agentの出力はproposal recordのdraftであり、toolのstate transitionや�
 ### bundleを作る
 
 最初に、人間がsupportとcontrolを明示的に選ぶ。supportに使用できるのは
-accepted／promoted recordだけである。controlにはaccepted／promoted／rejected recordを使用できる。
-candidateから直接調査を始めることはできない。
+accepted／promoted recordだけである。controlにはaccepted／promoted／rejected recordを
+使用できる。candidateから直接調査を始めることはできない。
 
 ```bash
 tool=skills/reader-first-editor/scripts/corpus_tool.py
@@ -85,8 +87,9 @@ python3 "$tool" --data-dir "$data_dir" rules validate-investigation \
 
 toolはsupport数をrecord件数ではなくcorrelation groupから再計算する。また、bundle外record、
 改ざんされたsource correlation、未説明のcounterexample、provenance未確認、固定閾値や頻度だけに
-基づく判断、duplicate ruleを検出する。無効な `PROMOTE` はeffective statusを `HOLD` として返し、
-`--apply` があっても保存しない。`HOLD` と `NEEDS_MORE_EVIDENCE` は正常な調査結果として保存できる。
+基づく判断、duplicate ruleを検出する。無効な `PROMOTE` は、effective statusを `HOLD` として返す。
+この場合は `--apply` があっても保存しない。`HOLD` と `NEEDS_MORE_EVIDENCE` は正常な調査結果として
+保存できる。
 
 ### proposal draftを作る
 
@@ -98,14 +101,14 @@ python3 "$tool" --data-dir "$data_dir" rules propose \
 ```
 
 このcommandも既定ではpreviewだけを返す。`--apply` が意味するのは、local `proposals/` への
-保存だけである。proposalの `human_approval.approved` は必ずfalse、regression statusは全て
+保存だけである。proposalの `human_approval.approved` は必ずfalseであり、regression statusは全て
 `not-run` で始まり、`SKILL.md`、references、evalsを変更しない。
 
 ### regressionから明示applyまで進める
 
 proposal後は、bundled eval、promoted corpus、positive／negative／boundary evalを含むplanを
 `rules regression-plan` で作る。CodexとGitHub Copilotで実行したresultは
-`rules regression-ingest` で取り込む。その後、`rules regression-report` で全provider・repeatを
+`rules regression-ingest` で取り込み、`rules regression-report` で全provider・repeatを
 集約する。toolはproviderを直接起動せず、planとresultの検証・保存・再集計だけを担う。
 
 全gateがpassしたreportだけを、`rules approve` で別artifactとして承認できる。`rules apply` は

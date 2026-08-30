@@ -1,16 +1,16 @@
 # コーパスデータモデル
 
-状態: implemented（schema v1とlocal state）
+状態: implemented（schema v1とlocal stateを実装済み）
 
-一つのrecordを一つのJSON fileに保存する。この形式なら、既存evalと同じくPython標準ライブラリで
-検証できる。また、key順とindentを安定させることで、変更内容をdiffで追いやすくなる。
-schemaはversionを持ち、unknown fieldを黙って捨てない。正規schemaは
+一つのrecordは、一つのJSON fileとして保存する。この形式は既存evalと同じくPython標準ライブラリで
+検証でき、key順とindentを安定させれば変更内容もdiffで追いやすい。
+schemaはversionを持ち、unknown fieldを黙って捨てない。recordの形式を定義するschemaは
 `../schemas/corpus-record.schema.json` である。
 
 ## recordの役割
 
 recordは、原文に正解labelを付けるためのものではない。provenance、観察、期待挙動、人間の判断を
-分けて保存する。GitHubのapproval、RR annotation、rule proposalも同じfieldへまとめない。
+分けて保存する。GitHubのapproval、RR annotation、rule proposalも一つのfieldへまとめない。
 
 ## 必須情報
 
@@ -50,13 +50,13 @@ hash algorithm、canonicalization version、入力fieldはrecordへ残す。reco
 | `redacted` | 明示したredactionを施したtextを保存 |
 | `reference-only` | URL、immutable revision、path、hashだけを保存 |
 
-匿名化やredactionだけで再配布可能になるとは扱わない。rightsがunknownの場合は
+匿名化やredactionを行っただけでは、再配布可能とはみなさない。rightsがunknownの場合は
 `reference-only` と `local_only: true` を既定にする。
 
 ## decision履歴
 
-現在stateに加えて、candidate作成、annotation、accept、reject、promotionの履歴をaudit logへ
-残す。acceptedとrejectedの双方を保持することで、却下された提案をnegative controlに利用できる。
+現在のstateに加えて、candidate作成、annotation、accept、reject、promotionの履歴をaudit logへ
+残す。acceptedとrejectedの双方を保持するため、却下された提案もnegative controlに利用できる。
 rejectされたrecordは削除せず、判断根拠を残す。
 
 ## schema evolution
@@ -68,7 +68,7 @@ path・line・reply数を構造化して保存する。account名やPR本文、p
 
 state変更には、pending journal、record、原子的に置き換えるaudit logを使う。audit commit前に
 失敗した場合は旧stateへrollbackする。process停止によってpending journalが残った場合は、次回の
-初期化時にaudit eventの有無を確認し、commitまたはrollbackの状態を回復する。store全体の
+初期化時にaudit eventの有無を確認し、commitまたはrollbackが完了した状態へ回復する。store全体の
 process間lockにより、duplicate判定、state変更、auditのread-modify-replaceを直列化する。
 
 schema migrationは明示的なpreviewとbackupを要求する。新しいvalidatorが古いrecordを黙って
@@ -92,7 +92,7 @@ bundle IDはhypothesis、scope、support／control record IDから生成する�
 proposal IDはresult、rule diff、eval候補から生成するため、同じ内容の重複を検出できる。
 artifactは上書きせず、修正版を別IDとして保存する。
 
-bundleはrecord本文をcopyせず、参照するlocal recordのpathとcontent hashを持つ。読込み時には
+bundleはrecord本文をcopyせず、参照するlocal recordのpathとcontent hashを持つ。読み込むときは、
 record summary、correlation group、source analysis、readinessをlocal store上のrecordと再照合する。
 外部編集によって内容が食い違ったartifactは拒否する。
 

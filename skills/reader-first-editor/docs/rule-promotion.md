@@ -1,11 +1,11 @@
 # ルール昇格
 
-状態: implemented（investigation、regression gate、human approval、明示apply）
+状態: implemented（investigation、regression gate、human approval、明示的なapply）
 
 rule promotionはcorpus promotionとは別のworkflowである。実例を評価に使えるcorpusへ追加しても、
 それだけではSkillの判断規則は変わらない。behavior-changing ruleの既定判断は `HOLD` または
 `NEEDS_MORE_EVIDENCE` とする。structured investigation、human-unapproved proposal draft、
-provider-neutralなregression集約、human approval artifact、rule patchの明示applyは実装済みである。
+provider-neutralなregression集約、human approval artifact、rule patchの明示的なapplyは実装済みである。
 
 ## Workflow
 
@@ -25,7 +25,7 @@ human approval
 明示的なapply
 ```
 
-1件のcandidate、単一sourceの件数、頻度、固定閾値だけを根拠にruleを作らない。既存ruleで
+1件のcandidate、単一sourceから得た件数、頻度、固定閾値だけを根拠にruleを作らない。既存ruleで
 説明できる場合はduplicateとして止め、観察のままで十分ならruleにしない。
 
 ## Proposal gate
@@ -41,7 +41,7 @@ proposalには次が必要である。
 - positive、negative、boundary eval候補
 - 未説明の反例数とdecision理由
 
-反例が一つでも残る場合は、多数決で無視しない。反例が成立しない条件までruleを狭められなければ
+反例が一つでも残る場合は、多数決で無視しない。反例が成立しない範囲までruleを狭められなければ
 `HOLD` とする。証拠自体が不足する場合は `NEEDS_MORE_EVIDENCE` とする。
 
 ## Apply gate
@@ -69,12 +69,12 @@ human approvalはfalseで固定する。承認はproposal自体を書き換え�
 保存する。
 
 `rule-proposal.schema.json` へ適合しても、それだけではapplyできない。schemaはproposalと検証結果を
-受け渡す形式である。regression結果、人間の承認、明示的な `--apply` は、別のruntime gateで
+受け渡すための形式である。regression結果、人間の承認、明示的な `--apply` は、別のruntime gateで
 再確認する。
 
 ## Regression workflow
 
-portableなPython toolはCodexやGitHub Copilotを直接起動しない。実行計画と結果形式を固定し、
+portableなPython toolはCodexやGitHub Copilotを直接起動しない。実行計画と結果形式を固定して、
 各hostで実行した結果を取り込み、同じ基準で集約する。
 
 ```text
