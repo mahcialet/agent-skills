@@ -34,7 +34,7 @@ conduct layerをSkillとは分離して収録しています。ProfileはSkill�
 [試験運用ガイド](docs/behavior-profiles.md)を参照してください。
 
 現在のartifactは `implemented` かつ `structurally validated` です。2026-08-31にCodex CLI
-0.151.0とGitHub Copilot CLI 1.0.82の各10 episodeを`gpt-5.4`で観測しました。これは
+0.151.0とGitHub Copilot CLI 1.0.82の正式S01〜S10を`gpt-5.4`で観測しました。これは
 [記録した条件でのevidence](behavior-profiles/evidence/README.md)に限る`observed`であり、別の
 host、version、modelやproductionでの挙動を`verified`とするものではありません。
 

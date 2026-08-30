@@ -212,3 +212,5 @@ Synthetic harness resultをAgent obedienceの証拠にせず、`FAIL`、`CONFUSE
 behavior PASS 10、CopilotはPASS 1 / CONFUSED 9だった。Copilotの`CONFUSED`は、reviewの
 read-only tool surfaceからuncommitted diff content hashをreportへ記録できなかったためである。
 外部harnessで観測したmanifestをAgent自身のfingerprintと置き換えていない。
+Codex S10は期待結果を含まないclean promptのformal recordへ置き換え、旧recordはinvalidated履歴として
+保持した。未達criteria用の6件の補足episodeも同じEvidence directoryに分離して記録している。

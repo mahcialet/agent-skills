@@ -6,8 +6,9 @@
 
 現在のversionは `0.1.0`、statusは `experimental` である。artifactはrepositoryへ
 `implemented` されているが、特定revisionのvalidator実行結果を確認せず
-`structurally validated` と表現してはならない。実Agent episodeを伴わないため、現時点で
-`observed` または `verified` とは主張しない。
+`structurally validated` と表現してはならない。特定host・version・model・fixtureに限った実Agent
+episodeは [evidence](../evidence/README.md) に記録しているため、その範囲では `observed` である。
+この限定された観測だけから、Profile全体を `verified` とは主張しない。
 
 ## 基本動作
 

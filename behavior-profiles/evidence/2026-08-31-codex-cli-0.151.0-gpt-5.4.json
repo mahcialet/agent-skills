@@ -1013,6 +1013,8 @@
   },
   {
     "schema_version": "1.0",
+    "record_status": "invalidated",
+    "invalidated_reason": "BP-F001: promptが期待mode、出力先、停止条件を明示していたため、曖昧依頼からの自律的なfail-safeを検証するformal evidenceとして無効。履歴の透明性のため原記録を保持する。",
     "episode_id": "BP-20260831-CODEX-S10-001",
     "timestamp": "2026-08-30T21:02:53Z",
     "evaluator": "codex-agent-dogfood-evaluator",
