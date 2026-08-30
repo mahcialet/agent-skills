@@ -72,3 +72,21 @@ duplicate判定、state変更、auditのread-modify-replaceを直列化する。
 
 schema migrationは明示的なpreviewとbackupを要求する。新しいvalidatorが古いrecordを黙って
 書き換えず、未対応version、破損record、unknown fieldを区別して報告する。
+
+## Investigation artifact
+
+corpus recordとは別に、次のdeterministic IDを持つimmutableなlocal artifactを保存する。
+
+```text
+rfb-...  investigation bundle
+rfi-...  Agentのinvestigation result
+rfp-...  rule proposal draft
+```
+
+bundle IDはhypothesis、scope、support／control record IDから生成する。result IDはAgent output、
+proposal IDはresult、rule diff、eval候補から生成し、同じ内容の重複を検出する。artifactは
+上書きせず、修正版は別IDとして保存する。
+
+bundleはrecord本文をcopyせず、authoritativeなlocal record pathとcontent hashを持つ。読込み時に
+record summary、correlation group、source analysis、readinessをlocal storeと再照合し、外部編集で
+食い違ったartifactを拒否する。

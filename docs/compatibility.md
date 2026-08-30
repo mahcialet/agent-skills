@@ -92,6 +92,12 @@
 - public corpus promotion、通常reviewへの明示的なlocal record読込みは未実装である。現在の
   bundled evalは合成fixtureのままで、local recordは通常reviewへ影響しない。rights不明の
   third-party textをpublic corpusへ昇格させる処理も提供していない。
+- adversarial investigation bundle、result gate、proposal draftはPython 3.12で確認した。bundleは
+  raw textをcopyせず、support/controlのcorrelation groupを再計算する。candidateからの直接調査、
+  bundle外record、source correlation改ざん、未説明のcounterexample、固定閾値だけ、頻度だけ、
+  duplicate rule、provenance未確認の `PROMOTE` を拒否する。proposalはhuman-unapproved、全regression
+  `not-run` で始まり、local保存時もcore fileを変更しない。regression runnerとrule applyは
+  未実装である。
 - 自動日本語構文解析器は導入していない。将来導入する場合もoptionalな構造sensorに限定し、
   parserなしでSkillを継続できる設計とする。現在の数値はtripwireだけに使い、hard thresholdで
   可読性を判定しない。A/B検証も未実施である。

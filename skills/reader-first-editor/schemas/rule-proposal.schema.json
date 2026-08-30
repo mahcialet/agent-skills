@@ -19,7 +19,10 @@
     "boundary_pairs",
     "existing_rule_analysis",
     "semantic_risks",
+    "provenance_reviewed",
     "fixed_threshold_only",
+    "frequency_only",
+    "duplicate_rule",
     "rule_diff",
     "evals",
     "regressions",
@@ -64,7 +67,10 @@
     "boundary_pairs": {"type": "array", "items": {"type": "object"}},
     "existing_rule_analysis": {"type": "string", "minLength": 1},
     "semantic_risks": {"type": "array", "items": {"type": "string"}},
+    "provenance_reviewed": {"type": "boolean"},
     "fixed_threshold_only": {"type": "boolean"},
+    "frequency_only": {"type": "boolean"},
+    "duplicate_rule": {"type": "boolean"},
     "rule_diff": {"type": ["string", "null"]},
     "evals": {
       "type": "object",
@@ -101,7 +107,10 @@
       "if": {"properties": {"status": {"const": "PROMOTE"}}},
       "then": {
         "properties": {
+          "provenance_reviewed": {"const": true},
           "fixed_threshold_only": {"const": false},
+          "frequency_only": {"const": false},
+          "duplicate_rule": {"const": false},
           "counterexamples": {
             "properties": {
               "searched": {"const": true},

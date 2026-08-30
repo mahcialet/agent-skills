@@ -114,6 +114,14 @@ register、pacing、技術内容、ジャンル、JTF層へ振り分ける。構
 日英混在文ではliteralと用語を先に保護し、各言語層をそれぞれのproseへ適用する。
 依頼されていない翻訳をしない。
 
+## 明示的なルール調査
+
+利用者がlocal corpusのbundleまたはrule investigationを明示した場合だけ、
+`references/core/rule-investigation.md` を読む。通常のreviewや改稿ではlocal corpus、
+investigation、proposalを探索・読込みしない。調査の既定判断は `HOLD` とし、未説明の反例、
+固定閾値だけの根拠、頻度だけの根拠、既存ruleのduplicateがあれば `PROMOTE` にしない。
+`PROMOTE` をcoreへのapplyや安全保証として扱わない。
+
 ## 最終意味保存gate
 
 返答または保存前に、元文と改稿案の事実、主体、行動、対象、数値、日付、条件、

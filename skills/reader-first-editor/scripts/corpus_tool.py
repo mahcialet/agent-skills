@@ -16,6 +16,14 @@ from reader_first.github import (
     fetch_pull_request_snapshot,
     load_recorded_snapshot,
 )
+from reader_first.investigation import (
+    InvestigationError,
+    build_investigation_bundle,
+    build_rule_proposal,
+    read_json_file,
+    validate_bundle_against_store,
+    validate_investigation_result,
+)
 from reader_first.state import (
     STATE_DIRECTORIES,
     TOOL_VERSION,
@@ -168,6 +176,37 @@ def build_parser() -> argparse.ArgumentParser:
     promote_parser.add_argument("--apply", action="store_true")
     promote_parser.add_argument("--actor", help="--apply時にauditへ記録する実施者")
     promote_parser.add_argument("--reason", help="--apply時にauditへ記録する理由")
+
+    rules = domains.add_parser("rules", help="rule investigation artifactを操作する")
+    rule_commands = rules.add_subparsers(dest="command", required=True)
+
+    bundle_parser = rule_commands.add_parser(
+        "bundle",
+        help="明示選択したlocal corpusからadversarial investigation bundleを作る",
+    )
+    bundle_parser.add_argument("--hypothesis", required=True)
+    bundle_parser.add_argument("--support-record", action="append", required=True)
+    bundle_parser.add_argument("--control-record", action="append", default=[])
+    bundle_parser.add_argument("--purpose", action="append", required=True)
+    bundle_parser.add_argument("--apply", action="store_true")
+    _add_actor_reason(bundle_parser)
+
+    result_parser = rule_commands.add_parser(
+        "validate-investigation",
+        help="Agentが作成したinvestigation resultをgateで検証する",
+    )
+    result_parser.add_argument("--bundle-id", required=True)
+    result_parser.add_argument("--result", type=Path, required=True)
+    result_parser.add_argument("--apply", action="store_true")
+
+    proposal_parser = rule_commands.add_parser(
+        "propose",
+        help="gate済みinvestigationからhuman-unapproved proposal draftを作る",
+    )
+    proposal_parser.add_argument("--bundle-id", required=True)
+    proposal_parser.add_argument("--result-id", required=True)
+    proposal_parser.add_argument("--rule-diff", type=Path, required=True)
+    proposal_parser.add_argument("--apply", action="store_true")
     return parser
 
 
@@ -285,6 +324,117 @@ def run(args: argparse.Namespace) -> int:
             {
                 "promoted": record["id"],
                 "state": "promoted",
+                "changes_rule_behavior": False,
+                "modified_core": [],
+            }
+        )
+        return 0
+    if command == "bundle":
+        bundle = build_investigation_bundle(
+            store,
+            hypothesis=args.hypothesis,
+            support_record_ids=args.support_record,
+            control_record_ids=args.control_record,
+            purposes=args.purpose,
+            actor=args.actor,
+            reason=args.reason,
+        )
+        path = store.investigation_bundle_path(bundle["id"])
+        if not args.apply:
+            _print_json(
+                {
+                    "dry_run": True,
+                    "bundle": bundle,
+                    "will_modify": [],
+                    "changes_rule_behavior": False,
+                }
+            )
+            return 0
+        _ensure_project_write_safe(args, data_dir)
+        store.write_artifact(path, bundle)
+        _print_json(
+            {
+                "created": bundle["id"],
+                "path": str(path),
+                "default_decision": bundle["readiness"]["default_decision"],
+                "changes_rule_behavior": False,
+                "modified_core": [],
+            }
+        )
+        return 0
+    if command == "validate-investigation":
+        bundle_path = store.investigation_bundle_path(args.bundle_id)
+        bundle = validate_bundle_against_store(store.read_artifact(bundle_path), store)
+        result, blockers = validate_investigation_result(
+            read_json_file(args.result, "investigation result"),
+            bundle,
+        )
+        submitted_status = result["decision"]["status"]
+        effective_status = "HOLD" if submitted_status == "PROMOTE" and blockers else submitted_status
+        result_path = store.investigation_result_path(bundle["id"], result["id"])
+        if blockers:
+            _print_json(
+                {
+                    "valid": False,
+                    "submitted_status": submitted_status,
+                    "effective_status": effective_status,
+                    "blockers": blockers,
+                    "will_modify": [],
+                }
+            )
+            return 1
+        if not args.apply:
+            _print_json(
+                {
+                    "dry_run": True,
+                    "valid": True,
+                    "effective_status": effective_status,
+                    "result": result,
+                    "will_modify": [],
+                }
+            )
+            return 0
+        _ensure_project_write_safe(args, data_dir)
+        store.write_artifact(result_path, result)
+        _print_json(
+            {
+                "created": result["id"],
+                "path": str(result_path),
+                "effective_status": effective_status,
+                "changes_rule_behavior": False,
+                "modified_core": [],
+            }
+        )
+        return 0
+    if command == "propose":
+        bundle = validate_bundle_against_store(
+            store.read_artifact(store.investigation_bundle_path(args.bundle_id)),
+            store,
+        )
+        result = store.read_artifact(store.investigation_result_path(bundle["id"], args.result_id))
+        try:
+            rule_diff = args.rule_diff.read_text(encoding="utf-8")
+        except OSError as exc:
+            raise InvestigationError(f"rule diffを読み込めません: {args.rule_diff}: {exc}") from exc
+        proposal = build_rule_proposal(result, bundle, rule_diff)
+        proposal_path = store.rule_proposal_path(proposal["id"])
+        if not args.apply:
+            _print_json(
+                {
+                    "dry_run": True,
+                    "proposal": proposal,
+                    "will_modify": [],
+                    "changes_rule_behavior": False,
+                }
+            )
+            return 0
+        _ensure_project_write_safe(args, data_dir)
+        store.write_artifact(proposal_path, proposal)
+        _print_json(
+            {
+                "created": proposal["id"],
+                "path": str(proposal_path),
+                "human_approval": False,
                 "changes_rule_behavior": False,
                 "modified_core": [],
             }

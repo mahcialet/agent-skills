@@ -1,10 +1,11 @@
 # ルール昇格
 
-状態: planned（未実装）
+状態: 一部implemented（investigationとproposal draftまで）
 
 rule promotionはcorpus promotionと別のworkflowである。実例を評価可能なcorpusへ追加しても、
 Skillの判断規則は変わらない。behavior-changing ruleの既定判断は `HOLD` または
-`NEEDS_MORE_EVIDENCE` とする。
+`NEEDS_MORE_EVIDENCE` とする。structured investigationとhuman-unapproved proposal draftの
+local保存までは実装済みである。regression runner、human approval操作、rule applyは未実装である。
 
 ## Workflow
 
@@ -61,6 +62,10 @@ proposalには次が必要である。
 
 apply対象はhuman-reviewedなprose diffとeval updateである。初版ではcore referencesを
 structured recordから自動生成せず、自動commit・pushもしない。
+
+現在の `rules propose --apply` は名前に `apply` を含むが、proposal artifactをlocal dataへ
+保存するだけである。core ruleへの `rules apply` ではない。作成時のregressionは全て `not-run`、
+human approvalはfalseで固定し、Phase 6のgateを通るまでbehavior changeを許可しない。
 
 `rule-proposal.schema.json` へ適合することは、applyの許可ではない。schemaはproposalと
 検証結果を受け渡す形式であり、regression結果、人間の承認、明示的な `--apply` は別の

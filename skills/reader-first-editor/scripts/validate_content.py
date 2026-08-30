@@ -46,6 +46,7 @@ REQUIRED_SUITES = {
 }
 REQUIRED_SCHEMAS = {
     "corpus-record.schema.json",
+    "investigation-bundle.schema.json",
     "investigation.schema.json",
     "rule-proposal.schema.json",
 }
@@ -53,6 +54,7 @@ REQUIRED_TOOL_FILES = {
     "scripts/corpus_tool.py",
     "scripts/reader_first/__init__.py",
     "scripts/reader_first/github.py",
+    "scripts/reader_first/investigation.py",
     "scripts/reader_first/state.py",
 }
 REQUIRED_GITHUB_FIXTURES = {

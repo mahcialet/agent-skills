@@ -16,7 +16,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 SCHEMA_VERSION = 1
-TOOL_VERSION = "0.2.0"
+TOOL_VERSION = "0.3.0"
 STATE_DIRECTORIES = {
     "candidate": "candidates",
     "annotated": "annotated",
@@ -698,6 +698,53 @@ class LocalCorpusStore:
         path = self.root / STATE_DIRECTORIES[state] / f"{record_id}.json"
         self._assert_safe_path(path)
         return path
+
+    def investigation_bundle_path(self, bundle_id: str) -> Path:
+        if not re.fullmatch(r"rfb-[0-9a-f]{20}", bundle_id):
+            raise StoreError("bundle IDの形式が不正です")
+        path = self.root / "investigations" / bundle_id / "bundle.json"
+        self._assert_safe_path(path)
+        return path
+
+    def investigation_result_path(self, bundle_id: str, result_id: str) -> Path:
+        if not re.fullmatch(r"rfb-[0-9a-f]{20}", bundle_id):
+            raise StoreError("bundle IDの形式が不正です")
+        if not re.fullmatch(r"rfi-[0-9a-f]{20}", result_id):
+            raise StoreError("investigation result IDの形式が不正です")
+        path = self.root / "investigations" / bundle_id / "results" / f"{result_id}.json"
+        self._assert_safe_path(path)
+        return path
+
+    def rule_proposal_path(self, proposal_id: str) -> Path:
+        if not re.fullmatch(r"rfp-[0-9a-f]{20}", proposal_id):
+            raise StoreError("proposal IDの形式が不正です")
+        path = self.root / "proposals" / f"{proposal_id}.json"
+        self._assert_safe_path(path)
+        return path
+
+    def read_artifact(self, path: Path) -> dict:
+        if not self.root.exists():
+            raise StoreError(f"artifactが見つかりません: {path.name}")
+        self._assert_safe_layout()
+        self._assert_safe_path(path)
+        with self._read_lock():
+            try:
+                data = json.loads(path.read_text(encoding="utf-8"))
+            except FileNotFoundError as exc:
+                raise StoreError(f"artifactが見つかりません: {path}") from exc
+            except (OSError, json.JSONDecodeError) as exc:
+                raise StoreError(f"artifactを読み込めません: {path}: {exc}") from exc
+        if not isinstance(data, dict):
+            raise StoreError(f"artifactのtop levelはobjectである必要があります: {path}")
+        return data
+
+    def write_artifact(self, path: Path, data: dict) -> None:
+        self.initialize()
+        self._assert_safe_path(path)
+        with self._store_lock():
+            if path.exists():
+                raise StoreError(f"immutable artifactは上書きできません: {path}")
+            self._atomic_write(path, data)
 
     def _locations(self, record_id: str) -> list[tuple[str, Path]]:
         return [

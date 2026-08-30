@@ -7,8 +7,10 @@
   "additionalProperties": false,
   "required": [
     "id",
+    "bundle_id",
     "schema_version",
     "created_at",
+    "producer",
     "hypothesis",
     "scope",
     "record_ids",
@@ -18,13 +20,19 @@
     "boundary_pairs",
     "existing_rule_analysis",
     "semantic_risks",
+    "provenance_reviewed",
+    "fixed_threshold_only",
+    "frequency_only",
+    "duplicate_rule",
     "proposed_evals",
     "decision"
   ],
   "properties": {
     "id": {"type": "string", "minLength": 1},
+    "bundle_id": {"type": "string", "pattern": "^rfb-[0-9a-f]{20}$"},
     "schema_version": {"const": 1},
     "created_at": {"type": "string", "minLength": 1},
+    "producer": {"type": "string", "minLength": 1},
     "hypothesis": {"type": "string", "minLength": 1},
     "scope": {
       "type": "object",
@@ -42,6 +50,7 @@
     "source_correlation": {"type": "array", "uniqueItems": true, "items": {"type": "string"}},
     "support": {
       "type": "object",
+      "additionalProperties": false,
       "required": ["independent_sources", "examples", "mechanism", "confounders"],
       "properties": {
         "independent_sources": {"type": "integer", "minimum": 0},
@@ -52,6 +61,7 @@
     },
     "counterexamples": {
       "type": "object",
+      "additionalProperties": false,
       "required": ["searched", "explained", "unexplained"],
       "properties": {
         "searched": {"type": "boolean"},
@@ -59,11 +69,29 @@
         "unexplained": {"type": "array", "items": {"type": "string"}}
       }
     },
-    "boundary_pairs": {"type": "array", "items": {"type": "object"}},
+    "boundary_pairs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["fires", "does_not_fire", "distinguishing_condition", "scope_effect"],
+        "properties": {
+          "fires": {"type": "string", "minLength": 1},
+          "does_not_fire": {"type": "string", "minLength": 1},
+          "distinguishing_condition": {"type": "string", "minLength": 1},
+          "scope_effect": {"type": "string", "minLength": 1}
+        }
+      }
+    },
     "existing_rule_analysis": {"type": "string"},
     "semantic_risks": {"type": "array", "items": {"type": "string"}},
+    "provenance_reviewed": {"type": "boolean"},
+    "fixed_threshold_only": {"type": "boolean"},
+    "frequency_only": {"type": "boolean"},
+    "duplicate_rule": {"type": "boolean"},
     "proposed_evals": {
       "type": "object",
+      "additionalProperties": false,
       "required": ["positive", "negative", "boundary"],
       "properties": {
         "positive": {"type": "array", "items": {"type": "string"}},
@@ -73,6 +101,7 @@
     },
     "decision": {
       "type": "object",
+      "additionalProperties": false,
       "required": ["status", "reason"],
       "properties": {
         "status": {"enum": ["PROMOTE", "REJECT", "HOLD", "NEEDS_MORE_EVIDENCE"]},
@@ -95,6 +124,12 @@
               "unexplained": {"maxItems": 0}
             }
           },
+          "provenance_reviewed": {"const": true},
+          "fixed_threshold_only": {"const": false},
+          "frequency_only": {"const": false},
+          "duplicate_rule": {"const": false},
+          "existing_rule_analysis": {"minLength": 1},
+          "semantic_risks": {"minItems": 1},
           "support": {
             "properties": {
               "independent_sources": {"minimum": 2},

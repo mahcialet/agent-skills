@@ -81,8 +81,9 @@ Copilot CLI:
 実文、review履歴、採用・却下判断を、インストール済みSkillとは別のlocal dataへ蓄積し、
 corpusとruleの候補を保守的に評価するworkflowを整備しています。schema v1、local data
 directoryの解決、state transition、audit log、manual corpus CLI、local promotion、public
-GitHub PRのreference-only収集は実装済みです。public promotion、rule investigation、通常review
-からのlocal corpus利用は未実装で、現在の通常reviewやbundled evalには影響しません。
+GitHub PRのreference-only収集、adversarial investigation bundle、proposal draftは実装済みです。
+public promotion、regression runner、rule apply、通常reviewからのlocal corpus利用は未実装で、
+現在の通常reviewやbundled evalには影響しません。
 
 設計上は、候補の収集、corpusへのpromotion、behavior-changing ruleのpromotionを別のgateに
 分けます。収集したcandidateやpromoted local corpusを通常reviewへ暗黙に読み込まず、
@@ -125,6 +126,13 @@ PR本文、patch、review/comment本文を保存しません。変更済みMarkd
 inline threadの位置と件数だけを `github_evidence` に残し、rightsは `unknown`、textは
 `reference-only`、recordは `local_only` とします。`--dry-run` を外すまでlocal dataへも
 書き込みません。
+
+rule investigationは、support／control recordを明示指定して `rules bundle` を実行した場合だけ
+開始します。bundleはCounterexample Hunterを最優先にし、既定判断を `HOLD` とします。
+`rules validate-investigation` は未説明の反例、固定閾値だけ、頻度だけ、既存ruleのduplicateを
+含む `PROMOTE` を拒否します。`rules propose --apply` もlocal proposalを保存するだけで、core rule、
+references、evalsを変更しません。詳細は[Agentによる調査](docs/agent-investigation.md)を参照して
+ください。
 
 - [コーパス運用](docs/corpus-workflow.md)
 - [コーパスデータモデル](docs/corpus-data-model.md)

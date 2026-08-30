@@ -1,10 +1,12 @@
 # Agentによる調査
 
-状態: planned（未実装）
+状態: 一部implemented（bundle、result gate、proposal draftまで）
 
 Agentはruleを積極的に考案する役ではなく、危険な一般化を壊す役として使う。toolは
 provider-neutralなinvestigation bundleを生成し、CodexまたはCopilotが明示起動された場合だけ
-そのbundleを読む。通常reviewへlocal corpusを暗黙に注入しない。
+そのbundleを読む。通常reviewへlocal corpusを暗黙に注入しない。bundle作成、Agent resultの
+runtime gate、human-unapproved proposal draftは実装済みである。regression実行とrule applyは
+未実装である。
 
 ## 既定姿勢
 
@@ -46,3 +48,48 @@ semantic invariants、既存rule、提案eval、未確認事項を含める。ra
 Agentの出力はproposal recordのdraftであり、toolのstate transitionや人間の承認を代行しない。
 未説明の反例があればdecisionを `HOLD` にし、情報が足りなければ
 `NEEDS_MORE_EVIDENCE` にする。
+
+## CLI workflow
+
+最初に、人間がsupportとcontrolを明示選択する。supportにはaccepted／promoted recordだけを
+使用でき、controlにはaccepted／promoted／rejected recordを使用できる。candidateからの直接調査は
+拒否する。
+
+```bash
+tool=skills/reader-first-editor/scripts/corpus_tool.py
+data_dir=/path/to/reader-first-editor-data
+
+python3 "$tool" --data-dir "$data_dir" rules bundle \
+  --hypothesis "限定した仮説" \
+  --support-record <record-id-1> --support-record <record-id-2> \
+  --control-record <record-id-3> --purpose "初読理解" \
+  --actor reviewer --reason "adversarial investigation"
+```
+
+既定はpreviewであり、`--apply` を付けた場合だけ
+`investigations/<bundle-id>/bundle.json` へ保存する。bundleはraw textを複製せず、record path、
+content hash、provenance、分類metadataだけを持つ。embeddedなlocal textも別fileへcopyしない。
+
+Agentにはbundleと `../references/core/rule-investigation.md` を明示して調査を依頼し、
+`investigation.schema.json` に適合するJSONを作らせる。resultは次で検証する。
+
+```bash
+python3 "$tool" --data-dir "$data_dir" rules validate-investigation \
+  --bundle-id <bundle-id> --result investigation.json
+```
+
+toolはsupport数をrecord件数ではなくcorrelation groupから再計算する。bundle外record、改ざんされた
+source correlation、未説明のcounterexample、provenance未確認、固定閾値だけ、頻度だけ、duplicate
+ruleを検出する。無効な `PROMOTE` はeffective statusを `HOLD` として返し、`--apply` があっても
+保存しない。`HOLD` と `NEEDS_MORE_EVIDENCE` は正常な調査結果として保存できる。
+
+gateを通過した `PROMOTE` resultとhuman-reviewedなrule diffから、次でproposal draftを作る。
+
+```bash
+python3 "$tool" --data-dir "$data_dir" rules propose \
+  --bundle-id <bundle-id> --result-id <result-id> --rule-diff rule.diff
+```
+
+このcommandも既定はpreviewで、`--apply` はlocal `proposals/` への保存だけを意味する。proposalの
+`human_approval.approved` は必ずfalse、regression statusは全て `not-run` で始まり、
+`SKILL.md`、references、evalsを変更しない。
