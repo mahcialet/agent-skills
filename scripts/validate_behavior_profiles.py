@@ -175,7 +175,20 @@ class RepositoryReader:
         self._file_flags = os.O_RDONLY | os.O_NOFOLLOW
         self._file_flags |= getattr(os, "O_CLOEXEC", 0)
         self._file_flags |= getattr(os, "O_NONBLOCK", 0)
-        self._root_fd = os.open(self.repository, self._directory_flags)
+        directory_fd = os.open(self.repository.anchor, self._directory_flags)
+        try:
+            for component in self.repository.parts[1:]:
+                next_fd = os.open(
+                    component,
+                    self._directory_flags,
+                    dir_fd=directory_fd,
+                )
+                os.close(directory_fd)
+                directory_fd = next_fd
+        except OSError:
+            os.close(directory_fd)
+            raise
+        self._root_fd = directory_fd
 
     def close(self) -> None:
         if self._root_fd >= 0:
