@@ -1,14 +1,53 @@
 # Reader-First Editor
 
-`reader-first-editor` は、人間向けの日本語・英語文章を、校正、初読理解、読み返し
-リスク、情報階層、意味保存の観点でreviewまたは改稿するSkillです。明示的に依頼
-された場合は、文書のclaimを同一リポジトリ内のcode、設定、test、他文書などと
-照合します。
+`reader-first-editor` は、人間向けの日本語・英語文章を校正・校閲・改稿するSkillです。
+文法や表記だけでなく、初読理解、読み返しリスク、情報階層、意味保存も確認します。
+リポジトリ内校閲を明示された場合は、文書のclaimを同一リポジトリ内のcode、設定、test、
+他文書などと照合します。
 
-既定は非破壊のreviewです。改稿には明示的な依頼が必要で、改稿前後を意味台帳で
-比較します。不明な期限、担当、手順、保証、義務を創作しません。
+既定は、原文を変更しない `review` です。改稿には明示的な依頼が必要です。改稿する場合は、
+事実、主体、条件、例外、否定、モダリティ、用語などを「意味台帳」として整理し、改稿前後で
+比較します。不明な期限、担当、手順、保証、義務は創作しません。詳しくは
+[意味保存契約](references/core/semantic-preservation.md)を参照してください。
 
-## 対象
+## 主要機能
+
+| 機能 | 内容 | モードと変更範囲 |
+|---|---|---|
+| 校正・文章レビュー | 文法、表記、用語、曖昧さ、読み返しリスク、情報構造を確認する | `review`。既定値であり、原文やファイルを変更しない |
+| 意味を保った改稿 | 事実、条件、例外、モダリティ、技術的なliteralを保ちながら、並べ替え・分割・結合・明確化を行う | `revise-safe`。明示依頼が必要 |
+| リポジトリ内校閲 | 文書のclaimを、同じリポジトリのcode、設定、test、他文書と照合する | `repository-review`。read-only |
+| 構造変更の提案 | 情報の移動、重複の統合、削除候補と、失われ得る意味を示す | `revise-structural`。明示的な削除許可がなければ提案だけを返す |
+| 変更点の比較 | 改稿前後と、変更理由・意味リスクを対応付ける | `diff`。明示依頼が必要 |
+| 草案作成 | 既知情報から文章を作り、不明な期限・担当などは `TODO` やplaceholderで示す | `authoring`。明示依頼が必要 |
+| 日本語の表記統一 | 句読点、漢字・仮名、全半角、記号、単位、表記揺れだけを整える | `jtf-only`。内容や構造は変更しない |
+
+`review` では、問題、読者への影響、改善方針を報告します。校正で見つかった問題を本文へ
+反映する場合は、`revise-safe` などの改稿モードも指定してください。各モードの正確な契約は
+[出力モード](references/core/output-modes.md)に記載しています。
+
+## 起動例
+
+Codexでは `$reader-first-editor`、Copilot CLIでは `/reader-first-editor` を使って
+明示起動します。
+
+```text
+# 校正・文章レビュー。原文は変更しない
+$reader-first-editor README.mdを校正し、重要な問題を報告してください。
+
+# 意味を保って改稿する
+$reader-first-editor docs/guide.mdをrevise-safeで改稿してください。
+
+# リポジトリ内の証拠と照合する
+$reader-first-editor docs/configuration.mdをrepository-reviewで確認してください。
+
+# 日本語の表記だけを整える
+$reader-first-editor announcement.mdをjtf-onlyで整えてください。
+```
+
+Copilot CLIでは、上記の `$reader-first-editor` を `/reader-first-editor` に置き換えます。
+
+## 対象と対象外
 
 - README、設計書、技術解説、runbook
 - PR説明、review、Issue、社内依頼、メール
@@ -20,15 +59,7 @@
 書き換えは対象外です。一般的な外部fact checkingや、外部URLの内容を無制限に
 取得・検証する用途にも使いません。
 
-## 明示起動
-
-- Codex: `$reader-first-editor この文章をレビューしてください: ...`
-- Copilot CLI: `/reader-first-editor この文章をレビューしてください: ...`
-
-改稿が必要なら `revise-safe`、`diff`、`authoring` などを指定してください。
-[出力モード](references/core/output-modes.md)に契約を記載しています。
-
-## リポジトリ内の証拠に基づく校閲
+## 校閲：リポジトリ内の証拠との照合
 
 `repository-review` はread-onlyです。対象文書と関連するリポジトリ内の証拠を
 照合し、文書も証拠fileも変更せず結果を返します。
@@ -76,13 +107,18 @@ Copilot CLI:
 校閲後の改稿も必要な場合は、`repository-review` と `revise-safe` などの改稿モードを
 両方明示してください。校閲結果を先に確定し、意味保存gateを通してから改稿します。
 
-## ローカルコーパス育成（一部implemented）
+## 育成・評価機能（一部implemented）
+
+以下の機能は、通常の校正・校閲・改稿から分離されています。local corpusや構造sensorを
+通常reviewへ暗黙に読み込んだり、自動起動したりしません。
+
+### ローカルコーパスを育成する
 
 実文、review履歴、採用・却下判断を、インストール済みSkillとは別のlocal dataへ蓄積し、
 corpusとruleの候補を保守的に評価するworkflowを整備しています。public promotionと
 通常reviewからのlocal corpus利用は未実装であり、現在の通常reviewには影響しません。
 
-### 現在の実装範囲
+#### 現在の実装範囲
 
 schema v1、local data directoryの解決、state transition、audit log、manual corpus CLI、
 local promotion、public GitHub PRのreference-only収集、adversarial investigation bundle、
@@ -93,7 +129,7 @@ proposal draftは実装済みです。provider-neutralなregression plan・resul
 分けます。収集したcandidateやpromoted local corpusを通常reviewへ暗黙に読み込まず、
 明示的なapplyと人間の承認なしに `SKILL.md`、references、evalsを変更しません。
 
-### local corpusを操作する
+#### local corpusを操作する
 
 manual CLIの例:
 
@@ -117,7 +153,7 @@ python3 "$tool" --data-dir "$data_dir" corpus promote <candidate-id> --apply \
 どちらもcore ruleやbundled evalを変更しません。project scopeを使う場合は、projectの
 `.gitignore` に `.reader-first-editor/` を追加してください。
 
-### public GitHub PRから収集する
+#### public GitHub PRから収集する
 
 public GitHub PRを収集する例:
 
@@ -135,7 +171,7 @@ inline threadの位置と件数だけを `github_evidence` に残し、rightsは
 `reference-only`、recordは `local_only` とします。`--dry-run` を外すまでlocal dataへも
 書き込みません。
 
-### ruleを調査・昇格する
+#### ruleを調査・昇格する
 
 rule investigationは、support／control recordを明示指定して `rules bundle` を実行した場合だけ
 開始します。bundleはCounterexample Hunterを最優先にし、既定判断を `HOLD` とします。
