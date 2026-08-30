@@ -5,7 +5,11 @@
 
 1. 英小文字を使い、単語をハイフンで区切った一意な名前を選ぶ。
 2. `skills/<name>/SKILL.md` を作る。YAML `name` をディレクトリ名と一致させ、
-   `description` に使う条件と使わない条件を書く。
+   `description` に使う条件と使わない条件を書く。`install-local.sh` が追加するインストール元情報は、
+   Gitが短縮IDを延長した場合の最長形式で137文字あり、区切りにも1文字を使う。そのため、
+   リポジトリ内の説明は886文字以下にする。`Install source:` と `Install context:` は生成時の
+   識別子として予約し、リポジトリ内の説明には書かない。`validate-skills.sh` は、情報を追加した
+   後も1024文字以内か検証する。
 3. 複数ホストで共有するfrontmatterは必要最小限にし、特定のproviderだけが使うtool名やmodel名を
    入れない。
 4. Skillが実行時に読むreferences、scripts、examples、assetsをSkill配下に置く。

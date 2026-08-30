@@ -9,6 +9,11 @@ frontmatterへ置かない。同じ内容を再現する必要がある利用者
 またはcommit SHAへ固定（pin）する。pinしない場合、インストーラーはリポジトリのrelease
 またはdefault branchを解決するため、後日の再インストール結果が変わり得る。
 
+`install-local.sh` がコピー先の説明へ追加する短縮commit ID、commitのtreeとの違い、またはcommit IDを
+取得できない理由は、インストール元を見分けるための情報であり、Skill固有のversion fieldや
+release pinではない。コピー内容がcommitのtreeと異なる場合はHEADを基点として表示し、コピー内容
+そのものを固定した値とはみなさない。
+
 ## SemVerの判断
 
 - **MAJOR**: 既存Skillの起動契約（起動方法・条件）、既定動作、出力契約（形式・必須項目・意味）、

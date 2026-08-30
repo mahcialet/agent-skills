@@ -95,7 +95,9 @@ gh skill install mahcialet/agent-skills adversarial-pr-review \
 ## ローカル補助スクリプト
 
 `scripts/install-local.sh` は、このリポジトリ内のSkillを標準配置先へコピーするか、
-シンボリックリンクで配置する。GitHubからのdownloadは行わない。
+シンボリックリンクで配置する。GitHubからのdownloadは行わない。コピー時には、インストール元を
+識別できるよう、配置先の `SKILL.md` の説明へ短縮Git commit ID、commitのtreeとの違い、または
+commit IDを取得できない理由を追加する。スクリプトの実行にはPython 3.10以降が必要である。
 
 ```text
 Usage: ./scripts/install-local.sh <skill-name> \
@@ -110,17 +112,17 @@ Usage: ./scripts/install-local.sh <skill-name> \
 | `--scope` | `project` | `user` scopeまたは`project` scopeを選ぶ |
 | `--agent` | `codex` | 対象ホストを明示する |
 | `--link` | 無効 | コピーではなくシンボリックリンクを作る |
-| `--force` | 無効 | 既存先をバックアップへ移してから置き換える |
+| `--force` | 無効 | 既存先を `.agents/backups` へ移してから置き換える |
 
 <a id="copyでインストールする"></a>
 
 ### コピーしてインストールする
 
 ```bash
-# ~/.agents/skills/reader-first-editor へcopyする
+# ~/.agents/skills/reader-first-editor へコピーする
 ./scripts/install-local.sh reader-first-editor --scope user --agent codex
 
-# このリポジトリの .agents/skills/reader-first-editor へcopyする
+# このリポジトリの .agents/skills/reader-first-editor へコピーする
 ./scripts/install-local.sh reader-first-editor \
   --scope project --agent github-copilot
 ```
@@ -128,6 +130,34 @@ Usage: ./scripts/install-local.sh <skill-name> \
 コピーすると、インストール時点の内容が独立したディレクトリに保存される。元の
 `skills/reader-first-editor` を後から編集しても、インストール済みのコピーは変わらない。
 普段使いや、検証済みの内容を意図せず変えたくない場合に適している。
+
+コピーでは、リポジトリ内の元ファイルを変更せず、配置先の `SKILL.md` にある
+`description` の末尾へ次の情報を追加する。
+
+| インストール元の状態 | 配置先の説明へ追加する内容 |
+|---|---|
+| コピー内容がcommitのtreeと一致する | `Install source: Git commit <short-commit-id>.` |
+| コピー内容がcommitのtreeと異なる | `Install context: Git HEAD <short-commit-id>; copied Skill differs from the committed tree.` |
+| まだコミットを作成していないGit作業ツリー | `Install source: unborn Git worktree; copied content has no commit ID.` |
+| Gitリポジトリではない | `Install source: non-Git directory; no commit ID is available.` |
+| Gitコマンドを利用できない | `Install source: Git unavailable; no commit ID is available.` |
+
+commitのtreeと異なる内容には、対象Skill内のステージ済みまたは未ステージの変更、未追跡ファイル、
+Gitの無視対象になっているファイルやディレクトリが含まれる。Git LFSや改行コードの変換などにより、
+Git上では変更なしと表示される作業ツリーでも、実際のファイルがcommit内のbytesと異なればこちらに
+該当する。スクリプトは実際にコピーしたsnapshotを、commitのpath、file type、bytes、実行権限、
+シンボリックリンクの参照先と比較する。差分そのものは表示しない。対象Skillの外にある変更だけでは、
+コピー内容がcommitのtreeと異なるとは表示しない。
+
+説明に記録するcommit IDは、読みやすさのため `git rev-parse --short=12` が返す短縮形にする。
+通常は先頭12文字で、同じ接頭辞を持つobjectがある場合は、一意に識別できる長さまでGitが延長する。
+コピー内容の比較には完全なIDを使うため、表示を短くしても判定対象は変わらない。コピー内容が
+異なる場合のIDは、コピー内容そのものを固定する値ではなく、その作業ツリーの基点となるHEADで
+ある。同じHEADから異なる内容をコピーすることもあるため、コピー内容のハッシュ、署名、
+リリース版番号とはみなさない。
+Gitコマンドを利用できない場合は、上表の理由を記録してコピーを続ける。一方、リポジトリに
+Gitの管理情報があるのにHEADや対象Skillの状態を正常に調べられない場合は、既存の配置先を
+動かす前に処理を中止する。
 
 `adversarial-pr-review` をコピーする場合も同じである。
 
@@ -162,6 +192,11 @@ $HOME/.agents/skills/reader-first-editor
 - Codexでは開発用途に利用できる。Copilotでシンボリックリンクを使う場合は、利用するOSと
   CLI versionで検出を確認する。
 
+リンク先は作成後も内容が変わるため、`--link` では `SKILL.md` の説明へcommit IDを追加しない。
+スクリプトの実行結果には、リンクであることと作成時点のcommit ID、基点となるHEAD、または
+commit IDを取得できない理由を表示する。
+利用中の内容を後から確認するときは、リンク元のリポジトリで改めてHEADと作業ツリーを確認する。
+
 ### 既存インストールを置き換える
 
 配置先がすでに存在する場合、スクリプトは何も上書きせず終了する。意図的に
@@ -171,25 +206,52 @@ $HOME/.agents/skills/reader-first-editor
 ./scripts/install-local.sh reader-first-editor \
   --scope user --agent codex --force
 
-# 既存のcopyを開発用linkへ置き換える
+# 既存のコピーを開発用リンクへ置き換える
 ./scripts/install-local.sh reader-first-editor \
   --scope user --agent codex --link --force
 ```
 
-`--force` を付けても既存内容は削除しない。たとえば次のような時刻付きバックアップへ
-移動してから、新しいコピーまたはリンクを作る。
+`--force` を付けても既存の配置先はすぐに削除しない。既存のコピーまたはシンボリックリンクを
+Skillの探索先から外し、次のような時刻付きバックアップへ移動してから新しい配置先を作る。
 
 ```text
-reader-first-editor.backup.20260830153000
+user scope:
+$HOME/.agents/backups/reader-first-editor.backup.20260830153000
+
+project scope:
+<このリポジトリ>/.agents/backups/reader-first-editor.backup.20260830153000
 ```
 
-不要になったバックアップは、内容を確認してから手動で削除する。
+[OpenAI Docs](https://learn.chatgpt.com/docs/build-skills)に記載されているとおり、Codexは
+`.agents/skills` を探索し、同じ `name` のSkillも一つに統合しない。この直下にバックアップを
+置くと、バックアップ内の `SKILL.md` も別のSkill候補として検出されることがある。そのため、
+現在使うSkillだけを `.agents/skills` に置き、バックアップは探索範囲外の `.agents/backups` に
+分ける。同じ時刻の名前がすでにある場合は、連番を付けて上書きを避ける。
+
+コピーのバックアップには置換前のファイルが残る。一方、シンボリックリンクのバックアップに
+残るのはリンク自体であり、リンク先の内容を固定した複製ではない。リンク先を編集・移動・
+削除すると、バックアップから参照できる内容も変わるか、リンクが切れる。
+
+旧版のスクリプトが `.agents/skills/<name>.backup.<timestamp>` に作成したバックアップは、
+同じSkillを次にインストールし直すとき、`.agents/backups` へ自動的に移動する。現在使っている
+Skillがあり `--force` を付けていない場合は、インストーラーが先に終了するため移動しない。
+現在のSkillを置き換えずに旧バックアップだけを候補から外す場合は、対象のバックアップを
+`.agents/skills` から同じscopeの `.agents/backups` へ手動で移動する。
+
+以前のコピーへ戻す場合は、現在の配置先を別の場所へ退避してから、選んだバックアップを元の
+配置先へ戻す。復旧先はuser scopeなら `$HOME/.agents/skills/<name>`、project scopeなら
+`<このリポジトリ>/.agents/skills/<name>` である。シンボリックリンクのバックアップを戻す場合は、
+リンク先がまだ存在し、意図した内容を指していることを先に確認する。新しい配置先の作成に失敗し、
+元の配置先を安全に戻せる場合は、スクリプトが自動的に復旧する。復旧できなかった場合も、実行結果に
+表示されたバックアップの場所から手動で戻せる。不要になったバックアップは、内容を確認してから
+手動で削除する。
 
 ## 手動コピー
 
 `gh skill` や補助スクリプトを使わない場合は、Skillディレクトリ全体を標準配置先へ
 コピーする。`SKILL.md` だけではなく、`references/`、`assets/`、`examples/`、
 `agents/`、`scripts/` なども必要なため、ディレクトリ単位でコピーする。
+手動コピーではcommit IDを説明へ自動追加しないため、必要なら取得元のcommit IDを別途記録する。
 
 CodexとCopilot CLIが共通で読むuser scopeへ配置する例:
 
@@ -212,6 +274,10 @@ Copilot固有のuser scopeである `~/.copilot/skills` も利用できるが、
 
 配置後、新しいセッションを開始する。すでにCopilot CLIを起動している場合は、
 `/skills reload` で再読込みできる。
+
+`install-local.sh` でコピーした場合は、Skillの詳細表示または配置先の `SKILL.md` を開き、
+`description` の末尾にある `Install source:` または `Install context:` を確認する。`--link` では
+この情報を追加しないため、リンク元のリポジトリでHEADと作業ツリーを確認する。
 
 - Codex: Skill一覧で対象名を確認し、`$reader-first-editor ...` または
   `$adversarial-pr-review ...` で明示起動する。
