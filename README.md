@@ -24,6 +24,20 @@ Codex、GitHub Copilot、およびオープンなAgent Skills形式に対応す�
 各Skillを使える場面、利用時に守る制約、第三者由来要素の出典・著作者表示とライセンス通知は、
 それぞれのREADMEとNOTICEに記載しています。
 
+## Behavior Profiles（実験）
+
+[`behavior-profiles/`](behavior-profiles/README.md) には、既存能力の使い方を定める任意の
+conduct layerをSkillとは分離して収録しています。ProfileはSkillやtool-level enforcementでは
+ありません。PoCでは `AGENTS.md` 用managed blockをdefault read-only installerで生成します。
+構造検証の成功と実Agentのbehavior evidenceも別に扱います。設計、install、uninstall、
+`independent-adversarial-verification` 固有の3つのreview modeは
+[試験運用ガイド](docs/behavior-profiles.md)を参照してください。
+
+現在のartifactは `implemented` かつ `structurally validated` です。2026-08-31にCodex CLI
+0.151.0とGitHub Copilot CLI 1.0.82の各10 episodeを`gpt-5.4`で観測しました。これは
+[記録した条件でのevidence](behavior-profiles/evidence/README.md)に限る`observed`であり、別の
+host、version、modelやproductionでの挙動を`verified`とするものではありません。
+
 ## インストール
 
 GitHub CLI 2.97以降は、このリポジトリの `skills/*/SKILL.md` を検出できます。
@@ -43,15 +57,17 @@ gh skill install mahcialet/agent-skills "${skill_name}" --agent github-copilot -
 - [Skillの追加](docs/adding-a-skill.md)
 - [互換性](docs/compatibility.md)
 - [インストール](docs/installation.md)
+- [Behavior Profilesの試験運用](docs/behavior-profiles.md)
 - [Licensing](docs/licensing.md)
 - [リリース方針](docs/release-policy.md)
 - [コントリビューション](CONTRIBUTING.md)
 
 ## 検証
 
-PRを作る前に `./scripts/validate-skills.sh` を実行してください。複数のホストで使うための
-frontmatter、Skill内の参照先、NOTICE、テスト用fixture、カタログに食い違いがないかを
-確認します。利用可能な場合、CIは `gh skill publish --dry-run` も実行します。
+PRを作る前に `./scripts/validate-skills.sh` を実行してください。Skillに加えて、Behavior
+Profile専用のfrontmatter、required section、参照先、NOTICE、pressure test、catalogも
+検査します。この成功が示すのはpackageの構造整合性だけで、実Agentのbehaviorではありません。
+利用可能な場合、CIは `gh skill publish --dry-run` も実行します。
 
 ## License
 

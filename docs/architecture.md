@@ -11,6 +11,18 @@
 ライセンス索引、コントリビューション方針を置きます。Skill固有の挙動を定める指示や処理は、
 各Skill内に置きます。
 
+## Behavior Profile layer（実験）
+
+Behavior ProfileはSkillとは別artifactであり、既存能力に期待するconductを記述する任意の
+instruction-layer overlayです。
+`behavior-profiles/<name>/BEHAVIOR_PROFILE.md` を共通の正本とし、専用catalog、validator、
+`AGENTS.md` installerを使います。Root Skill catalogや `SKILL.md` schemaへ混ぜず、既存Skillの
+runtime dependencyにも加えません。
+
+Packageの構造検証と実Agent episodeのevidenceは分離します。前者はAgentの服従や安全性を
+証明しません。Composition、hostごとのinstruction discovery、installとremovalの境界は
+[Behavior Profilesの試験運用](behavior-profiles.md)に記載します。
+
 リポジトリ内の `SKILL.md` が、各ホストで共有する編集元です。`install-local.sh` がコピーする場合は、
 編集元を変えず、配置先の説明末尾だけにインストール元の短縮Git commit ID、commitのtreeとの違い、
 またはcommit IDを取得できない理由を追加します。

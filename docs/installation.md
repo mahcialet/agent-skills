@@ -3,6 +3,11 @@
 このリポジトリの各Skillは、GitHubから取得した内容を固定して使う方法でも、ローカルの
 編集内容を即座に反映させながら開発する方法でもインストールできる。
 
+Behavior ProfileはSkill installerではなく、`AGENTS.md` 用のdefault read-only installerを
+使う。Profileのstdout render、dry-run、明示的なapply、managed blockの手動removalは
+[Behavior Profilesの試験運用](behavior-profiles.md)を参照する。Profileをroot Skill catalogや
+`.agents/skills` へコピーしない。
+
 ## 利用できるSkill
 
 | Skill | 主な用途 | 既定動作 |

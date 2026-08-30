@@ -169,9 +169,15 @@ Implementerは各findingを `confirmed` / `rejected` / `inconclusive` に裁定�
 Package validationはfrontmatter、required section、link、NOTICE、catalog、JSON fixtureを検査する。
 これは `structurally validated` という状態だけを示す。
 
-Agent episodeはdisposable repositoryで実施し、host/version/model、Profile version/hash、permission、
-mode、report destination、reviewer/implementerのwrite、verification、decision、limitationsを
+Agent episodeはdisposable repositoryで実施し、host/version/model、OS distribution/version・kernel・
+architecture、Profile version/hash、permission、mode、report destination、reviewer/implementerのwrite、
+verification、decision、limitationsを
 [`EVIDENCE_TEMPLATE.json`](../behavior-profiles/EVIDENCE_TEMPLATE.json) に従って別に記録する。
 Synthetic harness resultをAgent obedienceの証拠にせず、`FAIL`、`CONFUSED`、`INCONCLUSIVE` も
 省略しない。
 
+2026-08-31のCodex CLI / GitHub Copilot CLI各10件は
+[`behavior-profiles/evidence/`](../behavior-profiles/evidence/README.md) に記録した。Codexは
+behavior PASS 10、CopilotはPASS 1 / CONFUSED 9だった。Copilotの`CONFUSED`は、reviewの
+read-only tool surfaceからuncommitted diff content hashをreportへ記録できなかったためである。
+外部harnessで観測したmanifestをAgent自身のfingerprintと置き換えていない。
