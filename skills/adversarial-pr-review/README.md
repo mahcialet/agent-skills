@@ -28,6 +28,10 @@ reviewを始める前に、変更目的、判断基準、期待する結果、�
 security、data integrity、failure handlingを確認します。不明な要件、担当者、runbookは創作せず、
 必要な判断だけを保留します。
 
+業務上の判断基準がないため全体が `missing` でも、security regressionなど限定された確認範囲の
+contractだけが十分な場合があります。このときは全体を `sufficient` とせず、限定範囲の状態を
+別に示します。
+
 要件や禁止結果は、`requirement traceability` として実装箇所、test、その他の証拠と対応付け、
 `Satisfied`、`Violated`、`Unverified`、`Not applicable`、`Conflicting requirements` の
 いずれかで状況を示します。申告された影響（`declared impact`）と、差分外の探索で見つけた影響

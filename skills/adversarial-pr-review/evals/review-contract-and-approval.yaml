@@ -46,7 +46,7 @@
     {
       "id": "contract-missing-continues-safety-review",
       "input": "Business acceptance criteria are missing, but the changed handler passes an attacker-controlled tenant ID into an unscoped data query.",
-      "expected": "Set specification status to missing and continue the authorization, tenant-boundary, data-integrity, correctness, and regression review; report the reachable security path without inventing a business rule.",
+      "expected": "Set specification status to missing and continue the authorization, tenant-boundary, data-integrity, correctness, and regression review; report the reachable security path and trace the violated inferred tenant-isolation invariant without inventing a business rule.",
       "level": "A3",
       "depth": "standard",
       "mode": "review",
@@ -54,7 +54,7 @@
       "confidence": "Confirmed",
       "specification_status": "missing",
       "test_evidence": "not applicable",
-      "traceability_status": "N/A",
+      "traceability_status": "Violated",
       "approval_status": "N/A"
     },
     {
@@ -66,9 +66,7 @@
       "mode": "review",
       "gate": "N/A",
       "confidence": "Not applicable",
-      "specification_status": "partial",
       "test_evidence": "not applicable",
-      "traceability_status": "Unverified",
       "approval_status": "N/A"
     },
     {
@@ -94,9 +92,7 @@
       "mode": "review",
       "gate": "N/A",
       "confidence": "Not applicable",
-      "specification_status": "partial",
       "test_evidence": "not applicable",
-      "traceability_status": "Conflicting requirements",
       "approval_status": "N/A"
     },
     {
@@ -108,9 +104,7 @@
       "mode": "review",
       "gate": "N/A",
       "confidence": "Not applicable",
-      "specification_status": "partial",
       "test_evidence": "not applicable",
-      "traceability_status": "N/A",
       "approval_status": "N/A"
     },
     {
@@ -122,9 +116,7 @@
       "mode": "review",
       "gate": "N/A",
       "confidence": "Not applicable",
-      "specification_status": "sufficient",
       "test_evidence": "not applicable",
-      "traceability_status": "Not applicable",
       "approval_status": "N/A"
     },
     {
@@ -136,9 +128,7 @@
       "mode": "review",
       "gate": "N/A",
       "confidence": "Not applicable",
-      "specification_status": "partial",
       "test_evidence": "claimed",
-      "traceability_status": "Unverified",
       "approval_status": "N/A"
     },
     {
@@ -150,7 +140,6 @@
       "mode": "review",
       "gate": "N/A",
       "confidence": "Not applicable",
-      "specification_status": "partial",
       "test_evidence": "observed",
       "traceability_status": "Unverified",
       "approval_status": "N/A"
@@ -164,9 +153,7 @@
       "mode": "review",
       "gate": "N/A",
       "confidence": "Confirmed",
-      "specification_status": "sufficient",
       "test_evidence": "executed",
-      "traceability_status": "Satisfied",
       "approval_status": "N/A"
     },
     {
@@ -178,9 +165,7 @@
       "mode": "review",
       "gate": "N/A",
       "confidence": "Not applicable",
-      "specification_status": "partial",
       "test_evidence": "not applicable",
-      "traceability_status": "Unverified",
       "approval_status": "N/A"
     },
     {
@@ -199,15 +184,15 @@
     },
     {
       "id": "gate-pass-does-not-grant-approval",
-      "input": "A narrow A1 failure review has sufficient criteria and no blocking finding, but no human reviewer has approved the change.",
-      "expected": "Return Gate recommendation: PASS only for the stated scope, Approval status: NOT GRANTED, and Human approval required: yes; do not describe PASS as merge approval or a safety guarantee.",
+      "input": "Business acceptance criteria are missing, but the requested gate scope is limited to a security regression, that scoped contract is sufficient, no blocking finding or unresolved follow-up remains, and no human reviewer has approved the change.",
+      "expected": "Keep the overall specification status missing, record the scoped security contract as sufficient, and return Gate recommendation: PASS only for that stated scope, Approval status: NOT GRANTED, and Human approval required: yes; do not describe PASS as merge approval or a safety guarantee.",
       "level": "A1",
       "depth": "focused",
       "mode": "gate",
       "gate": "PASS",
       "confidence": "Not applicable",
-      "specification_status": "sufficient",
-      "test_evidence": "executed",
+      "specification_status": "missing",
+      "test_evidence": "not applicable",
       "traceability_status": "Satisfied",
       "approval_status": "NOT GRANTED"
     },
@@ -220,9 +205,7 @@
       "mode": "gate",
       "gate": "CONDITIONAL",
       "confidence": "Not applicable",
-      "specification_status": "partial",
       "test_evidence": "not applicable",
-      "traceability_status": "Unverified",
       "approval_status": "NOT GRANTED"
     }
   ]

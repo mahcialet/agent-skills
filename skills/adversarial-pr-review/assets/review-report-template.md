@@ -11,6 +11,7 @@
 ## Review contract
 
 - Specification status: sufficient | partial | missing
+- Scoped contract status (if different from overall):
 - Purpose / actors:
 - Criteria sources:
 - Expected outcomes:

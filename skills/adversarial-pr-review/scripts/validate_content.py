@@ -113,6 +113,7 @@ CASE_EXPECTED_TOKENS = {
         "continue",
         "authorization",
         "data-integrity",
+        "violated inferred tenant-isolation invariant",
         "without inventing",
     ),
     "contract-does-not-invent-requirement-id": (
@@ -181,7 +182,10 @@ CASE_EXPECTED_TOKENS = {
         "unresolved critical criterion",
     ),
     "gate-pass-does-not-grant-approval": (
+        "specification status missing",
+        "scoped security contract as sufficient",
         "gate recommendation: pass",
+        "only for that stated scope",
         "approval status: not granted",
         "human approval required: yes",
         "merge approval",
@@ -466,6 +470,7 @@ def validate_policy_and_assets(skill_dir: Path, errors: list[str]) -> None:
             "Adversarial level:",
             "Confidence:",
             "Contract / invariant reference:",
+            "Scoped contract status (if different from overall):",
             "Actor / trigger:",
             "Broken invariant:",
             "False-positive condition:",

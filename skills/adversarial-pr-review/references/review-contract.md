@@ -79,6 +79,11 @@ caller/callee、null、境界、error path、authorization、tenant boundary、s
 transaction、retry、idempotency、data integrity、rollback、recovery、regression、compatibility、
 resource／costを、確認できるevidenceの範囲でreviewする。
 
+`specification_status` はreview全体の状態を示す。業務criteriaがないため全体が `missing` でも、
+security regression等の限定scopeに必要なcontractだけがそろう場合がある。この場合、全体を
+`sufficient` へ書き換えず、`Scoped contract: sufficient (security regression only)` のように
+限定scopeの状態を別に記録する。impactやtest evidenceの情報だけからstatusを推測しない。
+
 ## Expected outcomeとforbidden outcome
 
 期待する結果と、起きてはならない結果を別々に記録する。forbidden outcomeは、A1〜A3で
@@ -222,8 +227,10 @@ production release許可を付与しない。`PASS` は、指定scope、取得�
 - `missing`: 業務要件適合を含むgateなら、原則 `CONDITIONAL` とする。
 
 明示されたscopeが「security regressionのみ」等に限定され、そのscopeのcontractが十分なら、
-業務criteriaが不足していても限定scopeで `PASS` を出せる。その場合も未確認scopeを明示し、
-`Approval status: NOT GRANTED` を維持する。確認済みP0/P1があれば、specification status不足より
+業務criteriaが不足していても、全体の `specification_status=missing` を維持したまま限定scopeで
+`PASS` を出せる。その場合は、限定scopeのcontractが `sufficient` であること、未確認scope、
+`Approval status: NOT GRANTED` を明示する。他に `CONDITIONAL` とすべき重要なhypothesisや
+follow-upが残る場合は `PASS` にしない。確認済みP0/P1があれば、specification status不足より
 findingを優先して `BLOCK` にできる。
 
 ## Missing or conflicting information
