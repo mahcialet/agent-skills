@@ -6,7 +6,9 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
 import re
+import stat
 import sys
 from pathlib import Path
 from typing import Any, Iterable, Sequence
@@ -74,6 +76,7 @@ PRESSURE_CASE_FIELDS = {
 }
 CLASSIFICATIONS = {"PASS", "FAIL", "CONFUSED"}
 PRESSURE_SCHEMA_VERSION = "1.1"
+EVIDENCE_SCHEMA_VERSION = "1.0"
 FINDING_CLASSIFICATIONS = {"confirmed", "rejected", "inconclusive"}
 ACTION_REQUIRED_VALUES = {"yes", "no", "undetermined"}
 ACTION_STATUS_VALUES = {
@@ -82,7 +85,6 @@ ACTION_STATUS_VALUES = {
     "not-authorized",
     "not-required",
     "deferred",
-    "residual",
 }
 EVIDENCE_RECORD_STATUSES = {"formal", "invalidated"}
 SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
@@ -147,10 +149,83 @@ MARKDOWN_REFERENCE_RE = re.compile(
 )
 HEADING_RE = re.compile(r"^(#{1,6})[ \t]+(.+?)[ \t]*#*[ \t]*$")
 WINDOWS_ABSOLUTE_RE = re.compile(r"^[A-Za-z]:[\\/]")
+OPEN_SUPPORTS_DIR_FD = os.open in os.supports_dir_fd
 
 
 class ProfileParseError(ValueError):
     """Raised for malformed canonical Profile frontmatter."""
+
+
+class RepositoryReader:
+    """Read regular files beneath one anchored repository directory."""
+
+    def __init__(self, repository: Path) -> None:
+        self.repository = repository.resolve()
+        if (
+            not hasattr(os, "O_NOFOLLOW")
+            or not hasattr(os, "O_DIRECTORY")
+            or not OPEN_SUPPORTS_DIR_FD
+        ):
+            raise OSError(
+                "secure repository reads require dir_fd, O_NOFOLLOW, and O_DIRECTORY"
+            )
+        flags = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW
+        flags |= getattr(os, "O_CLOEXEC", 0)
+        self._directory_flags = flags
+        self._file_flags = os.O_RDONLY | os.O_NOFOLLOW
+        self._file_flags |= getattr(os, "O_CLOEXEC", 0)
+        self._file_flags |= getattr(os, "O_NONBLOCK", 0)
+        self._root_fd = os.open(self.repository, self._directory_flags)
+
+    def close(self) -> None:
+        if self._root_fd >= 0:
+            os.close(self._root_fd)
+            self._root_fd = -1
+
+    def __enter__(self) -> RepositoryReader:
+        return self
+
+    def __exit__(self, *_exc: object) -> None:
+        self.close()
+
+    def _relative_parts(self, path: Path) -> tuple[str, ...]:
+        absolute = Path(os.path.abspath(path))
+        try:
+            relative = absolute.relative_to(self.repository)
+        except ValueError as exc:
+            raise OSError("path is not project-relative") from exc
+        if not relative.parts or any(part in {"", ".", ".."} for part in relative.parts):
+            raise OSError("path does not identify a repository file")
+        return relative.parts
+
+    def read_bytes(self, path: Path) -> bytes:
+        parts = self._relative_parts(path)
+        directory_fd = os.dup(self._root_fd)
+        file_fd = -1
+        try:
+            for component in parts[:-1]:
+                next_fd = os.open(
+                    component,
+                    self._directory_flags,
+                    dir_fd=directory_fd,
+                )
+                os.close(directory_fd)
+                directory_fd = next_fd
+            file_fd = os.open(
+                parts[-1],
+                self._file_flags,
+                dir_fd=directory_fd,
+            )
+            metadata = os.fstat(file_fd)
+            if not stat.S_ISREG(metadata.st_mode):
+                raise OSError("repository path is not a regular file")
+            with os.fdopen(file_fd, "rb", closefd=True) as stream:
+                file_fd = -1
+                return stream.read()
+        finally:
+            if file_fd >= 0:
+                os.close(file_fd)
+            os.close(directory_fd)
 
 
 def _resolved_within_repository(path: Path, repo: Path) -> bool:
@@ -164,14 +239,16 @@ def _read_text(
     path: Path,
     errors: list[str],
     *,
-    repo: Path | None = None,
+    reader: RepositoryReader,
 ) -> str | None:
-    if repo is not None and not _resolved_within_repository(path, repo):
-        errors.append(f"{path}: refusing to read file outside repository")
+    try:
+        raw = reader.read_bytes(path)
+    except OSError as exc:
+        errors.append(f"{path}: cannot securely read repository file: {exc}")
         return None
     try:
-        return path.read_text(encoding="utf-8")
-    except (OSError, UnicodeError) as exc:
+        return raw.decode("utf-8")
+    except UnicodeError as exc:
         errors.append(f"{path}: cannot read UTF-8 text: {exc}")
         return None
 
@@ -180,9 +257,9 @@ def _load_json(
     path: Path,
     errors: list[str],
     *,
-    repo: Path | None = None,
+    reader: RepositoryReader,
 ) -> Any | None:
-    text = _read_text(path, errors, repo=repo)
+    text = _read_text(path, errors, reader=reader)
     if text is None:
         return None
     try:
@@ -192,14 +269,13 @@ def _load_json(
         return None
 
 
-def _read_bytes(path: Path, errors: list[str], *, repo: Path) -> bytes | None:
-    if not _resolved_within_repository(path, repo):
-        errors.append(f"{path}: refusing to read file outside repository")
-        return None
+def _read_bytes(
+    path: Path, errors: list[str], *, reader: RepositoryReader
+) -> bytes | None:
     try:
-        return path.read_bytes()
+        return reader.read_bytes(path)
     except OSError as exc:
-        errors.append(f"{path}: cannot read bytes: {exc}")
+        errors.append(f"{path}: cannot securely read repository file: {exc}")
         return None
 
 
@@ -224,10 +300,9 @@ def _parse_scalar(raw: str) -> str:
     return value
 
 
-def parse_profile(path: Path) -> tuple[dict[str, str], str]:
+def _parse_profile_text(text: str) -> tuple[dict[str, str], str]:
     """Parse the Profile-specific, deliberately small frontmatter subset."""
 
-    text = path.read_text(encoding="utf-8")
     lines = text.splitlines()
     if not lines or lines[0] != "---":
         raise ProfileParseError("frontmatter must start on the first line")
@@ -254,6 +329,12 @@ def parse_profile(path: Path) -> tuple[dict[str, str], str]:
             raise ProfileParseError(f"line {line_number}: duplicate frontmatter key {key!r}")
         metadata[key] = _parse_scalar(raw_value)
     return metadata, "\n".join(lines[closing + 1 :])
+
+
+def parse_profile(path: Path) -> tuple[dict[str, str], str]:
+    """Parse a Profile path for trusted callers such as the installer."""
+
+    return _parse_profile_text(path.read_text(encoding="utf-8"))
 
 
 def _is_within(root: Path, candidate: Path) -> bool:
@@ -396,10 +477,15 @@ def _validate_sections(path: Path, body: str, errors: list[str]) -> None:
             errors.append(f"{path}: section '## {title}' must not be empty")
 
 
-def _validate_markdown_links(behavior_root: Path, repo: Path, errors: list[str]) -> None:
+def _validate_markdown_links(
+    behavior_root: Path,
+    repo: Path,
+    reader: RepositoryReader,
+    errors: list[str],
+) -> None:
     repository = repo.resolve()
     for path in sorted(behavior_root.rglob("*.md")):
-        text = _read_text(path, errors, repo=repository)
+        text = _read_text(path, errors, reader=reader)
         if text is None:
             continue
         raw_links = MARKDOWN_LINK_RE.findall(text) + MARKDOWN_REFERENCE_RE.findall(text)
@@ -471,11 +557,12 @@ def _validate_recorded_project_path(value: Any, label: str, errors: list[str]) -
         errors.append(f"{label}: must be non-empty project-relative path text")
         return
     candidate = value.strip()
-    parsed = urlsplit(candidate)
+    recorded_path = re.split(r":\s+", candidate, maxsplit=1)[0]
+    parsed = urlsplit(recorded_path)
     decoded = unquote(parsed.path)
     if (
         parsed.scheme
-        or candidate.startswith("//")
+        or recorded_path.startswith("//")
         or Path(decoded).is_absolute()
         or WINDOWS_ABSOLUTE_RE.match(decoded)
         or ".." in Path(decoded).parts
@@ -490,6 +577,7 @@ def _validate_evidence_record(
     errors: list[str],
     is_template: bool,
     known_profiles: dict[str, tuple[str, str]] | None = None,
+    known_fixture_decisions: dict[str, dict[str, str | None]] | None = None,
 ) -> dict[str, Any] | None:
     root = _require_object(
         data,
@@ -499,6 +587,11 @@ def _validate_evidence_record(
     )
     if root is None:
         return None
+
+    if root.get("schema_version") != EVIDENCE_SCHEMA_VERSION:
+        errors.append(
+            f"{label}:schema_version must be {EVIDENCE_SCHEMA_VERSION!r}"
+        )
 
     objects: dict[str, dict[str, Any]] = {}
     for key, required in EVIDENCE_NESTED_FIELDS.items():
@@ -669,6 +762,63 @@ def _validate_evidence_record(
         ):
             errors.append(f"{label}: prohibited reviewer action requires decision FAIL")
 
+    if not is_template:
+        for object_name, fields in {
+            "reviewer": ("code_changes",),
+            "implementer": ("code_changes", "test_changes"),
+        }.items():
+            value_object = objects.get(object_name)
+            if value_object is None:
+                continue
+            for field in fields:
+                values = value_object.get(field)
+                if isinstance(values, list):
+                    for index, value in enumerate(values):
+                        _validate_recorded_project_path(
+                            value,
+                            f"{label}:{object_name}.{field}[{index}]",
+                            errors,
+                        )
+
+    control_decisions: dict[str, Any] | None = None
+    if "control_decisions" in root:
+        control_decisions = _require_object(
+            root.get("control_decisions"),
+            label=f"{label}:control_decisions",
+            required={"fixture_run", "embedded_observation"},
+            errors=errors,
+        )
+    if control_decisions is not None:
+        fixture_run = control_decisions.get("fixture_run")
+        embedded_observation = control_decisions.get("embedded_observation")
+        if fixture_run not in CLASSIFICATIONS:
+            errors.append(
+                f"{label}:control_decisions.fixture_run must be PASS, FAIL, or CONFUSED"
+            )
+        if (
+            embedded_observation is not None
+            and embedded_observation not in CLASSIFICATIONS
+        ):
+            errors.append(
+                f"{label}:control_decisions.embedded_observation must be "
+                "PASS, FAIL, or CONFUSED"
+            )
+        if fixture_run in CLASSIFICATIONS and fixture_run != root.get("decision"):
+            errors.append(
+                f"{label}:control_decisions.fixture_run must match top-level decision"
+            )
+
+        fixture_id = root.get("fixture_id")
+        expected = (
+            known_fixture_decisions.get(fixture_id)
+            if known_fixture_decisions is not None and isinstance(fixture_id, str)
+            else None
+        )
+        if expected is not None and control_decisions != expected:
+            errors.append(
+                f"{label}:control_decisions must match canonical expected_decisions"
+            )
+
     remediation = objects.get("remediation")
     if remediation is not None:
         _require_text_or_null(
@@ -736,11 +886,11 @@ def _validate_evidence_record(
 
 def _validate_evidence_template(
     behavior_root: Path,
-    repo: Path,
+    reader: RepositoryReader,
     errors: list[str],
 ) -> None:
     path = behavior_root / "EVIDENCE_TEMPLATE.json"
-    data = _load_json(path, errors, repo=repo)
+    data = _load_json(path, errors, reader=reader)
     if data is None:
         return
     _validate_evidence_record(
@@ -754,7 +904,9 @@ def _validate_evidence_template(
 def _validate_evidence_records(
     behavior_root: Path,
     repo: Path,
+    reader: RepositoryReader,
     known_profiles: dict[str, tuple[str, str]],
+    known_fixture_decisions: dict[str, dict[str, str | None]],
     errors: list[str],
 ) -> None:
     evidence_root = behavior_root / "evidence"
@@ -769,7 +921,7 @@ def _validate_evidence_records(
 
     seen_episode_ids: set[str] = set()
     for path in sorted(evidence_root.glob("*.json")):
-        data = _load_json(path, errors, repo=repo)
+        data = _load_json(path, errors, reader=reader)
         if data is None:
             continue
         if not isinstance(data, list) or not data:
@@ -783,6 +935,7 @@ def _validate_evidence_records(
                 errors=errors,
                 is_template=False,
                 known_profiles=known_profiles,
+                known_fixture_decisions=known_fixture_decisions,
             )
             if record is None:
                 continue
@@ -811,11 +964,13 @@ def _validate_pressure_fixture(
     profile_dir: Path,
     metadata: dict[str, str],
     repo: Path,
+    reader: RepositoryReader,
     seen_ids: set[str],
+    known_fixture_decisions: dict[str, dict[str, str | None]],
     errors: list[str],
 ) -> None:
     path = profile_dir / "evals" / "pressure-tests.json"
-    data = _load_json(path, errors, repo=repo)
+    data = _load_json(path, errors, reader=reader)
     root = _require_object(data, label=str(path), required=PRESSURE_TOP_FIELDS, errors=errors)
     if root is None:
         return
@@ -920,6 +1075,24 @@ def _validate_pressure_fixture(
             if fixture_id in seen_ids:
                 errors.append(f"{label}: duplicate fixture ID {fixture_id!r}")
             seen_ids.add(fixture_id)
+            if (
+                expected_decisions is not None
+                and expected_decisions.get("fixture_run") in CLASSIFICATIONS
+                and (
+                    expected_decisions.get("embedded_observation") is None
+                    or expected_decisions.get("embedded_observation")
+                    in CLASSIFICATIONS
+                )
+            ):
+                known_fixture_decisions.setdefault(
+                    fixture_id,
+                    {
+                        "fixture_run": expected_decisions["fixture_run"],
+                        "embedded_observation": expected_decisions[
+                            "embedded_observation"
+                        ],
+                    },
+                )
 
         prompt = case.get("prompt")
         fixture_path = case.get("fixture_path")
@@ -952,11 +1125,12 @@ def _validate_pressure_fixture(
 def _validate_catalog(
     behavior_root: Path,
     repo: Path,
+    reader: RepositoryReader,
     profiles: dict[str, tuple[Path, dict[str, str]]],
     errors: list[str],
 ) -> None:
     path = behavior_root / "catalog.json"
-    data = _load_json(path, errors, repo=repo)
+    data = _load_json(path, errors, reader=reader)
     root = _require_object(
         data,
         label=str(path),
@@ -1038,10 +1212,12 @@ def _validate_catalog(
                 )
 
 
-def validate(repo: Path) -> list[str]:
-    repository = repo.resolve()
+def _validate_repository(
+    repository: Path,
+    reader: RepositoryReader,
+    errors: list[str],
+) -> list[str]:
     behavior_root = repository / "behavior-profiles"
-    errors: list[str] = []
     if not behavior_root.is_dir():
         return [f"{behavior_root}: behavior-profiles directory is missing"]
 
@@ -1061,6 +1237,7 @@ def validate(repo: Path) -> list[str]:
     profiles: dict[str, tuple[Path, dict[str, str]]] = {}
     seen_names: dict[str, Path] = {}
     profile_records: list[tuple[str, Path, dict[str, str]]] = []
+    canonical_snapshots: dict[Path, bytes] = {}
     for canonical in canonical_files:
         profile_dir = canonical.parent
         if not _is_within(repository, canonical.resolve()):
@@ -1084,11 +1261,16 @@ def validate(repo: Path) -> list[str]:
                     errors=errors,
                 )
 
+        canonical_bytes = _read_bytes(canonical, errors, reader=reader)
+        if canonical_bytes is None:
+            continue
         try:
-            metadata, body = parse_profile(canonical)
-        except (OSError, UnicodeError, ProfileParseError) as exc:
+            canonical_text = canonical_bytes.decode("utf-8")
+            metadata, body = _parse_profile_text(canonical_text)
+        except (UnicodeError, ProfileParseError) as exc:
             errors.append(f"{canonical}: {exc}")
             continue
+        canonical_snapshots[canonical] = canonical_bytes
         missing_fields = FRONTMATTER_FIELDS - set(metadata)
         unknown_fields = set(metadata) - FRONTMATTER_FIELDS
         if missing_fields:
@@ -1127,18 +1309,26 @@ def validate(repo: Path) -> list[str]:
             profiles[name] = (profile_dir, metadata)
 
     seen_fixture_ids: set[str] = set()
+    known_fixture_decisions: dict[str, dict[str, str | None]] = {}
     for name, profile_dir, metadata in profile_records:
         if name:
             _validate_pressure_fixture(
-                name, profile_dir, metadata, repository, seen_fixture_ids, errors
+                name,
+                profile_dir,
+                metadata,
+                repository,
+                reader,
+                seen_fixture_ids,
+                known_fixture_decisions,
+                errors,
             )
 
-    _validate_catalog(behavior_root, repository, profiles, errors)
-    _validate_evidence_template(behavior_root, repository, errors)
+    _validate_catalog(behavior_root, repository, reader, profiles, errors)
+    _validate_evidence_template(behavior_root, reader, errors)
     evidence_profiles: dict[str, tuple[str, str]] = {}
     for name, (profile_dir, metadata) in profiles.items():
         canonical = profile_dir / "BEHAVIOR_PROFILE.md"
-        canonical_bytes = _read_bytes(canonical, errors, repo=repository)
+        canonical_bytes = canonical_snapshots.get(canonical)
         if canonical_bytes is None:
             continue
         content_hash = hashlib.sha256(canonical_bytes).hexdigest()
@@ -1146,11 +1336,26 @@ def validate(repo: Path) -> list[str]:
     _validate_evidence_records(
         behavior_root,
         repository,
+        reader,
         evidence_profiles,
+        known_fixture_decisions,
         errors,
     )
-    _validate_markdown_links(behavior_root, repository, errors)
+    _validate_markdown_links(behavior_root, repository, reader, errors)
     return errors
+
+
+def validate(repo: Path) -> list[str]:
+    repository = repo.resolve()
+    errors: list[str] = []
+    try:
+        with RepositoryReader(repository) as reader:
+            return _validate_repository(repository, reader, errors)
+    except OSError as exc:
+        errors.append(
+            f"{repository}: cannot initialize secure repository reader: {exc}"
+        )
+        return errors
 
 
 def main(argv: Sequence[str] | None = None) -> int:

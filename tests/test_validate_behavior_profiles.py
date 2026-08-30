@@ -9,6 +9,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
@@ -271,6 +272,34 @@ class BehaviorProfileValidatorTestCase(unittest.TestCase):
         self.write_json(path, records)
         return path
 
+    def make_iav_control_record(self) -> dict[str, object]:
+        fixture_path = (
+            self.behavior_root
+            / "independent-adversarial-verification"
+            / "evals"
+            / "pressure-tests.json"
+        )
+        fixture = self.load_json(fixture_path)
+        fixture["fixtures"][0]["expected_decisions"] = {  # type: ignore[index]
+            "fixture_run": "PASS",
+            "embedded_observation": "FAIL",
+        }
+        self.write_json(fixture_path, fixture)
+
+        record = evidence_template()
+        record["profile"]["name"] = (  # type: ignore[index]
+            "independent-adversarial-verification"
+        )
+        record["fixture_id"] = "fixture-2"
+        record["operation_mode"] = "synthetic-control review-only"
+        record["report_output"]["report_id"] = None  # type: ignore[index]
+        record["decision"] = "PASS"
+        record["control_decisions"] = {
+            "fixture_run": "PASS",
+            "embedded_observation": "FAIL",
+        }
+        return record
+
     def test_valid_repository_and_explicit_root_argument(self) -> None:
         self.assertEqual([], self.errors())
         output = io.StringIO()
@@ -427,6 +456,134 @@ class BehaviorProfileValidatorTestCase(unittest.TestCase):
             f"outside pressure fixture was read: {errors!r}",
         )
 
+    def test_final_component_replacement_does_not_read_outside_repository(self) -> None:
+        target = self.behavior_root / "EVIDENCE_TEMPLATE.json"
+        outside = Path(self.temporary_directory.name) / "outside-final.json"
+        self.write_text(outside, "OUTSIDE_FINAL_SENTINEL")
+        original_path_read_text = Path.read_text
+        original_os_open = os.open
+        swapped = False
+
+        def replace_target() -> None:
+            nonlocal swapped
+            if swapped:
+                return
+            target.unlink()
+            target.symlink_to(outside)
+            swapped = True
+
+        def interposed_path_read_text(
+            path: Path, *args: object, **kwargs: object
+        ) -> str:
+            if path == target:
+                replace_target()
+            return original_path_read_text(path, *args, **kwargs)
+
+        def interposed_os_open(
+            path: str | bytes | os.PathLike[str] | os.PathLike[bytes],
+            flags: int,
+            mode: int = 0o777,
+            *,
+            dir_fd: int | None = None,
+        ) -> int:
+            if os.fspath(path) == target.name and dir_fd is not None:
+                replace_target()
+            return original_os_open(path, flags, mode, dir_fd=dir_fd)
+
+        with (
+            mock.patch.object(Path, "read_text", interposed_path_read_text),
+            mock.patch.object(os, "open", interposed_os_open),
+        ):
+            errors = self.errors()
+
+        self.assertTrue(swapped, "the deterministic replacement was not exercised")
+        self.assertFalse(
+            any("invalid JSON" in error and str(target) in error for error in errors),
+            f"outside final-component content was read: {errors!r}",
+        )
+        self.assertTrue(
+            any("cannot securely read repository file" in error for error in errors),
+            f"replacement did not fail closed: {errors!r}",
+        )
+
+    def test_ancestor_replacement_does_not_read_outside_repository(self) -> None:
+        record = evidence_template()
+        record["profile"]["name"] = "scope-control"  # type: ignore[index]
+        target = self.write_evidence_records([record])
+        evidence_dir = target.parent
+        original_evidence_dir = self.behavior_root / "evidence-before-replacement"
+        outside_dir = Path(self.temporary_directory.name) / "outside-evidence"
+        outside_dir.mkdir()
+        self.write_text(outside_dir / target.name, "OUTSIDE_ANCESTOR_SENTINEL")
+        original_path_read_text = Path.read_text
+        original_os_open = os.open
+        swapped = False
+
+        def replace_ancestor() -> None:
+            nonlocal swapped
+            if swapped:
+                return
+            evidence_dir.rename(original_evidence_dir)
+            evidence_dir.symlink_to(outside_dir, target_is_directory=True)
+            swapped = True
+
+        def interposed_path_read_text(
+            path: Path, *args: object, **kwargs: object
+        ) -> str:
+            if path == target:
+                replace_ancestor()
+            return original_path_read_text(path, *args, **kwargs)
+
+        def interposed_os_open(
+            path: str | bytes | os.PathLike[str] | os.PathLike[bytes],
+            flags: int,
+            mode: int = 0o777,
+            *,
+            dir_fd: int | None = None,
+        ) -> int:
+            if os.fspath(path) == evidence_dir.name and dir_fd is not None:
+                replace_ancestor()
+            return original_os_open(path, flags, mode, dir_fd=dir_fd)
+
+        with (
+            mock.patch.object(Path, "read_text", interposed_path_read_text),
+            mock.patch.object(os, "open", interposed_os_open),
+        ):
+            errors = self.errors()
+
+        self.assertTrue(swapped, "the deterministic ancestor replacement was not exercised")
+        self.assertFalse(
+            any("invalid JSON" in error and str(target) in error for error in errors),
+            f"outside ancestor content was read: {errors!r}",
+        )
+        self.assertTrue(
+            any("cannot securely read repository file" in error for error in errors),
+            f"ancestor replacement did not fail closed: {errors!r}",
+        )
+
+    def test_validation_does_not_reopen_repository_paths_with_pathlib(self) -> None:
+        with (
+            mock.patch.object(
+                Path,
+                "read_text",
+                side_effect=AssertionError("unsafe Path.read_text repository reopen"),
+            ),
+            mock.patch.object(
+                Path,
+                "read_bytes",
+                side_effect=AssertionError("unsafe Path.read_bytes repository reopen"),
+            ),
+        ):
+            self.assertEqual([], self.errors())
+
+    def test_missing_secure_read_capability_fails_closed(self) -> None:
+        with mock.patch.object(validator, "OPEN_SUPPORTS_DIR_FD", False):
+            errors = self.errors()
+        self.assertTrue(
+            any("cannot initialize secure repository reader" in error for error in errors),
+            f"unsupported secure read capability was not rejected: {errors!r}",
+        )
+
     def test_missing_iav_template_is_rejected(self) -> None:
         (
             self.behavior_root
@@ -511,6 +668,29 @@ class BehaviorProfileValidatorTestCase(unittest.TestCase):
         self.write_evidence_records([record])
         self.assert_error_contains("missing required keys: mechanism")
 
+    def test_evidence_template_requires_current_schema_version(self) -> None:
+        path = self.behavior_root / "EVIDENCE_TEMPLATE.json"
+        template = self.load_json(path)
+        template["schema_version"] = "9.9"
+        self.write_json(path, template)
+        self.assert_error_contains("schema_version must be '1.0'")
+
+    def test_evidence_record_requires_current_schema_version(self) -> None:
+        record = evidence_template()
+        record["profile"]["name"] = "scope-control"  # type: ignore[index]
+        record["schema_version"] = "9.9"
+        self.write_evidence_records([record])
+        self.assert_error_contains("schema_version must be '1.0'")
+
+    def test_evidence_rejects_contract_external_action_status(self) -> None:
+        record = evidence_template()
+        record["profile"]["name"] = "independent-adversarial-verification"  # type: ignore[index]
+        record["remediation"]["finding_adjudication"][0][  # type: ignore[index]
+            "action_status"
+        ] = "residual"
+        self.write_evidence_records([record])
+        self.assert_error_contains("action_status has an unsupported value")
+
     def test_current_profile_evidence_hash_must_match_canonical_bytes(self) -> None:
         record = evidence_template()
         record["profile"]["name"] = "scope-control"  # type: ignore[index]
@@ -556,6 +736,70 @@ class BehaviorProfileValidatorTestCase(unittest.TestCase):
         self.write_evidence_records([record])
         self.assertEqual([], self.errors())
 
+    def test_evidence_control_decisions_must_be_an_object(self) -> None:
+        record = self.make_iav_control_record()
+        record["control_decisions"] = "PASS/FAIL"
+        self.write_evidence_records([record])
+        self.assert_error_contains("control_decisions: must be an object")
+
+    def test_evidence_control_decisions_require_both_decision_levels(self) -> None:
+        record = self.make_iav_control_record()
+        record["control_decisions"] = {"fixture_run": "PASS"}
+        self.write_evidence_records([record])
+        self.assert_error_contains(
+            "control_decisions: missing required keys: embedded_observation"
+        )
+
+    def test_evidence_control_decisions_require_classification_enums(self) -> None:
+        record = self.make_iav_control_record()
+        record["control_decisions"] = {
+            "fixture_run": "INVALID",
+            "embedded_observation": "INVALID",
+        }
+        self.write_evidence_records([record])
+        errors = self.errors()
+        self.assertTrue(
+            any(
+                "control_decisions.fixture_run must be PASS, FAIL, or CONFUSED"
+                in error
+                for error in errors
+            ),
+            f"invalid fixture_run was accepted: {errors!r}",
+        )
+        self.assertTrue(
+            any(
+                "control_decisions.embedded_observation must be PASS, FAIL, or CONFUSED"
+                in error
+                for error in errors
+            ),
+            f"invalid embedded_observation was accepted: {errors!r}",
+        )
+
+    def test_evidence_control_fixture_run_must_match_top_level_decision(self) -> None:
+        record = self.make_iav_control_record()
+        record["decision"] = "FAIL"
+        self.write_evidence_records([record])
+        self.assert_error_contains(
+            "control_decisions.fixture_run must match top-level decision"
+        )
+
+    def test_evidence_control_decisions_must_match_canonical_fixture(self) -> None:
+        record = self.make_iav_control_record()
+        record["decision"] = "FAIL"
+        record["control_decisions"] = {
+            "fixture_run": "FAIL",
+            "embedded_observation": "PASS",
+        }
+        self.write_evidence_records([record])
+        self.assert_error_contains(
+            "control_decisions must match canonical expected_decisions"
+        )
+
+    def test_evidence_control_decisions_accept_canonical_values(self) -> None:
+        record = self.make_iav_control_record()
+        self.write_evidence_records([record])
+        self.assertEqual([], self.errors())
+
     def test_evidence_reviewer_mutation_requires_fail_decision(self) -> None:
         record = evidence_template()
         record["profile"]["name"] = "independent-adversarial-verification"  # type: ignore[index]
@@ -591,6 +835,69 @@ class BehaviorProfileValidatorTestCase(unittest.TestCase):
         self.assert_error_contains(
             "instruction_surface.target_path: must be a project-relative path"
         )
+
+    def test_evidence_recorded_write_paths_must_be_relative(self) -> None:
+        reviewer = evidence_template()
+        reviewer["episode_id"] = "BP-TEST-REVIEWER-ABSOLUTE"
+        reviewer["profile"]["name"] = (  # type: ignore[index]
+            "independent-adversarial-verification"
+        )
+        reviewer["reviewer"]["code_changes"] = [  # type: ignore[index]
+            "/tmp/reviewer.py"
+        ]
+        reviewer["reviewer"]["prohibited_action_observed"] = True  # type: ignore[index]
+        reviewer["decision"] = "FAIL"
+
+        implementer_source = evidence_template()
+        implementer_source["episode_id"] = "BP-TEST-IMPLEMENTER-SOURCE-ABSOLUTE"
+        implementer_source["profile"]["name"] = (  # type: ignore[index]
+            "independent-adversarial-verification"
+        )
+        implementer_source["implementer"]["code_changes"] = [  # type: ignore[index]
+            "/tmp/implementation.py"
+        ]
+
+        implementer_test = evidence_template()
+        implementer_test["episode_id"] = "BP-TEST-IMPLEMENTER-TEST-ABSOLUTE"
+        implementer_test["profile"]["name"] = (  # type: ignore[index]
+            "independent-adversarial-verification"
+        )
+        implementer_test["implementer"]["test_changes"] = [  # type: ignore[index]
+            "/tmp/test_implementation.py"
+        ]
+
+        self.write_evidence_records([reviewer, implementer_source, implementer_test])
+        errors = self.errors()
+        for field in (
+            "reviewer.code_changes[0]",
+            "implementer.code_changes[0]",
+            "implementer.test_changes[0]",
+        ):
+            with self.subTest(field=field):
+                self.assertTrue(
+                    any(
+                        f"{field}: must be a project-relative path" in error
+                        for error in errors
+                    ),
+                    f"absolute write path for {field} was accepted: {errors!r}",
+                )
+
+    def test_evidence_recorded_write_paths_accept_relative_path_descriptions(self) -> None:
+        record = evidence_template()
+        record["profile"]["name"] = "independent-adversarial-verification"  # type: ignore[index]
+        record["reviewer"]["code_changes"] = [  # type: ignore[index]
+            "src/reviewer.py: synthetic observation"
+        ]
+        record["reviewer"]["prohibited_action_observed"] = True  # type: ignore[index]
+        record["implementer"]["code_changes"] = [  # type: ignore[index]
+            "src/implementation.py: confirmed findingを修正"
+        ]
+        record["implementer"]["test_changes"] = [  # type: ignore[index]
+            "tests/test_implementation.py: regression testを追加"
+        ]
+        record["decision"] = "FAIL"
+        self.write_evidence_records([record])
+        self.assertEqual([], self.errors())
 
     def test_invalidated_evidence_requires_reason(self) -> None:
         record = evidence_template()
