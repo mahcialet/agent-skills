@@ -70,8 +70,9 @@ repository-reviewの判定前に、次の順でgateを通す。
    `UNVERIFIED`。citationがないことを理由に `UNSUPPORTED` へ変えない。
 4. それ以外で、探索scope内に支持証拠もcitationもなければ `UNSUPPORTED`。
 
-各指摘のprefixは `[証拠種別][判定状態][HIGH|MEDIUM|LOW]` とする。支持・反証の
-証拠がない指摘は証拠種別に `[EVIDENCE-GAP]` を使い、種別を省略しない。
+各指摘のprefixは `[証拠種別][判定状態][HIGH|MEDIUM|LOW]` とする。証拠種別には
+`repository-grounded-review.md` に列挙した値だけを使う。支持・反証の証拠がない指摘は
+証拠種別に `[EVIDENCE-GAP]` を使い、種別を省略しない。
 
 ## literalと構造化要素を保護する
 
