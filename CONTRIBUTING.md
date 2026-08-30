@@ -2,6 +2,8 @@
 
 各Skillをportable、単独インストール可能、安全に起動できる状態に保ってください。
 
+## 変更の基本手順
+
 1. [Skillの追加](docs/adding-a-skill.md)と `AGENTS.md` を読む。
 2. `skills/<name>/SKILL.md` に置き、ホスト別に複製しない。
 3. 実行時参照をSkillディレクトリ内に収める。

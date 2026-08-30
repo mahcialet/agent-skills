@@ -2,11 +2,11 @@
 
 状態: implemented（schema v1とlocal state）
 
-一record一fileのJSONを使用する。既存evalと同様にPython標準ライブラリで検証でき、安定した
-key順とindentによりdiffを確認しやすいためである。schemaはversionを持ち、unknown fieldを
-黙って捨てない。正規schemaは `../schemas/corpus-record.schema.json` である。
+一record一fileのJSONを使用する。既存evalと同様にPython標準ライブラリで検証できること、
+安定したkey順とindentによってdiffを確認しやすいことが理由である。schemaはversionを持ち、
+unknown fieldを黙って捨てない。正規schemaは `../schemas/corpus-record.schema.json` である。
 
-## Recordの役割
+## recordの役割
 
 recordは原文の正解labelではなく、provenance、観察、期待挙動、人間の判断を分離して保存する。
 GitHubのapproval、RR annotation、rule proposalを同じfieldへまとめない。
@@ -29,7 +29,7 @@ GitHubのapproval、RR annotation、rule proposalを同じfieldへまとめな�
 
 unknownは推測で埋めず、許可されたenumの `unknown` または明示的なnullで保持する。
 
-## Deterministic ID
+## deterministic ID
 
 IDは、正規化したsource identity、immutable revision、対象file・span、sample typeから生成する。
 raw textだけをID材料にせず、同じsource recordの重複収集を検出できるようにする。hash algorithm、
@@ -39,7 +39,7 @@ source identityとIDがずれたrecordを拒否する。
 同一PRや同一文書の複数spanは、独立したsource evidenceとして水増ししない。相関groupを保存し、
 集計時にsource diversityとsample countを分ける。
 
-## Text storage
+## textの保存形式
 
 `text.storage` は少なくとも次を区別する。
 
@@ -52,13 +52,13 @@ source identityとIDがずれたrecordを拒否する。
 匿名化やredactionだけで再配布可能になるとは扱わない。rightsがunknownの場合は
 `reference-only` と `local_only: true` を既定にする。
 
-## Decision history
+## decision履歴
 
 現在stateだけでなく、candidate作成、annotation、accept、reject、promotionの履歴をaudit logへ
 残す。acceptedとrejectedの双方を保持し、却下された提案をnegative controlに利用できるように
 する。rejectされたrecordを削除して判断根拠を失わない。
 
-## Schema evolution
+## schema evolution
 
 GitHub collectorが作るrecordは、互換性を保つoptionalな `github_evidence` を持つ。PRの
 base／head／merge SHA、変更fileのblob SHA、review submissionのstateと対象SHA、inline threadの
@@ -73,7 +73,7 @@ duplicate判定、state変更、auditのread-modify-replaceを直列化する。
 schema migrationは明示的なpreviewとbackupを要求する。新しいvalidatorが古いrecordを黙って
 書き換えず、未対応version、破損record、unknown fieldを区別して報告する。
 
-## Investigation artifact
+## 調査artifact
 
 corpus recordとは別に、次のdeterministic IDを持つimmutableなlocal artifactを保存する。
 

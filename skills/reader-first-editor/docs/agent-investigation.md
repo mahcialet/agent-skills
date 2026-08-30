@@ -2,11 +2,12 @@
 
 状態: implemented（bundleから明示applyまで）
 
-Agentはruleを積極的に考案する役ではなく、危険な一般化を壊す役として使う。toolは
-provider-neutralなinvestigation bundleを生成し、CodexまたはCopilotが明示起動された場合だけ
-そのbundleを読む。通常reviewへlocal corpusを暗黙に注入しない。bundle作成、Agent resultの
-runtime gate、human-unapproved proposal draft、regression結果の集約、人間の明示承認、限定した
-rule applyを実装している。
+Agentはruleを積極的に考案する役ではなく、危険な一般化を壊す役として使う。通常reviewへ
+local corpusを暗黙に注入しない。toolが生成したprovider-neutralなinvestigation bundleは、
+CodexまたはCopilotが明示起動された場合だけ読む。
+
+bundle作成、Agent resultのruntime gate、human-unapproved proposal draft、regression結果の
+集約、人間の明示承認、限定したrule applyは実装済みである。
 
 ## 既定姿勢
 
@@ -51,6 +52,8 @@ Agentの出力はproposal recordのdraftであり、toolのstate transitionや�
 
 ## CLI workflow
 
+### bundleを作る
+
 最初に、人間がsupportとcontrolを明示選択する。supportにはaccepted／promoted recordだけを
 使用でき、controlにはaccepted／promoted／rejected recordを使用できる。candidateからの直接調査は
 拒否する。
@@ -70,6 +73,8 @@ python3 "$tool" --data-dir "$data_dir" rules bundle \
 `investigations/<bundle-id>/bundle.json` へ保存する。bundleはraw textを複製せず、record path、
 content hash、provenance、分類metadataだけを持つ。embeddedなlocal textも別fileへcopyしない。
 
+### Agent resultを検証する
+
 Agentにはbundleと `../references/core/rule-investigation.md` を明示して調査を依頼し、
 `investigation.schema.json` に適合するJSONを作らせる。resultは次で検証する。
 
@@ -83,6 +88,8 @@ source correlation、未説明のcounterexample、provenance未確認、固定�
 ruleを検出する。無効な `PROMOTE` はeffective statusを `HOLD` として返し、`--apply` があっても
 保存しない。`HOLD` と `NEEDS_MORE_EVIDENCE` は正常な調査結果として保存できる。
 
+### proposal draftを作る
+
 gateを通過した `PROMOTE` resultとhuman-reviewedなrule diffから、次でproposal draftを作る。
 
 ```bash
@@ -93,6 +100,8 @@ python3 "$tool" --data-dir "$data_dir" rules propose \
 このcommandも既定はpreviewで、`--apply` はlocal `proposals/` への保存だけを意味する。proposalの
 `human_approval.approved` は必ずfalse、regression statusは全て `not-run` で始まり、
 `SKILL.md`、references、evalsを変更しない。
+
+### regressionから明示applyまで進める
 
 proposal後は、bundled eval、promoted corpus、positive／negative／boundary evalを含むplanを
 `rules regression-plan` で作る。CodexとGitHub Copilotで実行したresultは

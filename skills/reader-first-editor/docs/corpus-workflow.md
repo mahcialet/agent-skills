@@ -25,12 +25,12 @@ collect
 candidate
   ↓
 inspect / annotate
-  ├── accept ──→ accepted
-  └── reject ──→ rejected
+  ├── reject ──→ rejected
+  └── accept ──→ accepted
                    ↓
-          corpus promotion proposal
+    corpus promotion proposal（preview）
                    ↓
-            明示的なpromotion
+       明示的なpromotion（--apply）
                    ↓
                 promoted
 ```
@@ -38,7 +38,7 @@ inspect / annotate
 corpus promotionは実例を評価可能にする処理であり、rule変更ではない。candidateから
 behavior-changing ruleへ直接遷移できないようにする。
 
-## 初版CLIの方針
+## CLIの実装範囲
 
 provider-neutralかつ標準ライブラリ中心の `scripts/corpus_tool.py` を実装している。
 特定providerのAPIやCLIを内部から起動せず、networkなしで次を利用できる。
@@ -97,7 +97,8 @@ test用の `--fixture` はraw textを除いたrecorded snapshotだけを読む�
 
 ## Local data
 
-Local dataはインストール済みSkillのsource directoryから分離する。解決順は次を計画する。
+Local dataはインストール済みSkillのsource directoryから分離する。保存先は次の順に
+解決する。
 
 1. 明示された `--data-dir`
 2. 明示的なproject scopeの `<repository>/.reader-first-editor/`

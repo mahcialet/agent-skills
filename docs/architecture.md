@@ -1,6 +1,6 @@
 # アーキテクチャ
 
-## Source layout
+## Skillの配置
 
 各portable Skillの起点は `skills/<skill-name>/SKILL.md` です。実行に必要な
 instructions、references、examples、scripts、noticesを同じディレクトリ内に置きます。
@@ -9,13 +9,13 @@ instructions、references、examples、scripts、noticesを同じディレクト
 ルートは共通検証、インストール補助、カタログ、CI、license索引、contribution方針を
 持ちます。Skill固有の挙動を定めるinstructionsや処理は、各Skill内に置きます。
 
-## Host portability
+## ホスト間のportable性
 
 CodexとGitHub Copilotは同じ `SKILL.md` を使います。`agents/openai.yaml` のような
 任意のホストmetadataに、唯一の挙動instructionsを置きません。確認済みの非互換を
 共通形式で吸収できない場合に限りprovider adapterを検討します。
 
-## Progressive disclosure
+## 段階的な情報開示
 
 `SKILL.md` は起動契約とworkflowを持ちます。詳細規則は明示的に振り分けた小さな
 referencesに分け、必要なものだけを読みます。examplesとeval fixtureは挙動を記録
@@ -23,11 +23,13 @@ referencesに分け、必要なものだけを読みます。examplesとeval fix
 
 ## Reader-First Editorの育成基盤（一部implemented）
 
-schema v1、local data directoryの解決、state transition、audit log、manual corpus CLI、
-public GitHub PRのreference-only収集、adversarial investigation bundle、proposal draftは
-実装済みです。provider-neutralなregression plan・result取込み・report、人間の承認artifact、
-限定したrule applyも実装済みです。通常reviewからの明示的なlocal corpus利用は未実装です。
-現在の通常reviewは、既存のbundled referencesとevalだけを使用します。
+現在の通常reviewは、既存のbundled referencesとevalだけを使用します。通常reviewから
+local corpusを明示的に利用する機能は未実装です。
+
+育成基盤では、schema v1、local data directoryの解決、state transition、audit log、
+manual corpus CLI、public GitHub PRのreference-only収集、adversarial investigation bundle、
+proposal draftを実装済みです。provider-neutralなregression plan・result取込み・report、
+人間の承認artifact、限定したrule applyも実装済みです。
 
 育成基盤では、配布されるCoreと利用者固有のLocalを分離します。
 

@@ -1,5 +1,9 @@
 # 互換性
 
+この文書では、公式資料から確認した仕様、ローカルでの実機検証、
+`reader-first-editor` の受入監査、既知の制約を分けて記録する。検証結果は記載した
+version、scope、実行条件に限られ、将来のhost versionでの動作を保証しない。
+
 ## 仕様確認（2026-08-30）
 
 | 対象 | 確認した内容 | 参照 |
@@ -48,9 +52,10 @@
 
 #### Phase 8実機確認
 
-2026-08-30にCodex CLI 0.151.0、GitHub Copilot CLI 1.0.82、`gpt-5.4` で確認した。現行Skill、
-candidate／promoted local corpusのtrap、文書と設定の不一致をisolated Git repositoryへ配置した。
-Codexはread-only sandbox、Copilotはwrite toolを拒否して実行し、外部URLを取得しなかった。
+2026-08-30にCodex CLI 0.151.0、GitHub Copilot CLI 1.0.82、`gpt-5.4` で確認した。
+isolated Git repositoryには、現行Skill、candidate／promoted local corpusのtrap、文書と
+設定の不一致を配置した。Codexはread-only sandboxで実行し、Copilotではwrite toolを
+拒否した。どちらも外部URLを取得しなかった。
 
 | case | Codex | GitHub Copilot |
 |---|---|---|
@@ -68,13 +73,16 @@ repository-reviewでは、存在する設定fileを `VERIFIED`、文書と設定
 isolated repositoryとsource repositoryのworktreeはcleanで、sourceのHEADは `origin/master` と
 一致した。
 
-Codexの正式名についてはhost制約が残る。確認環境には古いuser-scope copyと現行project-scope copyが
-同名で存在していた。[公式OpenAI documentation](https://developers.openai.com/codex/skills/)は
-同名Skillをmergeせず双方をselectorへ表示するとしているが、Codex CLI 0.151.0の非対話実行では
-`$reader-first-editor` を利用可能一覧へ出さなかった。最小probe Skillと現行内容のunique名cloneは
-明示起動できたため、Skill本文や `allow_implicit_invocation: false` の不備ではなく、同名scope衝突に
-限定される。user-scope installationは検証のために変更していない。重複installationを解消した環境で
-正式名を再確認する必要がある。
+Codexの正式名についてはhost制約が残る。確認環境には、古いuser-scope copyと現行の
+project-scope copyが同名で存在していた。
+[公式OpenAI documentation](https://developers.openai.com/codex/skills/)は、同名Skillを
+mergeせず双方をselectorへ表示するとしている。しかし、Codex CLI 0.151.0の非対話実行では、
+`$reader-first-editor` が利用可能一覧に表示されなかった。
+
+最小probe Skillと現行内容のunique名cloneは明示起動できた。このため、確認した現象は
+Skill本文や `allow_implicit_invocation: false` の不備ではなく、同名scopeの衝突に限定される。
+検証のためにuser-scope installationは変更していない。正式名については、重複installationを
+解消した環境で再確認する必要がある。
 
 ### adversarial-pr-review
 

@@ -1,5 +1,8 @@
 # Skillの追加
 
+新しいSkillを追加するときは、portableなSkill本体、利用者向け文書、attribution、
+eval、ルートカタログを整合させる。
+
 1. 一意なlowercase・hyphen区切りの名前を選ぶ。
 2. `skills/<name>/SKILL.md` を作る。YAML `name` をディレクトリ名と一致させ、
    `description` に使用・非使用条件を書く。

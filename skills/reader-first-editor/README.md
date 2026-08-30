@@ -79,16 +79,21 @@ Copilot CLI:
 ## ローカルコーパス育成（一部implemented）
 
 実文、review履歴、採用・却下判断を、インストール済みSkillとは別のlocal dataへ蓄積し、
-corpusとruleの候補を保守的に評価するworkflowを整備しています。schema v1、local data
-directoryの解決、state transition、audit log、manual corpus CLI、local promotion、public
-GitHub PRのreference-only収集、adversarial investigation bundle、proposal draftは実装済みです。
-さらに、provider-neutralなregression plan・result取込み・report、人間の承認artifact、限定した
-rule applyも実装済みです。public promotionと通常reviewからのlocal corpus利用は未実装で、現在の
-通常reviewには影響しません。
+corpusとruleの候補を保守的に評価するworkflowを整備しています。public promotionと
+通常reviewからのlocal corpus利用は未実装であり、現在の通常reviewには影響しません。
+
+### 現在の実装範囲
+
+schema v1、local data directoryの解決、state transition、audit log、manual corpus CLI、
+local promotion、public GitHub PRのreference-only収集、adversarial investigation bundle、
+proposal draftは実装済みです。provider-neutralなregression plan・result取込み・report、
+人間の承認artifact、限定したrule applyも実装済みです。
 
 設計上は、候補の収集、corpusへのpromotion、behavior-changing ruleのpromotionを別のgateに
 分けます。収集したcandidateやpromoted local corpusを通常reviewへ暗黙に読み込まず、
 明示的なapplyと人間の承認なしに `SKILL.md`、references、evalsを変更しません。
+
+### local corpusを操作する
 
 manual CLIの例:
 
@@ -112,6 +117,8 @@ python3 "$tool" --data-dir "$data_dir" corpus promote <candidate-id> --apply \
 どちらもcore ruleやbundled evalを変更しません。project scopeを使う場合は、projectの
 `.gitignore` に `.reader-first-editor/` を追加してください。
 
+### public GitHub PRから収集する
+
 public GitHub PRを収集する例:
 
 ```bash
@@ -128,6 +135,8 @@ inline threadの位置と件数だけを `github_evidence` に残し、rightsは
 `reference-only`、recordは `local_only` とします。`--dry-run` を外すまでlocal dataへも
 書き込みません。
 
+### ruleを調査・昇格する
+
 rule investigationは、support／control recordを明示指定して `rules bundle` を実行した場合だけ
 開始します。bundleはCounterexample Hunterを最優先にし、既定判断を `HOLD` とします。
 `rules validate-investigation` は未説明の反例、固定閾値だけ、頻度だけ、既存ruleのduplicateを
@@ -142,6 +151,8 @@ Python tool自体はproviderを起動しません。pass reportは `rules approv
 apply対象はSkill本文・references・evalsに限定され、validator失敗時はrollbackします。toolは
 commitもpushもしません。詳しくは[ルール昇格](docs/rule-promotion.md)を参照してください。
 
+### 日本語構造sensorを評価する
+
 日本語構造sensorはoptionalです。`scripts/analyze_ja.py analyze` を明示実行した場合だけGiNZAを
 読み込み、dependency未導入やparse失敗では非致命のavailability resultを返します。通常reviewから
 install、model download、解析を自動実行しません。出力は構造観測値であり、可読性やRR labelの
@@ -152,6 +163,8 @@ ground truthではありません。
 既定利用を有効化しません。install pin、schema、CLI例は[日本語構文解析](docs/syntax-analysis.md)を
 参照してください。
 
+関連文書:
+
 - [コーパス運用](docs/corpus-workflow.md)
 - [コーパスデータモデル](docs/corpus-data-model.md)
 - [ルール昇格](docs/rule-promotion.md)
@@ -159,7 +172,7 @@ ground truthではありません。
 - [日本語構文解析](docs/syntax-analysis.md)
 - [ライセンスとプライバシー](docs/licensing-and-privacy.md)
 
-## Portability
+## ポータビリティ
 
 CodexとGitHub Copilotで同じ `SKILL.md` をsource of truthにします。
 `agents/openai.yaml` は任意のCodex metadataと暗黙起動禁止だけを持ち、これがなくても
