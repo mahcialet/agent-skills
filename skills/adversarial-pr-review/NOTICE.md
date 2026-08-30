@@ -25,7 +25,7 @@ No endorsement by the author or Qiita is implied.
 
 ## Atsumell article
 
-- Title: AIコードレビューのやり方｜見るべき7つのポイントとチェックリスト
+- Title: AIコードレビューのやり方｜7つの確認点
 - Publisher / author shown on page: 株式会社Atsumell
 - Published: 2026-08-27
 - Source: <https://www.atsumell.com/blog/ai-code-review-seven-checkpoints>

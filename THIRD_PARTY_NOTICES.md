@@ -13,7 +13,7 @@ for complete attribution and scope notes.
 - The article is an attributed conceptual reference. No redistribution license
   is relied upon, no article text or 187-comment dataset is copied, and reported
   percentages are not treated as universal benchmarks.
-- Atsumell article, [*AIコードレビューのやり方｜見るべき7つのポイントとチェックリスト*](https://www.atsumell.com/blog/ai-code-review-seven-checkpoints),
+- Atsumell article, [*AIコードレビューのやり方｜7つの確認点*](https://www.atsumell.com/blog/ai-code-review-seven-checkpoints),
   by 株式会社Atsumell, published 2026-08-27 and reviewed 2026-08-30. It is an
   attributed conceptual reference for review contracts and human-approval
   boundaries.
