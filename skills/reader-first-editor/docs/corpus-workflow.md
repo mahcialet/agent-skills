@@ -1,10 +1,10 @@
 # コーパス運用
 
-状態: planned（未実装）
+状態: 一部implemented（local state基盤のみ）
 
 この文書は、実文、review履歴、採用・却下判断をlocal corpus候補として蓄積し、
-明示的な審査を経てcorpusへ昇格するworkflowを定義する。現在のSkillには、このworkflowを
-実行するCLIやlocal stateはまだない。
+明示的な審査を経てcorpusへ昇格するworkflowを定義する。schema v1、local data directory
+解決、state transition、audit logは実装済みである。操作用CLIとpromotionは未実装である。
 
 ## 原則
 
@@ -64,9 +64,9 @@ Local dataはインストール済みSkillのsource directoryから分離する�
 2. 明示的なproject scopeの `<repository>/.reader-first-editor/`
 3. user scopeのdata directory
 
-user scopeはXDG data directoryを優先し、platform固有の標準directoryへfallbackする。
-project scopeはopt-inとし、`.gitignore` で保護されていない場合は警告または拒否する。
-CLIが利用者の `.gitignore` を無断で変更することはない。
+実装済みのpath解決は、user scopeでXDG data directoryを優先し、Windows、macOS、Linuxの
+標準directoryへfallbackする。project scopeはopt-inである。`.gitignore` の確認と警告は
+CLI実装時に追加する計画で、利用者の `.gitignore` を無断で変更しない。
 
 概念上のdirectoryは次のとおりである。
 
@@ -100,4 +100,6 @@ attribution、third-party contentの分離を追加で確認する。
 ## Audit
 
 収集、annotation、accept、reject、promotionの各操作を追記型audit logへ記録する。
-元recordを黙って上書きせず、actor、時刻、旧state、新state、理由、tool versionを残す。
+元recordを黙って上書きせず、actor、時刻、旧state、新state、理由、schema versionを残す。
+recordとauditの更新前にpending journalを作り、audit commit前の失敗は旧stateへrollbackする。
+process停止後も、次回のstore初期化時に未完了journalを回復する。

@@ -1,10 +1,10 @@
 # コーパスデータモデル
 
-状態: planned（未実装）
+状態: implemented（schema v1とlocal state）
 
-初版は、一record一fileのJSONを使用する計画である。既存evalと同様にPython標準ライブラリで
-検証でき、安定したkey順とindentによりdiffを確認しやすいためである。schemaはversionを持ち、
-unknown fieldを黙って捨てない。
+一record一fileのJSONを使用する。既存evalと同様にPython標準ライブラリで検証でき、安定した
+key順とindentによりdiffを確認しやすいためである。schemaはversionを持ち、unknown fieldを
+黙って捨てない。正規schemaは `../schemas/corpus-record.schema.json` である。
 
 ## Recordの役割
 
@@ -14,6 +14,7 @@ GitHubのapproval、RR annotation、rule proposalを同じfieldへまとめな�
 ## 必須情報
 
 - `schema_version` とdeterministicな `id`
+- ID生成algorithm、canonicalization version、入力field
 - `language`、`genre`、`reader`、翻訳文かどうか
 - `sample_type`: `positive-reviewed`、`review-directed-revision`、
   `human-revision`、`rejected-suggestion`、`manual`
@@ -21,7 +22,7 @@ GitHubのapproval、RR annotation、rule proposalを同じfieldへまとめな�
 - immutableなsource、取得日時、source内の相関を識別する情報
 - authorshipとAI assistanceの既知・不明
 - review signalと、その根拠
-- rights status、raw text再配布可否、local-only、redaction
+- rights status、raw text再配布可否、local-only、匿名化・redaction・変更の有無
 - raw text、reference-only、hashのどれで保存したか
 - expected behavior、annotation rationale、semantic invariants、do-not-change constraints
 - decision state、reviewer、日時、理由
@@ -32,7 +33,8 @@ unknownは推測で埋めず、許可されたenumの `unknown` または明示�
 
 IDは、正規化したsource identity、immutable revision、対象file・span、sample typeから生成する。
 raw textだけをID材料にせず、同じsource recordの重複収集を検出できるようにする。hash algorithm、
-canonicalization version、入力fieldをrecordへ残す。
+canonicalization version、入力fieldをrecordへ残す。recordの読込み時にもIDを再計算し、外部編集で
+source identityとIDがずれたrecordを拒否する。
 
 同一PRや同一文書の複数spanは、独立したsource evidenceとして水増ししない。相関groupを保存し、
 集計時にsource diversityとsample countを分ける。
@@ -57,6 +59,11 @@ canonicalization version、入力fieldをrecordへ残す。
 する。rejectされたrecordを削除して判断根拠を失わない。
 
 ## Schema evolution
+
+state変更はpending journal、record、原子的に置き換えるaudit logを使う。audit commit前の
+失敗は旧stateへrollbackし、process停止でpending journalが残った場合は次回初期化時に
+audit eventの有無からcommitまたはrollbackを回復する。store全体のprocess間lockにより、
+duplicate判定、state変更、auditのread-modify-replaceを直列化する。
 
 schema migrationは明示的なpreviewとbackupを要求する。新しいvalidatorが古いrecordを黙って
 書き換えず、未対応version、破損record、unknown fieldを区別して報告する。

@@ -79,8 +79,10 @@ Copilot CLI:
 ## ローカルコーパス育成（planned）
 
 実文、review履歴、採用・却下判断を、インストール済みSkillとは別のlocal dataへ蓄積し、
-corpusとruleの候補を保守的に評価するworkflowを設計しています。この機能はまだ未実装で、
-現在の通常reviewやbundled evalには影響しません。
+corpusとruleの候補を保守的に評価するworkflowを整備しています。schema v1、local data
+directoryの解決、state transition、audit logは実装済みです。操作用CLI、GitHub収集、
+promotion、通常reviewからのlocal corpus利用は未実装で、現在の通常reviewやbundled evalには
+影響しません。
 
 設計上は、候補の収集、corpusへのpromotion、behavior-changing ruleのpromotionを別のgateに
 分けます。収集したcandidateやpromoted local corpusを通常reviewへ暗黙に読み込まず、

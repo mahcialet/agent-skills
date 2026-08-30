@@ -125,6 +125,17 @@ def validate(repo: Path) -> list[str]:
             )
             if result.returncode:
                 errors.append(f"{content_validator.relative_to(repo)} failed:\n{result.stderr.strip()}")
+        tests_dir = skill_dir / "tests"
+        if tests_dir.is_dir():
+            result = subprocess.run(
+                [sys.executable, "-m", "unittest", "discover", "-s", str(tests_dir), "-p", "test_*.py"],
+                cwd=repo,
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+            if result.returncode:
+                errors.append(f"{tests_dir.relative_to(repo)} failed:\n{result.stdout}{result.stderr}".strip())
 
     if "reader-first-editor" not in seen_names:
         errors.append("reader-first-editor must be the first implemented skill")

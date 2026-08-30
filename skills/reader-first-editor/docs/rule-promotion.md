@@ -62,6 +62,10 @@ proposalには次が必要である。
 apply対象はhuman-reviewedなprose diffとeval updateである。初版ではcore referencesを
 structured recordから自動生成せず、自動commit・pushもしない。
 
+`rule-proposal.schema.json` へ適合することは、applyの許可ではない。schemaはproposalと
+検証結果を受け渡す形式であり、regression結果、人間の承認、明示的な `--apply` は別の
+runtime gateで再確認する。
+
 ## Decision
 
 判定は `PROMOTE`、`REJECT`、`HOLD`、`NEEDS_MORE_EVIDENCE` を使う。`PROMOTE` はproposalが

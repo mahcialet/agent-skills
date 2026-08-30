@@ -1,0 +1,275 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/mahcialet/agent-skills/reader-first-editor/corpus-record.schema.json",
+  "title": "Reader-First Editor corpus record",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "id_material",
+    "schema_version",
+    "language",
+    "translation_status",
+    "genre",
+    "reader",
+    "sample_type",
+    "quality_class",
+    "source",
+    "authorship",
+    "review_signal",
+    "rights",
+    "handling",
+    "text",
+    "annotations",
+    "decision",
+    "confidence",
+    "created_at"
+  ],
+  "properties": {
+    "id": {"type": "string", "pattern": "^rfe-[0-9a-f]{20}$"},
+    "id_material": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["algorithm", "canonicalization_version", "fields"],
+      "properties": {
+        "algorithm": {"const": "sha256"},
+        "canonicalization_version": {"const": 1},
+        "fields": {
+          "const": [
+            "schema_version",
+            "sample_type",
+            "source.type",
+            "source.repository",
+            "source.pr_number",
+            "source.immutable_revision",
+            "source.file",
+            "source.span"
+          ]
+        }
+      }
+    },
+    "schema_version": {"const": 1},
+    "language": {"enum": ["ja", "en"]},
+    "translation_status": {"enum": ["native", "translated", "mixed", "unknown"]},
+    "genre": {"type": "string", "minLength": 1},
+    "reader": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["description", "evidence_source"],
+      "properties": {
+        "description": {"type": "string", "minLength": 1},
+        "evidence_source": {"type": "string", "minLength": 1}
+      }
+    },
+    "sample_type": {
+      "enum": [
+        "positive-reviewed",
+        "review-directed-revision",
+        "human-revision",
+        "rejected-suggestion",
+        "manual"
+      ]
+    },
+    "quality_class": {"enum": ["problematic", "clean", "borderline"]},
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "repository",
+        "pr_number",
+        "commit",
+        "file",
+        "span",
+        "url",
+        "immutable_revision",
+        "retrieved_at",
+        "correlation_group"
+      ],
+      "properties": {
+        "type": {"enum": ["github-pr", "local-file", "manual"]},
+        "repository": {"type": ["string", "null"]},
+        "pr_number": {"type": ["integer", "null"], "minimum": 1},
+        "commit": {
+          "anyOf": [
+            {"type": "null"},
+            {"type": "string", "pattern": "^[0-9a-f]{40}$"}
+          ]
+        },
+        "file": {"type": ["string", "null"]},
+        "span": {"type": ["string", "null"]},
+        "url": {"type": ["string", "null"]},
+        "immutable_revision": {"type": "string", "minLength": 1},
+        "retrieved_at": {"type": "string", "minLength": 1},
+        "correlation_group": {"type": "string", "minLength": 1}
+      },
+      "allOf": [
+        {
+          "if": {"properties": {"type": {"const": "github-pr"}}},
+          "then": {
+            "properties": {
+              "repository": {"type": "string", "minLength": 1},
+              "pr_number": {"type": "integer", "minimum": 1},
+              "commit": {"type": ["string", "null"], "pattern": "^[0-9a-f]{40}$"},
+              "file": {"type": "string", "minLength": 1},
+              "url": {"type": "string", "minLength": 1},
+              "immutable_revision": {"type": "string", "pattern": "^[0-9a-f]{40}$"}
+            }
+          },
+          "else": {
+            "properties": {
+              "immutable_revision": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+            }
+          }
+        }
+      ]
+    },
+    "authorship": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["initial", "final", "ai_assisted"],
+      "properties": {
+        "initial": {"type": "string", "minLength": 1},
+        "final": {"type": "string", "minLength": 1},
+        "ai_assisted": {"type": "string", "minLength": 1}
+      }
+    },
+    "review_signal": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "summary", "raw_text_included"],
+      "properties": {
+        "type": {"type": "string", "minLength": 1},
+        "summary": {"type": "string"},
+        "raw_text_included": {"type": "boolean"}
+      }
+    },
+    "rights": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "repository_license",
+        "raw_text_redistribution",
+        "review_comment_redistribution",
+        "local_only",
+        "redacted",
+        "notes"
+      ],
+      "properties": {
+        "status": {"enum": ["verified", "unknown", "unlicensed", "restricted"]},
+        "repository_license": {"type": ["string", "null"]},
+        "raw_text_redistribution": {"enum": ["allowed", "unknown", "restricted", "not-applicable"]},
+        "review_comment_redistribution": {"enum": ["allowed", "unknown", "restricted", "not-applicable"]},
+        "local_only": {"type": "boolean"},
+        "redacted": {"type": "boolean"},
+        "notes": {"type": ["string", "null"]}
+      }
+    },
+    "handling": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["anonymized", "modified", "redactions"],
+      "properties": {
+        "anonymized": {"type": "boolean"},
+        "modified": {"type": "boolean"},
+        "redactions": {"type": "array", "items": {"type": "string"}}
+      }
+    },
+    "text": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["storage", "content_hash", "content"],
+      "properties": {
+        "storage": {"enum": ["embedded", "redacted", "reference-only"]},
+        "content_hash": {"type": "string", "minLength": 1},
+        "content": {"type": ["string", "null"]}
+      },
+      "allOf": [
+        {
+          "if": {"properties": {"storage": {"const": "reference-only"}}},
+          "then": {"properties": {"content": {"type": "null"}}}
+        },
+        {
+          "if": {"properties": {"storage": {"enum": ["embedded", "redacted"]}}},
+          "then": {"properties": {"content": {"type": "string"}}}
+        }
+      ]
+    },
+    "annotations": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "expected_behavior",
+        "rationale",
+        "semantic_invariants",
+        "do_not_change",
+        "expected_reread_risks"
+      ],
+      "properties": {
+        "expected_behavior": {"enum": ["change", "no-change", "review-only", "context-dependent"]},
+        "rationale": {"type": "string"},
+        "semantic_invariants": {"type": "array", "items": {"type": "string"}},
+        "do_not_change": {"type": "array", "items": {"type": "string"}},
+        "expected_reread_risks": {"type": "array", "items": {"type": "string"}}
+      }
+    },
+    "decision": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["state", "reviewer", "decided_at", "reason"],
+      "properties": {
+        "state": {"enum": ["candidate", "annotated", "accepted", "rejected", "promoted"]},
+        "reviewer": {"type": ["string", "null"]},
+        "decided_at": {"type": ["string", "null"]},
+        "reason": {"type": "string"}
+      }
+    },
+    "confidence": {"enum": ["low", "medium", "high", "unknown"]},
+    "created_at": {"type": "string", "minLength": 1}
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "rights": {"properties": {"local_only": {"const": false}}}
+        }
+      },
+      "then": {
+        "properties": {
+          "rights": {
+            "properties": {
+              "status": {"const": "verified"}
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "rights": {"properties": {"local_only": {"const": false}}},
+          "text": {"properties": {"storage": {"enum": ["embedded", "redacted"]}}}
+        }
+      },
+      "then": {
+        "properties": {
+          "rights": {"properties": {"raw_text_redistribution": {"const": "allowed"}}}
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "rights": {"properties": {"local_only": {"const": false}}},
+          "review_signal": {"properties": {"raw_text_included": {"const": true}}}
+        }
+      },
+      "then": {
+        "properties": {
+          "rights": {"properties": {"review_comment_redistribution": {"const": "allowed"}}}
+        }
+      }
+    }
+  ]
+}

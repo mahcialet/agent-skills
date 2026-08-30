@@ -43,6 +43,11 @@ REQUIRED_SUITES = {
     "prose-pacing",
     "repository-grounded-review",
 }
+REQUIRED_SCHEMAS = {
+    "corpus-record.schema.json",
+    "investigation.schema.json",
+    "rule-proposal.schema.json",
+}
 
 
 def load_suites(eval_dir: Path) -> tuple[list[dict], list[str]]:
@@ -133,6 +138,41 @@ def validate(eval_dir: Path) -> list[str]:
     return errors
 
 
+def validate_schemas(schema_dir: Path) -> list[str]:
+    errors: list[str] = []
+    found = {path.name for path in schema_dir.glob("*.schema.json")}
+    missing = REQUIRED_SCHEMAS - found
+    if missing:
+        errors.append(f"missing required schemas: {', '.join(sorted(missing))}")
+    for name in sorted(REQUIRED_SCHEMAS & found):
+        path = schema_dir / name
+        try:
+            schema = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError) as exc:
+            errors.append(f"{path}: invalid JSON schema: {exc}")
+            continue
+        if not isinstance(schema, dict):
+            errors.append(f"{path}: schema must be an object")
+            continue
+        if schema.get("$schema") != "https://json-schema.org/draft/2020-12/schema":
+            errors.append(f"{path}: unsupported or missing $schema")
+        if schema.get("type") != "object":
+            errors.append(f"{path}: root type must be object")
+        if schema.get("additionalProperties") is not False:
+            errors.append(f"{path}: root additionalProperties must be false")
+        required = schema.get("required")
+        properties = schema.get("properties")
+        if not isinstance(required, list) or not required:
+            errors.append(f"{path}: required must be a non-empty list")
+        if not isinstance(properties, dict):
+            errors.append(f"{path}: properties must be an object")
+        elif isinstance(required, list):
+            unknown = set(required) - properties.keys()
+            if unknown:
+                errors.append(f"{path}: required keys missing from properties: {sorted(unknown)}")
+    return errors
+
+
 def sentence_metrics(text: str) -> dict[str, object]:
     sentences = [s.strip() for s in re.split(r"(?<=[。！？.!?])\s*", text) if s.strip()]
     lengths = [len(s) for s in sentences]
@@ -147,16 +187,20 @@ def sentence_metrics(text: str) -> dict[str, object]:
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--eval-dir", type=Path, default=Path(__file__).parent.parent / "evals")
+    parser.add_argument("--schema-dir", type=Path, default=Path(__file__).parent.parent / "schemas")
     parser.add_argument("--metrics", help="Print descriptive tripwires for text; never pass/fail quality")
     args = parser.parse_args()
-    errors = validate(args.eval_dir)
+    errors = validate(args.eval_dir) + validate_schemas(args.schema_dir)
     if errors:
         for error in errors:
             print(f"ERROR: {error}", file=sys.stderr)
         return 1
     if args.metrics is not None:
         print(json.dumps(sentence_metrics(args.metrics), ensure_ascii=False))
-    print(f"validated {len(list(args.eval_dir.glob('*.yaml')))} eval suites")
+    print(
+        f"validated {len(list(args.eval_dir.glob('*.yaml')))} eval suites "
+        f"and {len(REQUIRED_SCHEMAS)} schemas"
+    )
     return 0
 
 

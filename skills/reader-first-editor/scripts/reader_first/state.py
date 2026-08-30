@@ -1,0 +1,645 @@
+"""ローカルcorpus recordのpath解決、検証、状態遷移、audit記録。"""
+
+from __future__ import annotations
+
+import hashlib
+import json
+import os
+import re
+import sys
+import tempfile
+import uuid
+from collections.abc import Callable, Mapping
+from contextlib import contextmanager
+from copy import deepcopy
+from datetime import datetime, timezone
+from pathlib import Path
+
+SCHEMA_VERSION = 1
+STATE_DIRECTORIES = {
+    "candidate": "candidates",
+    "annotated": "annotated",
+    "accepted": "accepted",
+    "rejected": "rejected",
+    "promoted": "promoted",
+}
+ALLOWED_TRANSITIONS = {
+    "candidate": {"annotated", "rejected"},
+    "annotated": {"accepted", "rejected"},
+    "accepted": set(),
+    "rejected": set(),
+    "promoted": set(),
+}
+SAMPLE_TYPES = {
+    "positive-reviewed",
+    "review-directed-revision",
+    "human-revision",
+    "rejected-suggestion",
+    "manual",
+}
+QUALITY_CLASSES = {"problematic", "clean", "borderline"}
+TEXT_STORAGE = {"embedded", "redacted", "reference-only"}
+RIGHTS_STATUSES = {"verified", "unknown", "unlicensed", "restricted"}
+REDISTRIBUTION_STATUSES = {"allowed", "unknown", "restricted", "not-applicable"}
+EXPECTED_BEHAVIORS = {"change", "no-change", "review-only", "context-dependent"}
+TRANSLATION_STATUSES = {"native", "translated", "mixed", "unknown"}
+SOURCE_TYPES = {"github-pr", "local-file", "manual"}
+ID_FIELDS = [
+    "schema_version",
+    "sample_type",
+    "source.type",
+    "source.repository",
+    "source.pr_number",
+    "source.immutable_revision",
+    "source.file",
+    "source.span",
+]
+ID_MATERIAL = {
+    "algorithm": "sha256",
+    "canonicalization_version": 1,
+    "fields": ID_FIELDS,
+}
+
+
+class StoreError(RuntimeError):
+    """Local storeを安全に操作できない場合の基底error。"""
+
+
+class RecordValidationError(StoreError):
+    """Recordがcorpus schema契約を満たさない。"""
+
+
+class DuplicateRecordError(StoreError):
+    """同じdeterministic IDのrecordがすでに存在する。"""
+
+
+class InvalidTransitionError(StoreError):
+    """許可されていないstate transitionである。"""
+
+
+def _is_relative_to(path: Path, parent: Path) -> bool:
+    try:
+        path.relative_to(parent)
+        return True
+    except ValueError:
+        return False
+
+
+def resolve_data_dir(
+    *,
+    explicit: Path | str | None = None,
+    scope: str = "user",
+    project_root: Path | str | None = None,
+    environ: Mapping[str, str] | None = None,
+    home: Path | str | None = None,
+    platform: str | None = None,
+) -> Path:
+    """書込みを行わず、local data directoryを決定する。"""
+
+    if explicit is not None:
+        return Path(explicit).expanduser().resolve()
+    if scope not in {"user", "project"}:
+        raise ValueError("scopeは'user'または'project'で指定してください")
+    if scope == "project":
+        if project_root is None:
+            raise ValueError("project scopeにはproject_rootが必要です")
+        return (Path(project_root).expanduser().resolve() / ".reader-first-editor")
+
+    env = os.environ if environ is None else environ
+    platform_name = sys.platform if platform is None else platform
+    home_path = Path.home() if home is None else Path(home)
+    if xdg_data_home := env.get("XDG_DATA_HOME"):
+        base = Path(xdg_data_home).expanduser()
+    elif platform_name == "win32":
+        base = Path(env.get("LOCALAPPDATA") or env.get("APPDATA") or home_path / "AppData" / "Local")
+    elif platform_name == "darwin":
+        base = home_path / "Library" / "Application Support"
+    else:
+        base = home_path / ".local" / "share"
+    return (base / "reader-first-editor").resolve()
+
+
+def _require_object(record: dict, key: str) -> dict:
+    value = record.get(key)
+    if not isinstance(value, dict):
+        raise RecordValidationError(f"{key}はobjectである必要があります")
+    return value
+
+
+def _require_string(container: dict, key: str, *, allow_empty: bool = False) -> str:
+    value = container.get(key)
+    if not isinstance(value, str) or (not allow_empty and not value.strip()):
+        raise RecordValidationError(f"{key}は空でないstringである必要があります")
+    return value
+
+
+def _require_keys(container: dict, keys: set[str], context: str) -> None:
+    missing = sorted(keys - container.keys())
+    if missing:
+        raise RecordValidationError(f"{context}に必須keyがありません: {', '.join(missing)}")
+
+
+def _reject_unknown_keys(container: dict, keys: set[str], context: str) -> None:
+    unknown = sorted(container.keys() - keys)
+    if unknown:
+        raise RecordValidationError(f"{context}に未知のkeyがあります: {', '.join(unknown)}")
+
+
+def validate_corpus_record(record: dict) -> None:
+    """依存libraryなしでcorpus recordの主要invariantを検証する。"""
+
+    if not isinstance(record, dict):
+        raise RecordValidationError("recordはobjectである必要があります")
+    required = {
+        "id",
+        "id_material",
+        "schema_version",
+        "language",
+        "translation_status",
+        "genre",
+        "reader",
+        "sample_type",
+        "quality_class",
+        "source",
+        "authorship",
+        "review_signal",
+        "rights",
+        "handling",
+        "text",
+        "annotations",
+        "decision",
+        "confidence",
+        "created_at",
+    }
+    _require_keys(record, required, "record")
+    _reject_unknown_keys(record, required, "record")
+    record_id = _require_string(record, "id")
+    if not re.fullmatch(r"rfe-[0-9a-f]{20}", record_id):
+        raise RecordValidationError("idはdeterministic candidate ID形式である必要があります")
+    if record["schema_version"] != SCHEMA_VERSION:
+        raise RecordValidationError(f"未対応のschema_versionです: {record['schema_version']!r}")
+    if record["language"] not in {"ja", "en"}:
+        raise RecordValidationError("languageは'ja'または'en'である必要があります")
+    if record["translation_status"] not in TRANSLATION_STATUSES:
+        raise RecordValidationError("translation_statusが未対応です")
+    _require_string(record, "genre")
+    if record["sample_type"] not in SAMPLE_TYPES:
+        raise RecordValidationError("sample_typeが未対応です")
+    if record["quality_class"] not in QUALITY_CLASSES:
+        raise RecordValidationError("quality_classが未対応です")
+    _require_string(record, "created_at")
+    if record["confidence"] not in {"low", "medium", "high", "unknown"}:
+        raise RecordValidationError("confidenceが未対応です")
+
+    id_material = _require_object(record, "id_material")
+    id_material_keys = {"algorithm", "canonicalization_version", "fields"}
+    _require_keys(id_material, id_material_keys, "id_material")
+    _reject_unknown_keys(id_material, id_material_keys, "id_material")
+    if id_material != ID_MATERIAL:
+        raise RecordValidationError("id_materialがcanonicalization契約と一致しません")
+
+    reader = _require_object(record, "reader")
+    reader_keys = {"description", "evidence_source"}
+    _require_keys(reader, reader_keys, "reader")
+    _reject_unknown_keys(reader, reader_keys, "reader")
+    _require_string(reader, "description")
+    _require_string(reader, "evidence_source")
+
+    source = _require_object(record, "source")
+    source_keys = {
+        "type", "repository", "pr_number", "commit", "file", "span", "url",
+        "immutable_revision", "retrieved_at", "correlation_group",
+    }
+    _require_keys(
+        source,
+        source_keys,
+        "source",
+    )
+    _reject_unknown_keys(source, source_keys, "source")
+    if source["type"] not in SOURCE_TYPES:
+        raise RecordValidationError("source.typeが未対応です")
+    immutable_revision = _require_string(source, "immutable_revision")
+    _require_string(source, "retrieved_at")
+    _require_string(source, "correlation_group")
+    for key in ("repository", "commit", "file", "span", "url"):
+        if source[key] is not None and not isinstance(source[key], str):
+            raise RecordValidationError(f"source.{key}はstringまたはnullである必要があります")
+    if source["pr_number"] is not None and (
+        not isinstance(source["pr_number"], int)
+        or isinstance(source["pr_number"], bool)
+        or source["pr_number"] < 1
+    ):
+        raise RecordValidationError("source.pr_numberは1以上のintegerまたはnullである必要があります")
+    if source["commit"] is not None and not re.fullmatch(r"[0-9a-f]{40}", source["commit"]):
+        raise RecordValidationError("source.commitは40桁のcommit SHAまたはnullである必要があります")
+    if source["type"] == "github-pr":
+        for key in ("repository", "file", "url"):
+            _require_string(source, key)
+        if source["pr_number"] is None:
+            raise RecordValidationError("github-pr sourceにはpr_numberが必要です")
+        if not re.fullmatch(r"[0-9a-f]{40}", immutable_revision):
+            raise RecordValidationError("github-pr sourceにはimmutable commit SHAが必要です")
+    elif not re.fullmatch(r"[0-9a-f]{64}", immutable_revision):
+        raise RecordValidationError("manual/local-file sourceには64桁のcontent hashが必要です")
+
+    authorship = _require_object(record, "authorship")
+    authorship_keys = {"initial", "final", "ai_assisted"}
+    _require_keys(authorship, authorship_keys, "authorship")
+    _reject_unknown_keys(authorship, authorship_keys, "authorship")
+    for key in ("initial", "final", "ai_assisted"):
+        if not isinstance(authorship[key], str) or not authorship[key]:
+            raise RecordValidationError(f"authorship.{key}は空でないstringである必要があります")
+
+    review_signal = _require_object(record, "review_signal")
+    review_signal_keys = {"type", "summary", "raw_text_included"}
+    _require_keys(review_signal, review_signal_keys, "review_signal")
+    _reject_unknown_keys(review_signal, review_signal_keys, "review_signal")
+    _require_string(review_signal, "type")
+    if not isinstance(review_signal["summary"], str):
+        raise RecordValidationError("review_signal.summaryはstringである必要があります")
+    if not isinstance(review_signal["raw_text_included"], bool):
+        raise RecordValidationError("review_signal.raw_text_includedはbooleanである必要があります")
+
+    rights = _require_object(record, "rights")
+    rights_keys = {
+        "status", "repository_license", "raw_text_redistribution",
+        "review_comment_redistribution", "local_only", "redacted", "notes",
+    }
+    _require_keys(
+        rights,
+        rights_keys,
+        "rights",
+    )
+    _reject_unknown_keys(rights, rights_keys, "rights")
+    if rights["status"] not in RIGHTS_STATUSES:
+        raise RecordValidationError("rights.statusが未対応です")
+    for key in ("raw_text_redistribution", "review_comment_redistribution"):
+        if rights[key] not in REDISTRIBUTION_STATUSES:
+            raise RecordValidationError(f"rights.{key}が未対応です")
+    for key in ("local_only", "redacted"):
+        if not isinstance(rights[key], bool):
+            raise RecordValidationError(f"rights.{key}はbooleanである必要があります")
+    for key in ("repository_license", "notes"):
+        if rights[key] is not None and not isinstance(rights[key], str):
+            raise RecordValidationError(f"rights.{key}はstringまたはnullである必要があります")
+
+    handling = _require_object(record, "handling")
+    handling_keys = {"anonymized", "modified", "redactions"}
+    _require_keys(handling, handling_keys, "handling")
+    _reject_unknown_keys(handling, handling_keys, "handling")
+    for key in ("anonymized", "modified"):
+        if not isinstance(handling[key], bool):
+            raise RecordValidationError(f"handling.{key}はbooleanである必要があります")
+    if not isinstance(handling["redactions"], list) or not all(
+        isinstance(item, str) for item in handling["redactions"]
+    ):
+        raise RecordValidationError("handling.redactionsはstring listである必要があります")
+
+    text = _require_object(record, "text")
+    text_keys = {"storage", "content_hash", "content"}
+    _require_keys(text, text_keys, "text")
+    _reject_unknown_keys(text, text_keys, "text")
+    if text["storage"] not in TEXT_STORAGE:
+        raise RecordValidationError("text.storageが未対応です")
+    _require_string(text, "content_hash")
+    if text["content"] is not None and not isinstance(text["content"], str):
+        raise RecordValidationError("text.contentはstringまたはnullである必要があります")
+    if text["storage"] == "reference-only" and text["content"] is not None:
+        raise RecordValidationError("reference-only recordへraw textを保存できません")
+    if text["storage"] in {"embedded", "redacted"} and text["content"] is None:
+        raise RecordValidationError("embeddedまたはredacted recordにはtext.contentが必要です")
+    if not rights["local_only"]:
+        if rights["status"] != "verified":
+            raise RecordValidationError("public候補にはverified rightsが必要です")
+        if text["storage"] != "reference-only" and rights["raw_text_redistribution"] != "allowed":
+            raise RecordValidationError("public候補のraw textにはredistribution permissionが必要です")
+        if review_signal["raw_text_included"] and rights["review_comment_redistribution"] != "allowed":
+            raise RecordValidationError("public候補のreview textにはredistribution permissionが必要です")
+
+    annotations = _require_object(record, "annotations")
+    annotation_keys = {
+        "expected_behavior", "rationale", "semantic_invariants", "do_not_change",
+        "expected_reread_risks",
+    }
+    _require_keys(
+        annotations,
+        annotation_keys,
+        "annotations",
+    )
+    _reject_unknown_keys(annotations, annotation_keys, "annotations")
+    if annotations["expected_behavior"] not in EXPECTED_BEHAVIORS:
+        raise RecordValidationError("annotations.expected_behaviorが未対応です")
+    if not isinstance(annotations["rationale"], str):
+        raise RecordValidationError("annotations.rationaleはstringである必要があります")
+    for key in ("semantic_invariants", "do_not_change", "expected_reread_risks"):
+        value = annotations[key]
+        if not isinstance(value, list) or not all(isinstance(item, str) for item in value):
+            raise RecordValidationError(f"annotations.{key}はstring listである必要があります")
+
+    decision = _require_object(record, "decision")
+    decision_keys = {"state", "reviewer", "decided_at", "reason"}
+    _require_keys(decision, decision_keys, "decision")
+    _reject_unknown_keys(decision, decision_keys, "decision")
+    if decision["state"] not in STATE_DIRECTORIES:
+        raise RecordValidationError("decision.stateが未対応です")
+    for key in ("reviewer", "decided_at"):
+        if decision[key] is not None and not isinstance(decision[key], str):
+            raise RecordValidationError(f"decision.{key}はstringまたはnullである必要があります")
+    if not isinstance(decision["reason"], str):
+        raise RecordValidationError("decision.reasonはstringである必要があります")
+    if record_id != deterministic_candidate_id(record):
+        raise RecordValidationError("idがsource identityから再計算した値と一致しません")
+
+
+def _canonical_identity(record: dict) -> dict:
+    source = _require_object(record, "source")
+    return {
+        "schema_version": record.get("schema_version"),
+        "sample_type": record.get("sample_type"),
+        "source": {
+            "type": source.get("type"),
+            "repository": source.get("repository"),
+            "pr_number": source.get("pr_number"),
+            "immutable_revision": source.get("immutable_revision"),
+            "file": source.get("file"),
+            "span": source.get("span"),
+        },
+    }
+
+
+def deterministic_candidate_id(record: dict) -> str:
+    """Source identityから安定したcandidate IDを生成する。"""
+
+    payload = json.dumps(
+        _canonical_identity(record), ensure_ascii=False, sort_keys=True, separators=(",", ":")
+    ).encode("utf-8")
+    return f"rfe-{hashlib.sha256(payload).hexdigest()[:20]}"
+
+
+def _utc_now() -> str:
+    return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+
+
+class LocalCorpusStore:
+    """Installed Skillから分離したlocal corpus store。"""
+
+    def __init__(
+        self,
+        data_dir: Path | str,
+        *,
+        skill_dir: Path | str | None = None,
+        clock: Callable[[], str] = _utc_now,
+    ) -> None:
+        self.root = Path(data_dir).expanduser().resolve()
+        self.skill_dir = (
+            Path(skill_dir).expanduser().resolve()
+            if skill_dir is not None
+            else Path(__file__).resolve().parents[2]
+        )
+        if _is_relative_to(self.root, self.skill_dir):
+            raise StoreError("local dataをinstalled Skill directory内へ保存できません")
+        self.clock = clock
+
+    @property
+    def audit_path(self) -> Path:
+        return self.root / "audit" / "events.jsonl"
+
+    @property
+    def pending_dir(self) -> Path:
+        return self.root / "audit" / "pending"
+
+    @contextmanager
+    def _store_lock(self):
+        self.root.mkdir(parents=True, exist_ok=True)
+        lock_path = self.root / ".store.lock"
+        with lock_path.open("a+b") as handle:
+            if os.name == "nt":
+                import msvcrt
+
+                handle.seek(0)
+                if handle.read(1) == b"":
+                    handle.write(b"0")
+                    handle.flush()
+                handle.seek(0)
+                msvcrt.locking(handle.fileno(), msvcrt.LK_LOCK, 1)
+                try:
+                    yield
+                finally:
+                    handle.seek(0)
+                    msvcrt.locking(handle.fileno(), msvcrt.LK_UNLCK, 1)
+            else:
+                import fcntl
+
+                fcntl.flock(handle.fileno(), fcntl.LOCK_EX)
+                try:
+                    yield
+                finally:
+                    fcntl.flock(handle.fileno(), fcntl.LOCK_UN)
+
+    def initialize(self) -> None:
+        for directory in (*STATE_DIRECTORIES.values(), "investigations", "proposals", "cache", "audit"):
+            (self.root / directory).mkdir(parents=True, exist_ok=True)
+        self.pending_dir.mkdir(parents=True, exist_ok=True)
+        with self._store_lock():
+            self._recover_pending()
+
+    def _state_path(self, state: str, record_id: str) -> Path:
+        if state not in STATE_DIRECTORIES:
+            raise StoreError(f"未知のstateです: {state}")
+        return self.root / STATE_DIRECTORIES[state] / f"{record_id}.json"
+
+    def _locations(self, record_id: str) -> list[tuple[str, Path]]:
+        return [
+            (state, path)
+            for state in STATE_DIRECTORIES
+            if (path := self._state_path(state, record_id)).exists()
+        ]
+
+    def _atomic_write(self, path: Path, data: dict) -> None:
+        text = json.dumps(data, ensure_ascii=False, indent=2, sort_keys=True) + "\n"
+        self._atomic_write_text(path, text)
+
+    def _atomic_write_text(self, path: Path, text: str) -> None:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        fd, temp_name = tempfile.mkstemp(prefix=f".{path.name}.", dir=path.parent)
+        try:
+            with os.fdopen(fd, "w", encoding="utf-8") as handle:
+                handle.write(text)
+                handle.flush()
+                os.fsync(handle.fileno())
+            os.replace(temp_name, path)
+        except Exception:
+            try:
+                os.unlink(temp_name)
+            except FileNotFoundError:
+                pass
+            raise
+
+    def _audit_events(self) -> list[dict]:
+        if not self.audit_path.exists():
+            return []
+        events: list[dict] = []
+        try:
+            for number, line in enumerate(self.audit_path.read_text(encoding="utf-8").splitlines(), start=1):
+                if line.strip():
+                    event = json.loads(line)
+                    if not isinstance(event, dict) or not isinstance(event.get("event_id"), str):
+                        raise StoreError(f"audit event {number}が不正です")
+                    events.append(event)
+        except (OSError, json.JSONDecodeError) as exc:
+            raise StoreError(f"audit logを読み込めません: {exc}") from exc
+        return events
+
+    def _make_event(
+        self,
+        *,
+        action: str,
+        record_id: str,
+        actor: str,
+        reason: str,
+        old_state: str | None,
+        new_state: str,
+    ) -> dict:
+        return {
+            "event_id": str(uuid.uuid4()),
+            "timestamp": self.clock(),
+            "action": action,
+            "record_id": record_id,
+            "actor": actor,
+            "reason": reason,
+            "old_state": old_state,
+            "new_state": new_state,
+            "schema_version": SCHEMA_VERSION,
+        }
+
+    def _atomic_append_audit(self, event: dict) -> None:
+        events = self._audit_events()
+        if any(item["event_id"] == event["event_id"] for item in events):
+            return
+        lines = [json.dumps(item, ensure_ascii=False, sort_keys=True) for item in (*events, event)]
+        self._atomic_write_text(self.audit_path, "\n".join(lines) + "\n")
+
+    def _remove_record_locations(self, record_id: str) -> None:
+        for _, path in self._locations(record_id):
+            path.unlink()
+
+    def _place_record(self, record: dict) -> None:
+        record_id = record["id"]
+        self._remove_record_locations(record_id)
+        self._atomic_write(self._state_path(record["decision"]["state"], record_id), record)
+
+    def _recover_pending(self) -> None:
+        committed_ids = {event["event_id"] for event in self._audit_events()}
+        for path in sorted(self.pending_dir.glob("*.json")):
+            try:
+                journal = json.loads(path.read_text(encoding="utf-8"))
+                event = journal["event"]
+                before = journal["before"]
+                after = journal["after"]
+                record_id = event["record_id"]
+                if event["event_id"] in committed_ids:
+                    self._place_record(after)
+                else:
+                    self._remove_record_locations(record_id)
+                    if before is not None:
+                        self._place_record(before)
+                path.unlink()
+            except (OSError, json.JSONDecodeError, KeyError, TypeError) as exc:
+                raise StoreError(f"pending transactionを回復できません: {path}: {exc}") from exc
+
+    def _commit_transaction(self, *, before: dict | None, after: dict, event: dict) -> None:
+        pending_path = self.pending_dir / f"{event['event_id']}.json"
+        self._atomic_write(pending_path, {"event": event, "before": before, "after": after})
+        try:
+            self._place_record(after)
+            self._atomic_append_audit(event)
+            pending_path.unlink()
+        except Exception:
+            self._recover_pending()
+            raise
+
+    def create_candidate(self, record: dict, *, actor: str, reason: str) -> dict:
+        if not actor.strip() or not reason.strip():
+            raise StoreError("audit用のactorとreasonが必要です")
+        self.initialize()
+        prepared = deepcopy(record)
+        prepared["id_material"] = deepcopy(ID_MATERIAL)
+        prepared["id"] = deterministic_candidate_id(prepared)
+        decision = _require_object(prepared, "decision")
+        if decision.get("state") != "candidate":
+            raise InvalidTransitionError("新規recordのstateはcandidateである必要があります")
+        validate_corpus_record(prepared)
+        with self._store_lock():
+            if self._locations(prepared["id"]):
+                raise DuplicateRecordError(f"同じcandidateがすでに存在します: {prepared['id']}")
+            event = self._make_event(
+                action="collect",
+                record_id=prepared["id"],
+                actor=actor,
+                reason=reason,
+                old_state=None,
+                new_state="candidate",
+            )
+            self._commit_transaction(before=None, after=prepared, event=event)
+        return prepared
+
+    def _load_record_unlocked(self, record_id: str) -> dict:
+        locations = self._locations(record_id)
+        if not locations:
+            raise StoreError(f"recordが見つかりません: {record_id}")
+        if len(locations) > 1:
+            raise StoreError(f"複数stateに同じrecordがあります: {record_id}")
+        state, path = locations[0]
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError) as exc:
+            raise StoreError(f"recordを読み込めません: {path}: {exc}") from exc
+        try:
+            validate_corpus_record(data)
+        except RecordValidationError as exc:
+            raise StoreError(f"破損したrecordです: {path}: {exc}") from exc
+        if data["decision"]["state"] != state:
+            raise StoreError(f"directoryとdecision.stateが一致しません: {path}")
+        return data
+
+    def load_record(self, record_id: str) -> dict:
+        self.initialize()
+        with self._store_lock():
+            return self._load_record_unlocked(record_id)
+
+    def transition(self, record_id: str, target_state: str, *, actor: str, reason: str) -> dict:
+        if not actor.strip() or not reason.strip():
+            raise StoreError("audit用のactorとreasonが必要です")
+        self.initialize()
+        with self._store_lock():
+            before = self._load_record_unlocked(record_id)
+            record = deepcopy(before)
+            old_state = record["decision"]["state"]
+            if target_state not in ALLOWED_TRANSITIONS[old_state]:
+                raise InvalidTransitionError(
+                    f"許可されていないstate transitionです: {old_state} -> {target_state}"
+                )
+            if (
+                old_state == "candidate"
+                and target_state == "annotated"
+                and not record["annotations"]["rationale"].strip()
+            ):
+                raise RecordValidationError("annotatedへ進むにはannotation rationaleが必要です")
+            now = self.clock()
+            record["decision"] = {
+                "state": target_state,
+                "reviewer": actor,
+                "decided_at": now,
+                "reason": reason,
+            }
+            validate_corpus_record(record)
+            event = self._make_event(
+                action="transition",
+                record_id=record_id,
+                actor=actor,
+                reason=reason,
+                old_state=old_state,
+                new_state=target_state,
+            )
+            self._commit_transaction(before=before, after=record, event=event)
+            return record

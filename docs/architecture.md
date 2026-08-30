@@ -21,10 +21,11 @@ CodexとGitHub Copilotは同じ `SKILL.md` を使います。`agents/openai.yaml
 referencesに分け、必要なものだけを読みます。examplesとeval fixtureは挙動を記録
 しますが、毎回の起動で必ず読むcontextにはしません。
 
-## Reader-First Editorの育成基盤（planned）
+## Reader-First Editorの育成基盤（一部implemented）
 
-この節は設計済み・未実装の構成を記録します。現在の通常reviewは、既存のbundled
-referencesとevalだけを使用します。
+schema v1、local data directoryの解決、state transition、audit logは実装済みです。
+corpus CLI、GitHub収集、rule investigation、通常reviewからの明示的なlocal corpus利用は
+未実装です。現在の通常reviewは、既存のbundled referencesとevalだけを使用します。
 
 育成基盤では、配布されるCoreと利用者固有のLocalを分離します。
 
@@ -42,8 +43,8 @@ Local
 └── rule proposals
 ```
 
-Local dataはインストール済みSkillのsource directoryへ保存しません。user scopeを既定とし、
-project scopeは明示指定された場合だけ使用する計画です。候補収集やcorpus promotionにより、
+Local dataはインストール済みSkillのsource directoryへ保存できません。user scopeを既定とし、
+project scopeは明示指定された場合だけ解決します。候補収集やcorpus promotionにより、
 Coreの `SKILL.md`、references、evalsが自動的に変更されることはありません。通常reviewも
 Localを暗黙に読み込みません。
 

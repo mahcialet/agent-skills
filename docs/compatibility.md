@@ -77,10 +77,11 @@
   reviewを既定にし、ファイル変更には明示依頼を要求する。
 - releaseはrepo-wide SemVer tagを使い、1 releaseをcatalog全体のsnapshotとする。
   Skill個別versionはfrontmatterへ置かない。
-- 実文corpus toolはplannedであり、まだ実装していない。現在のbundled evalは合成fixtureで、
-  local candidateの収集、annotation、promotion、通常reviewへの明示的な読込みには未対応である。
-  設計上は、candidate収集とSkill挙動を分離し、rights不明のthird-party textをpublic corpusへ
-  昇格させない。
+- 実文corpusのschema v1、local data directory解決、state transition、audit logを実装し、
+  dependency-free unit testで確認した。corpus CLI、GitHub収集、promotion、
+  通常reviewへの明示的な読込みは未実装である。現在のbundled evalは合成fixtureのままで、
+  local recordは通常reviewへ影響しない。rights不明のthird-party textをpublic corpusへ
+  昇格させる処理も提供していない。
 - 自動日本語構文解析器は導入していない。将来導入する場合もoptionalな構造sensorに限定し、
   parserなしでSkillを継続できる設計とする。現在の数値はtripwireだけに使い、hard thresholdで
   可読性を判定しない。A/B検証も未実施である。
