@@ -20,13 +20,15 @@ auth/configなど再現に寄与しない一時的locatorは残さない。以�
 `/tmp/reviewer-change.py` と `/tmp/implementer-change.py` は実行環境のartifact locatorではなく、
 absolute pathを拒否できることを再現するsynthetic invalid inputであるため、入力値をそのまま保持する。
 
-対象2 findingはいずれも `confirmed`、`action_required=yes` と裁定し、両方だけを修正した。
+対象2 findingはいずれも `confirmed`、`action_required=yes` と裁定し、一回のremediation passで
+両方へ対応した。Fresh re-reviewではNF002の解消を確認した一方、NF001のpath invariantに新しい
+境界例が見つかったため、最終statusは下表とre-review節のとおり更新した。
 
 ## Findingごとの裁定と解消
 
 | Finding | Priority | Classification | `action_required` | 修正と決定的な証拠 | `action_status` |
 |---|---|---|---|---|---|
-| `BPR-EE18236-NF001` | Medium | `confirmed` | `yes` | Evidence schema、action status、path、control decisionの拒否漏れを回帰testで固定し、canonical recordを維持 | `fixed` |
+| `BPR-EE18236-NF001` | Medium | `confirmed` | `yes` | 提示されたschema、action status、POSIX absolute path、control decisionの拒否漏れは解消。Fresh re-reviewでWindows形式・encoded schemeの残存bypassを確認 | `not-fixed` |
 | `BPR-EE18236-NF002` | Low | `confirmed` | `yes` | Repositoryへanchorしたcomponent単位のno-follow readと、決定的な交換race testを追加 | `fixed` |
 
 ### BPR-EE18236-NF001 — Evidence契約の拒否漏れ
@@ -46,6 +48,12 @@ optional `control_decisions` の型と二層decision invariantをvalidatorと
 [`FORMAT.md`](../FORMAT.md)へ同期した。`CONSOLIDATED_REPORT_TEMPLATE.md` にだけ存在した
 契約外の `residual` statusも除去した。正しいcontrol decisionと相対pathのpositive controlは
 引き続き受理する。
+
+Fresh re-reviewでは、UNC path、Windows rooted path、backslash形式の `..`、percent-encoded
+schemeをpure path fieldへ入れたformal recordが、なお `errors=[]` で受理されることを確認した。
+提示されたPOSIX absolute pathのcaseは解消したがproject-relative invariant全体は未解消なので、
+このfindingの最終statusを `not-fixed` とする。このre-review findingは同じauthorizationで
+自動修正していない。
 
 ### BPR-EE18236-NF002 — containment checkとreadの交換race
 
@@ -67,9 +75,9 @@ Validator内部だけをsecure text parserへ分離して公開APIを復元し�
 | AC | Test / evidence | 判定 |
 |---:|---|---|
 | 26 | Reviewer mutationにはtop-level `decision=FAIL`を要求する既存testに加え、canonical negative controlの `fixture_run=PASS` / `embedded_observation=FAIL` を受理し、反転を拒否するtestを追加 | PROVEN |
-| 32 | Required structure、links、notice、catalog、fixtureの既存検査を維持し、静的escape、final-component交換、ancestor交換、全validator readerの共有、capability欠如時のfail closedを検査 | PROVEN |
+| 32 | Required structure、links、notice、catalog、fixtureの既存検査を維持し、静的escape、final-component交換、repository内ancestor交換、全validator readerの共有、capability欠如時のfail closedを検査。Repository外側ancestor hardeningはre-review probeで動作確認したがcommitted regression testはない | PARTIALLY PROVEN |
 | 34 | Validator 69件、installerとvalidatorの計100件、既存Skillを含むfull gate 133件がすべてPASS | PROVEN |
-| 37 | Evidence schema `1.0`、canonical action enum、全pure path field、control decision invariantを検査し、repository内の全実Evidence JSONがPASS | PROVEN |
+| 37 | Evidence schema `1.0`、canonical action enum、control decision invariant、POSIX absolute path拒否とrepository内の全実Evidence JSONはPASS。ただしWindows形式・encoded schemeのpath bypassが残る | NOT PROVEN |
 
 Confirmed defectを先に捕捉する回帰testを追加したため、AC 21のpractical regression test要件も
 維持している。Profile本文、catalog、JSON episodeは変更していない。
@@ -102,6 +110,26 @@ security/compliance guarantee、production readinessを証明しない。
 
 ## Read-only re-review
 
-Fresh read-only re-reviewは、全remediation commitを固定して通常pushした後に一度だけ実施する。
-この文書作成時点では未実施であり、report ID、decision、新規findingの有無を先取りして記録しない。
-Re-reviewで新規findingが得られても、今回のauthorizationでは自動修正しない。
+- Report ID: `BPR-EE18236-RR-01`
+- Target: `dfd4b7de1d2c7348f1c9afa84afd792c4c76d5b4`
+- Reviewer mechanism: fresh independent read-only context
+- Decision: `FAIL`
+- Reviewer changes: `NONE`
+- NF001: `PARTIALLY RESOLVED`。未知schema、`residual`、提示されたPOSIX absolute path、反転した
+  control decisionは解消したが、project-relative path invariantに残存bypassがある。
+- NF002: `RESOLVED`。Final component、repository内ancestor、repository path外側ancestorの交換で
+  repository外contentを読まずfail closedとなることを確認した。
+- Verification: validator 69 / 69、installer 31 / 31、full gate 133 / 133、actual Evidence検査、
+  `git diff --check` がPASS。追加negative regressionをbase実装へ差し替えた独立確認もNONPASS、
+  positive controlはPASS。
+- New findings automatically remediated: `NO`
+
+新規findingは次のとおりであり、今回のauthorizationでは修正していない。
+
+| ID | Priority | Finding | 状態 |
+|---|---|---|---|
+| `BPR-EE18236-RR-01-NF001` | Medium | UNC、Windows rooted path、backslash形式の `..`、percent-encoded schemeでpure path制約を迂回できる | `open` |
+| `BPR-EE18236-RR-01-NF002` | Low | JSON arrayなどhash不可能なenum値がcontrolled validation errorではなく `TypeError` になる | `open` |
+| `BPR-EE18236-RR-01-NF003` | Low | Repository path外側ancestorを固定するhardeningにcommitted regression testがない | `open` |
+
+Re-reviewの開始・終了ともtarget SHAは不変でworktree clean、reviewer writeは0件だった。

@@ -13,6 +13,8 @@ Report `BPR-ABB20C9-20260831-01` の再現、裁定、回帰testとの対応は
 再現、裁定、修正、回帰test、acceptance criteriaとの対応は
 [`BPR-EE18236-remediation.md`](BPR-EE18236-remediation.md) に記録する。これはvalidatorと
 Evidence契約のdeterministic tooling evidenceであり、CLI実機episodeの集計には加えない。
+Fresh re-review `BPR-EE18236-RR-01` のdecisionは `FAIL` で、未修正の新規finding 3件も同文書に
+記録している。
 
 ## 2026-08-31 CLI実機確認
 
