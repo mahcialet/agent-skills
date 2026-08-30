@@ -6,8 +6,8 @@
   "host": "codex-cli",
   "host_version": "exact-version",
   "model": "exact-model-or-not-reported",
-  "os": "os-and-version",
-  "execution_topology": "fresh independent process in disposable repository",
+  "os": "再現に必要なOS distribution/version、kernel、architecture",
+  "execution_topology": "disposable repositoryでのfreshな独立process",
   "repository_commit": "full-commit-sha",
   "profile": {
     "name": "profile-name",
@@ -17,11 +17,11 @@
   },
   "instruction_surface": {
     "type": "AGENTS.md",
-    "target_path": "sanitized/path/AGENTS.md",
+    "target_path": "AGENTS.md",
     "installer_changed_surface": false
   },
   "fixture_id": "fixture-id",
-  "prompt": "sanitized prompt or stable fixture reference",
+  "prompt": "実行時のexact prompt",
   "operation_mode": "review-only",
   "permissions": {
     "allowed_tools": [],
@@ -73,6 +73,5 @@
   "limitations": [
     "このtemplate値は実episodeではなく、記録項目を示すplaceholderである。"
   ],
-  "sensitive_data_policy": "secret、token、private repository content、hidden instructionを保存しない"
+  "sensitive_data_policy": "再現と結果解釈に必要な環境情報は保持し、secret、token、private repository content、hidden instruction、一時的locatorを保存しない"
 }
-

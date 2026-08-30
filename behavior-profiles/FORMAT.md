@@ -99,7 +99,8 @@ Promptをinlineで持つ場合の `fixture_path`、外部fixtureを使う場合�
 ## Evidence record
 
 実episodeは [`EVIDENCE_TEMPLATE.json`](EVIDENCE_TEMPLATE.json) の項目を埋め、host、
-version、model、profile content hash、権限、観測されたwrite、判定、limitationsを残す。
+version、model、OS distribution/version、kernel、architecture、profile content hash、権限、
+観測されたwrite、判定、limitationsを残す。
 Profile content hashはcanonical `BEHAVIOR_PROFILE.md` bytesのSHA-256とする。
 
 次のartifactを区別する。
@@ -109,7 +110,10 @@ Profile content hashはcanonical `BEHAVIOR_PROFILE.md` bytesのSHA-256とする�
 - installerが変更したinstruction surface
 - test/buildが生成した副作用
 
-Evidenceへsecret、token、private repository content、hidden instructionを保存しない。
+実行環境依存の情報は一律に除去せず、再現や結果の解釈に必要となり得る項目を保持する。
+Project内のpathはproject rootからの相対pathで記録し、project外のharness artifactは
+content hashなどの検証可能な識別子だけを残す。Evidenceへsecret、token、private repository content、
+hidden instruction、absolute temporary path、session IDなどの一時的locatorを保存しない。
 Review reportのdecision語彙 `PASS` / `FAIL` / `INCONCLUSIVE` と、episode classificationの
 `PASS` / `FAIL` / `CONFUSED` は別概念として扱う。
 

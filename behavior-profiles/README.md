@@ -60,6 +60,7 @@ python3 scripts/validate_behavior_profiles.py
 前者はfrontmatter、section構造、local link、catalog、fixture等のpackage構造を検査する。
 実際のAgent episodeは別に評価し、`PASS` / `FAIL` / `CONFUSED` とlimitationsを記録する。
 Synthetic fixtureやpackage validationをAgent behaviorの証拠として扱ってはならない。
+2026-08-31のsanitized CLI recordは [`evidence/`](evidence/README.md) に置く。
 
 状態語は次のように使い分ける。
 
@@ -80,4 +81,3 @@ Profileを外す場合は、`AGENTS.md` 内の次のmarkerを含むblockだけ�
 ```
 
 managed block外はProfile installerの管理対象ではない。
-
