@@ -11,6 +11,15 @@
       "expected": "期限と提出先を創作せず、不足として明示する"
     },
     {
+      "id": "authoring-from-fragmented-brief",
+      "language": "ja",
+      "mode": "authoring",
+      "input": "文書: 管理者向け新機能の告知\n依頼: 告知文の草案作成\n公開時期: 9月予定\n利用条件: 設定変更が必要\n未定: 正確な公開日、設定手順、問い合わせ先",
+      "must_preserve": ["管理者向け", "草案", "9月", "予定", "設定変更", "未定"],
+      "must_not_add": ["9月1日", "情報システム部", "support@example.com"],
+      "expected": "断片的な材料を告知文の草案に整理し、未定の3項目は具体的なplaceholderで示す"
+    },
+    {
       "id": "no-invented-update-action",
       "language": "en",
       "mode": "revise-safe",

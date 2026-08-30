@@ -25,6 +25,22 @@
       "expected": "承認者と公開者を推測せず、必要なら要確認にする"
     },
     {
+      "id": "authoring-target-path-is-not-write-permission",
+      "language": "ja",
+      "mode": "authoring",
+      "input": "docs/notice.md向けの告知文案を応答内に示してください。fileは変更しないでください。",
+      "must_preserve": ["docs/notice.md", "応答内", "fileは変更しない"],
+      "expected": "対象pathが示されていてもfileを変更せず、応答内に草案を示す"
+    },
+    {
+      "id": "authoring-explicit-file-write",
+      "language": "ja",
+      "mode": "authoring",
+      "input": "docs/notice.mdに告知文の草案を書き込んでください。",
+      "must_preserve": ["docs/notice.md", "書き込んでください"],
+      "expected": "明示された対象fileへ草案を反映し、対象外fileは変更しない"
+    },
+    {
       "id": "translate-editor-vocabulary-in-reader-doc",
       "language": "ja",
       "mode": "revise-safe",
