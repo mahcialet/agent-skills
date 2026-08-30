@@ -684,7 +684,7 @@ def validate_regression_report(report: object) -> dict:
 
 
 def validate_report_against_runs(report: object, plan: dict, runs: list[dict]) -> dict:
-    """Stored reportをauthoritativeなplanとrunから再計算する。"""
+    """Stored reportを、そのreportが参照するplanとrunから再計算する。"""
 
     data = validate_regression_report(report)
     rebuilt = build_regression_report(

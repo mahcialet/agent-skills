@@ -367,7 +367,7 @@ def validate_investigation_bundle(bundle: object) -> dict:
 
 
 def validate_bundle_against_store(bundle: object, store: LocalCorpusStore) -> dict:
-    """Bundle summaryをauthoritativeなlocal recordと再照合する。"""
+    """Bundle summaryを、そのbundleが参照するlocal recordと再照合する。"""
 
     data = validate_investigation_bundle(bundle)
     if data["roles"] != _role_contracts():

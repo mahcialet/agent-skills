@@ -28,6 +28,8 @@
 反映する場合は、`revise-safe` などの改稿モードも指定してください。各モードの正確な契約は
 [出力モード](references/core/output-modes.md)に記載しています。
 
+具体例は[関係を一語で済ませた文の確認例](examples/relationship-clarity-ja.md)を参照してください。
+
 ## 起動例
 
 Codexでは `$reader-first-editor`、Copilot CLIでは `/reader-first-editor` を使って
@@ -89,11 +91,11 @@ Copilot CLI:
 | `UNVERIFIED` | 外部情報が必要で、通常のrepository-reviewでは確認できない |
 
 根拠が見つからないことを、文書の記述が誤っている証拠にはしません。コード、テスト、
-設定、文書が競合する場合も、一律の優先順位でどれかを正しいと決めません。何を正と
-するかの宣言（source of truth）や各資料の位置付けを確認し、競合を報告します。モデルの
-知識は検証済みの証拠として使いません。外部サービスの現在の提供状況など、真偽の確認に
-リポジトリ外の最新情報が必要な記述は `UNVERIFIED` とします。このような記述は、citationが
-ないだけで `UNSUPPORTED` へ変えません。
+設定、文書が競合する場合も、一律の優先順位でどれかを正しいと決めません。資料が食い違う
+場合にどれを優先するか、各資料をどの用途で使うかがリポジトリ内で明示されているか確認し、
+競合を報告します。モデルの知識は検証済みの証拠として使いません。外部サービスの現在の
+提供状況など、真偽の確認にリポジトリ外の最新情報が必要な記述は `UNVERIFIED` とします。
+このような記述は、citationがないだけで `UNSUPPORTED` へ変えません。
 
 探索は対象文書の参照、識別子、設定キーから始め、関連する範囲へ段階的に広げます。
 大規模リポジトリを黙って全件走査しません。Git履歴の確認は、履歴に依存する文書の記述、
@@ -216,9 +218,9 @@ ground truthではありません。
 
 ## ポータビリティ
 
-CodexとGitHub Copilotで同じ `SKILL.md` をsource of truthにします。
-`agents/openai.yaml` は任意のCodex metadataと暗黙起動禁止だけを持ち、これがなくても
-portable instructionsは完結します。
+CodexとGitHub Copilotは、同じ `SKILL.md` に記載された共通の指示を使います。
+`agents/openai.yaml` に記載するのは、任意のCodex向けmetadataと暗黙起動を禁止する設定だけです。
+このファイルがなくても、ホストに依存しない共通の指示だけで動作します。
 
 This is an independent, unofficial implementation. It does not reproduce the
 ISO 24495-1 standard and does not claim ISO conformance or certification. See

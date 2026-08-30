@@ -71,9 +71,9 @@ findingが0件でも安全を保証しません。確認したscope、実行し�
 
 ## ポータビリティ
 
-CodexとGitHub Copilot CLIは、共通のreview手順を記した同じ `SKILL.md` を唯一の基準
-（source of truth）として使います。`agents/openai.yaml` にあるのは、Codex向けUI metadataと
-暗黙起動を禁止する設定だけです。Skillディレクトリ全体を
+CodexとGitHub Copilot CLIは、共通のレビュー手順を記した同じ `SKILL.md` を使います。
+`agents/openai.yaml` にあるのは、Codex向けUI metadataと暗黙起動を禁止する設定だけです。
+Skillディレクトリ全体を
 `.agents/skills/adversarial-pr-review` へ配置してください。このモノレポから利用する場合は、
 root repositoryのインストール手順も参照できます。
 

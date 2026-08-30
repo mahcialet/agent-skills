@@ -13,8 +13,9 @@
 | Copilot CLI | `.agents/skills`、小文字hyphen名、`/skills list`・`info`・`reload`、Skill内追加ファイル | [GitHub Docs](https://docs.github.com/en/copilot/how-tos/copilot-cli/customize-copilot/add-skills) |
 | GitHub CLI | `skills/*/SKILL.md`、Codex/Copilot target、SHA pin、`publish --dry-run` | [gh manual](https://cli.github.com/manual/gh_skill) |
 
-各 `skills/<skill-name>/SKILL.md` を正式な定義とし、ホスト別のコピーを手作業では
-置かない。Codex固有の `agents/openai.yaml` にはUIと起動ポリシーだけを置く。
+CodexとCopilotが共通して使う挙動は、各 `skills/<skill-name>/SKILL.md` に定義する。
+ホスト別のコピーは手作業で作らない。Codex固有の `agents/openai.yaml` にはUIと起動ポリシー
+だけを置く。
 
 ## ローカル検証状況
 
@@ -87,6 +88,28 @@ mergeせず双方をselectorへ表示するとしている。しかし、Codex C
 確認した現象はSkill本文や `allow_implicit_invocation: false` の不備ではなく、同名scopeの
 衝突に限定される。検証のためにuser-scope installationは変更していない。正式名については、
 重複installationを解消した環境で再確認する必要がある。
+
+#### 関係を一語で済ませる表現の実機確認
+
+2026-08-30にCodex CLI 0.151.0、GitHub Copilot CLI 1.0.82、`gpt-5.4` で確認した。
+一時リポジトリには、現行Skillと、生成関係を示す文書、ビルドスクリプト、生成元を記した
+ファイルを配置した。Codexは、上記の同名Skillによる衝突を避けるため、内容を変えず一時的な固有名で
+明示起動した。Copilotは正式な `/reader-first-editor` をproject scopeから起動した。
+どちらもファイルの書き込みを禁止した。
+
+| ケース | Codex | GitHub Copilot |
+|---|---|---|
+| `SKILL.mdを正本とする。` | 複数の運用関係に読めると指摘し、一つへ決め打ちしなかった | 同じく指摘し、一つへ決め打ちしなかった |
+| 法務部が契約書の正本を保管 | 法務・記録管理上の具体的な用語として指摘しなかった | 同じく指摘しなかった |
+| 不一致時は `SKILL.md` を優先 | 優先先が明示されているため指摘しなかった | 同じく指摘しなかった |
+| `互換性を担保する。` | 対象、確認方法、完了条件の不足を指摘した | 同じく指摘した |
+| `jtf-only` | 表記上の修正対象がなく、原文を維持した | 同じく原文を維持した |
+| リポジトリ内の生成関係 | 生成元だけを `VERIFIED` とし、不一致時の優先先とはみなさなかった | 同じく分離し、定義済みの証拠種別だけを使った |
+| 対象・方法・完了条件を明記した互換性確認 | 追加の指摘をしなかった | 同じく指摘しなかった |
+
+Copilotの最初の確認では、テスト用リポジトリ外を指すシンボリックリンクに対して
+追加の参照ファイルの読込みが拒否された。この結果は判定に含めず、現行Skillをテスト用リポジトリ内へ
+実コピーして再実行した。実コピー後は必要なreferenceを読み、上表の結果になった。
 
 ### adversarial-pr-review
 

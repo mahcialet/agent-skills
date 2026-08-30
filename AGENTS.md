@@ -6,7 +6,7 @@
 
 ## Skill設計
 
-- `skills/<name>/SKILL.md` を、すべての対応ホストが共有する唯一の正本にする。
+- すべての対応ホストが、`skills/<name>/SKILL.md` にある同じ挙動定義を使う。
 - Codex版とCopilot版を手書きで複製しない。
 - provider固有のmetadataを共通instructionsから分離する。
 - Skillが実行時に読むファイルを、各Skillディレクトリ内に収める。

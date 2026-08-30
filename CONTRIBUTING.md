@@ -6,7 +6,7 @@
 ## 変更の基本手順
 
 1. [Skillの追加](docs/adding-a-skill.md)と `AGENTS.md` を読む。
-2. Skillの正式なinstructionsを `skills/<name>/SKILL.md` に置き、ホスト別のコピーを
+2. 各Skillでホスト間に共通する指示を `skills/<name>/SKILL.md` に置き、ホスト別のコピーを
    手作業で作らない。
 3. Skillが実行時に読むファイルを、Skillディレクトリ内に収める。
 4. 第三者由来要素のattribution（出典・著作者表示など）とlicense noticeを、Skillの

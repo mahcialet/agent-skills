@@ -92,8 +92,8 @@ bundle IDはhypothesis、scope、support／control record IDから生成する�
 proposal IDはresult、rule diff、eval候補から生成するため、同じ内容の重複を検出できる。
 artifactは上書きせず、修正版を別IDとして保存する。
 
-bundleはrecord本文をcopyせず、authoritativeなlocal record pathとcontent hashを持つ。読込み時には
-record summary、correlation group、source analysis、readinessをlocal storeと再照合する。
+bundleはrecord本文をcopyせず、参照するlocal recordのpathとcontent hashを持つ。読込み時には
+record summary、correlation group、source analysis、readinessをlocal store上のrecordと再照合する。
 外部編集によって内容が食い違ったartifactは拒否する。
 
 regression planはproposal ID、exact diff hash、provider matrix、全caseを固定する。promoted corpusは
