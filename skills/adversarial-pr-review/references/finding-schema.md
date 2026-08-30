@@ -12,6 +12,7 @@ Priority: P0 | P1 | P2 | P3
 Adversarial level: A0 | A1 | A2 | A3 | A4
 Confidence: Confirmed | Strongly supported
 Location
+Contract / invariant reference
 Actor / trigger
 Precondition
 Code path
@@ -25,6 +26,10 @@ False-positive condition
 
 - **Location**: 問題があるchanged locationを、可能な限り狭く特定する。必要なら関連する
   差分外locationも併記する。
+- **Contract / invariant reference**: 破られたcriteriaまたはinvariantのsource pointerを示す。
+  `Issue #123 / forbidden outcome bullet 1`、`Repository contract: schema unique constraint`、
+  `Inferred invariant: one logical operation produces one side effect` のように由来を区別する。
+  sourceに存在しないrequirement IDを作らない。
 - **Actor / trigger**: 誰または何が、どのevent・input・failureでpathを起動するか。
 - **Precondition**: 問題が成立するstate、権限、順序、競合、設定。
 - **Code path**: entry pointから、守るべき条件が破られるstateと外から確認できる影響
@@ -73,10 +78,40 @@ E-04 | test | not executed | runner changed to send data externally
 
 未実施検証は、実施済み・成功と混ぜない。
 
+## Test evidence provenance
+
+test evidenceは次の3分類を使い、互いに読み替えない。
+
+- **claimed**: author、PR本文、ユーザーが成功を申告しただけ。
+- **observed**: CI status、check result、保存済みlog等をreviewerが確認した。可能ならsourceと
+  対象commit／head SHAを記録する。
+- **executed**: reviewerが安全な環境で実行した。command、environment、result、制約を記録する。
+
+unsafe、外部副作用、変更済みrunner等の理由で実行しなかったものは `Unexecuted validation` へ
+分離する。testの存在や成功だけで、criterionを満たすと断定しない。
+
 ## Gate decisions
 
 - **BLOCK**: 未解決のP0/P1、またはrepository policyがblockingと定義する確認済みfindingがある。
-- **CONDITIONAL**: 限定条件付きの受容、重要なhypothesis、未確認contract、必要なfollow-upがある。
-- **PASS**: 指定scopeと証拠でblocking findingを確認しなかった。
+- **CONDITIONAL**: 重要なhypothesis、未確認contract、必要なfollow-up、またはmerge readinessに
+  重要な未確認criteriaがある。
+- **PASS**: 指定scope、取得できたcontract、確認したevidenceでblocking findingを確認しなかった。
 
-decisionはレポート内で示す判断に限る。`PASS` は安全保証ではなく、GitHub上のstateも変更しない。
+これらはAIによるgate recommendationであり、approvalではない。`mode=gate` のreportには必ず
+次を含める。
+
+```text
+Gate recommendation: BLOCK | CONDITIONAL | PASS
+Approval status: NOT GRANTED
+Human approval required: yes
+Decision owner: <verified role or unresolved>
+```
+
+`Approval status` は常に `NOT GRANTED` とする。decision ownerを確認できなければ創作せず、
+`unresolved` とする。`specification_status=partial` で重要なcriteriaが未確認の場合と、
+業務要件適合を含むgateで `specification_status=missing` の場合は原則 `CONDITIONAL` とする。
+明示された限定scopeに必要なcontractが十分なら、そのscopeでは `PASS` を出せる。確認済みP0/P1が
+あれば `BLOCK` にできる。
+
+recommendationはレポート内の判断に限る。`PASS` はmerge承認や安全保証ではなく、GitHub上の
+stateも変更しない。
