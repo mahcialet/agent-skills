@@ -1,24 +1,25 @@
 # Reader-First Editor
 
 `reader-first-editor` は、人間向けの日本語・英語文章を校正・校閲・改稿するSkillです。
-文法や表記だけでなく、初読理解、読み返しリスク、情報階層、意味保存も確認します。
+文法や表記に加え、初読で理解できるか、どこで読み返しが生じるか、情報の関係や
+優先順位が伝わるかを確認します。改稿では、元の内容が保たれているかも確かめます。
 リポジトリ内校閲を明示された場合は、文書のclaimを同一リポジトリ内のcode、設定、test、
 他文書などと照合します。
 
 既定は、原文を変更しない `review` です。改稿には明示的な依頼が必要です。改稿する場合は、
-事実、主体、条件、例外、否定、モダリティ、用語などを「意味台帳」として整理し、改稿前後で
-比較します。不明な期限、担当、手順、保証、義務は創作しません。詳しくは
-[意味保存契約](references/core/semantic-preservation.md)を参照してください。
+事実、主体、条件、例外、否定、モダリティ、用語などが変わっていないかを、改稿前後で
+確認します。不明な期限、担当、手順、保証、義務は創作しません。確認項目の詳細は
+[改稿前後の確認項目](references/core/semantic-preservation.md)を参照してください。
 
 ## 主要機能
 
 | 機能 | 内容 | モードと変更範囲 |
 |---|---|---|
 | 校正・文章レビュー | 文法、表記、用語、曖昧さ、読み返しリスク、情報構造を確認する | `review`。既定値であり、原文やファイルを変更しない |
-| 意味を保った改稿 | 事実、条件、例外、モダリティ、技術的なliteralを保ちながら、並べ替え・分割・結合・明確化を行う | `revise-safe`。明示依頼が必要 |
+| 内容を変えない改稿 | 事実、条件、例外、モダリティ、技術的なliteralを保ちながら、並べ替え・分割・結合・明確化を行う | `revise-safe`。明示依頼が必要 |
 | リポジトリ内校閲 | 文書のclaimを、同じリポジトリのcode、設定、test、他文書と照合する | `repository-review`。read-only |
-| 構造変更の提案 | 情報の移動、重複の統合、削除候補と、失われ得る意味を示す | `revise-structural`。明示的な削除許可がなければ提案だけを返す |
-| 変更点の比較 | 改稿前後と、変更理由・意味リスクを対応付ける | `diff`。明示依頼が必要 |
+| 構造変更の提案 | 情報の移動、重複の統合、削除候補と、失われる可能性のある内容を示す | `revise-structural`。明示的な削除許可がなければ提案だけを返す |
+| 変更点の比較 | 改稿前後の文章に、変更理由と内容が変わるリスクを対応付ける | `diff`。明示依頼が必要 |
 | 草案作成 | 既知情報から文章を作り、不明な期限・担当などは `TODO` やplaceholderで示す | `authoring`。明示依頼が必要 |
 | 日本語の表記統一 | 句読点、漢字・仮名、全半角、記号、単位、表記揺れだけを整える | `jtf-only`。内容や構造は変更しない |
 
@@ -35,7 +36,7 @@ Codexでは `$reader-first-editor`、Copilot CLIでは `/reader-first-editor` �
 # 校正・文章レビュー。原文は変更しない
 $reader-first-editor README.mdを校正し、重要な問題を報告してください。
 
-# 意味を保って改稿する
+# 内容を変えずに改稿する
 $reader-first-editor docs/guide.mdをrevise-safeで改稿してください。
 
 # リポジトリ内の証拠と照合する
@@ -105,7 +106,8 @@ Copilot CLI:
 - [英語文書のrepository-review例](examples/repository-review-en.md)
 
 校閲後の改稿も必要な場合は、`repository-review` と `revise-safe` などの改稿モードを
-両方明示してください。校閲結果を先に確定し、意味保存gateを通してから改稿します。
+両方明示してください。校閲結果を先に確定してから改稿し、元の内容との食い違いが
+ないかを改稿後にも確認します。
 
 ## 育成・評価機能（一部implemented）
 
@@ -125,8 +127,8 @@ local promotion、public GitHub PRのreference-only収集、adversarial investig
 proposal draftは実装済みです。provider-neutralなregression plan・result取込み・report、
 人間の承認artifact、限定したrule applyも実装済みです。
 
-設計上は、候補の収集、corpusへのpromotion、behavior-changing ruleのpromotionを別のgateに
-分けます。収集したcandidateやpromoted local corpusを通常reviewへ暗黙に読み込まず、
+設計上は、候補の収集、corpusへのpromotion、behavior-changing ruleのpromotionを別々の
+確認段階に分けます。収集したcandidateやpromoted local corpusを通常reviewへ暗黙に読み込まず、
 明示的なapplyと人間の承認なしに `SKILL.md`、references、evalsを変更しません。
 
 #### local corpusを操作する
