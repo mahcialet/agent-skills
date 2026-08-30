@@ -46,6 +46,36 @@
   `UNVERIFIED`、`VERIFIED` と分離した。shell・write toolと外部URLを禁止した
   非対話セッションで完了し、file変更はなかった。
 
+#### Phase 8実機確認
+
+2026-08-30にCodex CLI 0.151.0、GitHub Copilot CLI 1.0.82、`gpt-5.4` で確認した。現行Skill、
+candidate／promoted local corpusのtrap、文書と設定の不一致をisolated Git repositoryへ配置した。
+Codexはread-only sandbox、Copilotはwrite toolを拒否して実行し、外部URLを取得しなかった。
+
+| case | Codex | GitHub Copilot |
+|---|---|---|
+| explicit invocation | 現行内容を一時的なunique名で起動し、必須referenceを読んだ | 正式な `/reader-first-editor` をproject scopeから起動した |
+| ordinary reviewとlocal corpus | candidate／promoted trapを読まず、通常reviewをCoreだけで実行した | trapを読まず、正式名のSkillを起動した |
+| `positive-reviewed` | 明快な条件文を「重大なriskなし」とし、変更不要と判定した | 同文を「重大なriskなし」「変更必須ではない」と判定した |
+| counterexample | 独立support 2件より未説明のclean counterexample 1件を優先し `HOLD` | 同じ条件で `HOLD` |
+| parser signal | `observation-only` の数値だけでRR label、可読性、改稿要否を確定しなかった | 同じく確定せず、原文・読者・目的・genreの確認を要求した |
+| repository-review | 5状態を分離し、外部URLを取得しなかった | 5状態を分離し、外部URLを取得しなかった |
+| Skill名なし | Skill referenceとlocal corpusを読まず、一文の説明だけを返した | `skill` toolを呼ばず、一文の説明だけを返した |
+
+repository-reviewでは、存在する設定fileを `VERIFIED`、文書と設定のdefault不一致を
+`CONTRADICTED`、根拠のない保証を `EVIDENCE-GAP / UNSUPPORTED`、外部link付きclaimを
+`SUPPORTED-BY-CITATION`、外部serviceの現在の提供状況を `UNVERIFIED` とした。全case後、
+isolated repositoryとsource repositoryのworktreeはcleanで、sourceのHEADは `origin/master` と
+一致した。
+
+Codexの正式名についてはhost制約が残る。確認環境には古いuser-scope copyと現行project-scope copyが
+同名で存在していた。[公式OpenAI documentation](https://developers.openai.com/codex/skills/)は
+同名Skillをmergeせず双方をselectorへ表示するとしているが、Codex CLI 0.151.0の非対話実行では
+`$reader-first-editor` を利用可能一覧へ出さなかった。最小probe Skillと現行内容のunique名cloneは
+明示起動できたため、Skill本文や `allow_implicit_invocation: false` の不備ではなく、同名scope衝突に
+限定される。user-scope installationは検証のために変更していない。重複installationを解消した環境で
+正式名を再確認する必要がある。
+
 ### adversarial-pr-review
 
 - Codex CLI 0.151.0: disposable repoのproject scopeから明示起動した。A3/deep reviewで
@@ -68,6 +98,47 @@
 
 実機検証は一時repoで行い、user scopeやこのリポジトリの作業ツリーへSkillを
 インストールしていない。host versionが変わった場合は、同じ項目を再検証する。
+
+## Reader-First Editor受入監査
+
+### 必須項目
+
+| 要件 | 判定 | 主な証拠 |
+|---|---|---|
+| 説明文書は日本語 | pass | `AGENTS.md`、`CONTRIBUTING.md`、Skill固有docs。license原文、CLI・schema keyは例外 |
+| collectionでSkill挙動を変えない | pass | collectはrecordだけを保存。Phase 8のlocal trap非読込み |
+| Localとinstalled Skill sourceを分離 | pass | data-dir resolver、Skill source guard、user／project scope test |
+| corpus promotionとrule promotionを分離 | pass | state workflow、investigation、regression、approval、applyを別artifact・commandで実装 |
+| promotionはdefault dry-run | pass | corpus／investigation／proposal／regression／approval／rule applyのCLI test |
+| 明示applyなしにCore・evalを変更しない | pass | preview test、isolated apply／rollback test、Phase 8のclean worktree |
+| problematic／clean／borderlineを扱う | pass | corpus schemaと3分類のvalidation test |
+| accepted／rejected decisionを保存 | pass | state transitionとCLI test |
+| provenanceとrightsを必須化 | pass | corpus schema、runtime validation、GitHub collector test |
+| rights不明textをpublicへ昇格しない | pass | unknown rightsのnon-local recordを拒否。public promotion command自体も提供しない |
+| counterexample searchを最優先 | pass | Counterexample Hunter先頭、既定 `HOLD`、Phase 8実機case |
+| unexplained counterexampleは `HOLD` | pass | investigation gate test、Codex／Copilot実機case |
+| positive／negative／boundary evalを必須化 | pass | proposal validation、regression plan coverage、apply gate |
+| existing／semantic regressionでapply拒否 | pass | report gate、pass reportだけのapproval、stored runからの再集計test |
+| fixed thresholdだけのruleを拒否 | pass | investigation runtime gate test |
+| parserはoptional sensor | pass | optional import、availability result、`observation-only` schema |
+| parserなしでも動作 | pass | dependency未導入CLIとparse error test |
+| parserをground truthにしない | pass | runtime contract、A/B recommendation、Codex／Copilot実機case |
+| Codex／Copilot共通Skill | pass | portable sourceは1つの `SKILL.md`。provider別本文を持たない |
+| repository validation | pass | 96 unit tests、11 Schema、`validate-skills.sh`、publish dry-run |
+| 目的別commit・通常push | pass | Phase 1〜7を独立commitとして `master` へ通常push。force pushなし |
+
+### 望ましい項目
+
+| 要件 | 判定 | 主な証拠 |
+|---|---|---|
+| PR初稿・review・改稿の対応 | pass | PR #187 recorded fixtureで旧SHA threadとfollow-up SHA・approvalを対応付け |
+| `positive-reviewed` のno-change利用 | pass | PR #138分類、promoted corpusからのexpected behavior plan生成 |
+| `rejected-suggestion` のnegative control利用 | pass | sample typeとno-change corpus validation |
+| user／project scope | pass | resolver、project opt-in、`.gitignore` safety gate test |
+| provider-neutral investigation | pass | bundleにprovider commandを埋め込まず、Agent roleとoutput contractだけを保存 |
+| source diversity／correlation | pass | correlation group、independent source集計、改変検出test |
+| Codex／Copilot差分report | pass | regression provider metadataとsyntax A/Bのprovider spread／disagreement集約 |
+| GiNZA A/B評価 | pass | paired input／report Schema、回帰・改善なし・provider差のgate test |
 
 ## 既知の制約・運用方針
 

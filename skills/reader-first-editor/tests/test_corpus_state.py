@@ -222,6 +222,28 @@ class RecordTests(unittest.TestCase):
         with self.assertRaises(RecordValidationError):
             validate_corpus_record(record)
 
+    def test_all_quality_classes_are_valid_corpus_inputs(self) -> None:
+        for quality in ("problematic", "clean", "borderline"):
+            with self.subTest(quality=quality):
+                record = sample_record()
+                record["quality_class"] = quality
+                record["id"] = deterministic_candidate_id(record)
+                validate_corpus_record(record)
+                self.assertEqual(record["quality_class"], quality)
+
+    def test_rejected_suggestion_can_be_kept_as_negative_control(self) -> None:
+        record = sample_record()
+        record["sample_type"] = "rejected-suggestion"
+        record["review_signal"] = {
+            "type": "rejection",
+            "summary": "人間が変更不要と判断した",
+            "raw_text_included": False,
+        }
+        record["id"] = deterministic_candidate_id(record)
+        validate_corpus_record(record)
+        self.assertEqual(record["sample_type"], "rejected-suggestion")
+        self.assertEqual(record["annotations"]["expected_behavior"], "no-change")
+
     def test_non_candidate_requires_reviewer_decision(self) -> None:
         record = sample_record()
         record["id"] = deterministic_candidate_id(record)
