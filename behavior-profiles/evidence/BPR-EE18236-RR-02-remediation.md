@@ -1,4 +1,4 @@
-# BPR-EE18236-RR-02 remediation evidence
+# BPR-EE18236-RR-02 修正記録
 
 ## 対象、来歴、authorization
 
@@ -30,6 +30,12 @@ test結果の解釈に必要となり得るため保持する。
 | Finding | Priority | Classification | `action_required` | `action_status` |
 |---|---|---|---|---|
 | `BPR-EE18236-RR-02-NF001` | Medium | `confirmed` | `yes` | `fixed` |
+
+このfindingは `BPR-EE18236-RR-01-NF001` の残余境界であり、本修正により同findingの最終rollupも
+`fixed` となる。旧文書の `not-fixed` は当時の履歴なので書き換えない。
+
+- 未対応finding: `NONE`
+- 未対応理由: `N/A`（対象findingはすべて修正済み）
 
 反復percent-decode後の値を `urlsplit()` へ渡し、POSIX / Windows component検査には
 `parsed.path` だけを使っていた。このため、decodeされた `#` または `?` より後ろの完全な `..`
@@ -77,7 +83,7 @@ componentだけを拒否することを固定した。
 | Validator suite | 76 tests PASS |
 | Actual Evidence検査 | 2 packageのtemplate / recordを含めPASS |
 | Full gate | `./scripts/validate-skills.sh`: 140 tests PASS |
-| Diff検査 | `git diff --check`: PASS |
+| 実装commit delta検査 | `git diff --check 55eef13a830c9cd986788b30b04fe6ee34f27f0f..6e5108740f7b562d228769f2347d397bce2706f8`: PASS |
 
 追加または拡張したtestは次の2件である。
 
@@ -99,6 +105,44 @@ Profile本文のcanonical bytesは不変である。
 - `independent-adversarial-verification`:
   `89a0350421ad882b18b69c1fd14117f690e14bcb7f592d7b17a1d361515eef0b`
 
+## Fresh read-only re-reviewと追補修正
+
+- Report ID: `BPR-EE18236-RR-03`
+- Target: `af47a9d20a8d94879734f87ffef4574c6707495e`
+- Decision: `FAIL`
+- `BPR-EE18236-RR-02-NF001`: `RESOLVED`
+- Reviewer changes: `NONE`
+- Target SHA before / after: 不変
+- Worktree before / after: clean
+
+Validator bypassは新たに見つからなかった。Bounded probeでは同じroot causeに絞ったadversarial
+7,692入力をすべて拒否し、benign delimiter 2,640入力をすべて受理した。Rawから5重encodingの
+`#` / `?`、POSIX / Windows / mixed separator、raw / single / double encoded `..`、delimiter位置と
+percent hexの大文字小文字を含む。Targeted 2、validator 76、installer 31、full gate 140 testsと
+actual Evidence validationもPASSした。
+
+新規findingはEvidence精度に限られる。
+
+| Finding | Priority | Classification | `action_required` | `action_status` |
+|---|---|---|---|---|
+| `BPR-EE18236-RR-03-NF001` | Low | `confirmed` | `yes` | `fixed` |
+
+Clean worktreeで実行したbare `git diff --check` は検査対象deltaがなく、初回Evidence commit末尾の
+余分な空行を検出していなかった。Range-awareな
+`git show --check af47a9d20a8d94879734f87ffef4574c6707495e` はexit code 2となり、
+`behavior-profiles/evidence/BPR-EE18236-RR-02-remediation.md` のEOFに新しい空行があると報告した。
+余分な空行を削除し、検証を次のcommitted delta基準へ変更した。
+
+- 実装delta:
+  `git diff --check 55eef13a830c9cd986788b30b04fe6ee34f27f0f..6e5108740f7b562d228769f2347d397bce2706f8`
+- 初回Evidenceからの追補delta:
+  `git diff --check af47a9d20a8d94879734f87ffef4574c6707495e`
+- Remediation全体:
+  `git diff --check 55eef13a830c9cd986788b30b04fe6ee34f27f0f`
+
+Acceptance criteria監査で、AC 22が要求する未対応理由の明記も不足していると判明した。対象は全件
+修正済みなので、上記のとおり未対応findingを `NONE`、未対応理由を `N/A` と明記した。
+
 ## Acceptance criteriaの解消
 
 | AC | Test / evidence | 判定 |
@@ -106,15 +150,14 @@ Profile本文のcanonical bytesは不変である。
 | 19 | `confirmed`、`action_required=yes` のRR-02-NF001と同一原因の境界だけを修正 | PROVEN |
 | 20 | Rejected、inconclusive、unauthorized、not-required findingへの変更なし | PROVEN |
 | 21 | 旧動作で12 failures、修正後にtargeted 2 test PASSとなるpractical regressionをcommit | PROVEN |
-| 22 | 本記録がfinding、対応要否、修正、境界、verificationをtrace可能に保持 | PROVEN |
+| 22 | Finding、対応要否、修正、未対応finding `NONE`、未対応理由 `N/A`、verificationを保持 | PROVEN |
 | 25 | RR-02作成時には新規findingを修正せず、後続authorization後にだけ対応 | PROVEN |
 | 32 | Pure path helperとformal Evidence record経由のintegrationをともに回帰testで検査 | PROVEN |
 | 34 | 既存SkillとBehavior Profileを含むfull gate 140 tests PASS | PROVEN |
 | 37 | Actual Evidence validationがPASSし、path invariant、必要な環境情報、limitationsを記録 | PROVEN |
 | 38 | 一般的なenforcement、security保証、production readinessを主張しない | PROVEN |
-| 39 | 実装とEvidenceを目的別commitへ分離済み。branch pushはfinal verificationで確定する | PENDING |
-| 40 | PR、merge、tag、release、force pushを行っていないことをfinal verificationで確定する | PENDING |
+| 39 | 実装、Evidence、追補修正を目的別commitへ分離し、fast-forward pushとlocal / remote SHA一致を確認 | PROVEN |
+| 40 | PR、merge、tag、release、force pushなし。対象branchはmasterへ未merge | PROVEN |
 
 この結果が示すのは、記載したrevision、synthetic input、実行環境におけるvalidatorの動作である。
 一般的なfilesystem security、security/compliance保証、production readinessを証明しない。
-
