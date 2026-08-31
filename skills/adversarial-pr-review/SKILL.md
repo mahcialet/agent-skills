@@ -121,7 +121,7 @@ head変更により実行経路やdependencyが差し替わっていないか先
 base、head、merge base、対象diff、ユーザー指定を確認する。base側instructionとhead側で
 変更されたinstructionを分離する。取得できない情報と、review対象外を記録する。
 Review対象のrepository rootと、表示に使えるrepository labelも確認する。複数repositoryを扱う場合は、
-各locationがどのrootを基準にするかを分離する。
+各locationと、そのrelative pathの基準にしたrepository rootの対応を分けて記録する。
 
 ### 2. review contractとspecification statusを構築する
 
@@ -207,9 +207,9 @@ findingにはlocation、contract／invariant reference、actor/trigger、precond
 broken invariant、impact、evidence、reproduction/verification、fix direction、false-positive
 conditionを必ず含める。
 Repository内のlocationは [finding schema](references/finding-schema.md) のportable locatorに従い、
-host固有のabsolute pathや行番号だけのlabelを出力しない。Location fieldにはlocatorだけを置き、
-API routeや説明はActor / triggerやCode path等の別fieldへ置く。Repository labelまたはlineが
-未確認なら、schemaの明示的なunverified形式を使い、値を創作しない。
+host固有のabsolute path、行番号だけのlabel、Markdown linkを出力しない。Location fieldには
+locatorだけを置き、API routeや説明はActor / triggerやCode path等の別fieldへ置く。
+Repository labelまたはlineが未確認なら、schemaの明示的なunverified形式を使い、値を創作しない。
 
 requirement traceabilityには `Satisfied` / `Violated` / `Unverified` / `Not applicable` /
 `Conflicting requirements` だけを使い、各statusをsourceとevidenceへ結び付ける。

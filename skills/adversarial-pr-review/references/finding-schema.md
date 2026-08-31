@@ -24,20 +24,23 @@ Fix direction
 False-positive condition
 ```
 
-- **Location**: 問題があるchanged locationを、可能な限り狭く特定する。必要なら関連する
-  差分外locationをCode pathやEvidenceに同じ形式で併記する。Location fieldはcanonical locatorだけを1行で記録し、
-  説明、API route、第2のlocatorを混ぜない。Repository内のlocationは、確認済みrepository label、
-  repository-root-relative path、1始まりのlineまたは最小rangeを組み合わせ、
-  `<repository>/<path>:<line>` または `<repository>/<path>:<start>-<end>` のvisible inline locatorで
-  示す。たとえば `sample-repo/src/policy.ts:16` とする。Path separatorは `/` に正規化する。
-  行番号だけのlabel、host固有のabsolute filesystem path、`file:` URL、home省略記号、drive、UNC、
-  path中のcolon、空segment、`.`、`..` を出力しない。Markdown linkはhostごとにrelative targetや
-  line anchorの解釈が異なるため既定にせず、absolute pathをlink targetへ隠さない。
-  Repository labelを確認できない場合は `Repository label: unverified` とし、labelを創作せず
-  `src/policy.ts:16` のようにroot-relative pathだけを残す。正確なlineを確認できない場合も
-  lineを創作せず、確認済みrepository labelは維持したままLocationからlineだけを省く。Locationには
-  `sample-repo/src/policy.ts` のようなpathだけを置き、`Location line status: unverified` で
-  未確認状態を示す。確認済みsymbolがある場合だけ、別fieldの `Confirmed symbol` も記録する。
+- **Location**: 問題があるchanged locationを、可能な限り狭く特定する。Location fieldには
+  canonical locatorだけを1行で記録し、説明、API route、第2のlocatorを混ぜない。必要なら関連する
+  差分外locationをCode pathやEvidenceに同じ形式で併記する。
+  - Repository labelとlineを確認できた場合は、repository-root-relative pathと組み合わせ、
+    `<repository>/<path>:<line>` または `<repository>/<path>:<start>-<end>` のvisible inline locatorで
+    示す。Lineは1始まりとし、rangeは必要最小限にする。たとえば
+    `sample-repo/src/policy.ts:16` とする。
+  - Path separatorは `/` に正規化する。行番号だけのlabel、host固有のabsolute filesystem path、
+    `file:` URL、home省略記号、drive、UNC、path中のcolon、空segment、`.`、`..`、Markdown linkは
+    出力しない。Markdown linkはhostごとにrelative targetやline anchorの解釈が異なり、
+    absolute pathをlink targetへ隠せるためである。
+  - Repository labelを確認できない場合は `Repository label: unverified` とし、labelを創作せず、
+    `src/policy.ts:16` のようにroot-relative pathだけを残す。
+  - 正確なlineを確認できない場合も、lineを創作せずに省く。確認済みrepository labelは維持し、
+    Locationには `sample-repo/src/policy.ts` のようなpathを記録する。
+    `Location line status: unverified` で未確認状態を示し、確認済みsymbolがある場合だけ
+    別fieldの `Confirmed symbol` も記録する。
 - **Contract / invariant reference**: 破られたcriteriaまたはinvariantのsource pointerを示す。
   `Issue #123 / forbidden outcome bullet 1`、`Repository contract: schema unique constraint`、
   `Inferred invariant: one logical operation produces one side effect` のように由来を区別する。

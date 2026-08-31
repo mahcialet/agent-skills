@@ -44,10 +44,12 @@ reviewerが安全な環境で実行した `executed` に分けます。申告だ
 表現しません。
 
 Findingのlocationは、`sample-repo/src/policy.ts:16` のようなrepository labelと
-repository-root-relative pathを組み合わせたinline locatorで示します。Host固有のabsolute pathや
-行番号だけのlink labelは出力しません。Repository labelや正確なlineを確認できない場合は創作せず、
-確認できたroot相対pathやsymbolまでを明示的なunverified fieldで示します。Location fieldには
-locatorだけを置き、API routeや説明は別fieldへ分けます。
+repository-root-relative pathを組み合わせたinline locatorで示します。Location fieldにはlocatorだけを
+置き、行番号だけのlink labelを含むMarkdown linkや、host固有のabsolute pathは出力しません。
+Repository labelを確認できない場合は `Repository label: unverified` とし、Locationからlabelを
+省きます。正確なlineを確認できない場合はLocationからlineを省き、
+`Location line status: unverified` を記録します。確認済みsymbolがある場合だけ
+`Confirmed symbol` も記録します。API routeや説明は別fieldへ分けます。
 
 `mode=gate` の `BLOCK` / `CONDITIONAL` / `PASS` は、確認できた範囲に基づくAIのrecommendationです。
 人間によるapprovalではなく、`PASS` もmerge許可や安全保証を意味しません。最終判断者を確認できない

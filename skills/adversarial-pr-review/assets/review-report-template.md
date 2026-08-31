@@ -48,10 +48,11 @@ empty table.
 - Adversarial level:
 - Confidence:
 <!-- Locationはlocatorだけを1行で記録する。Repository label未確認時はprefixを省く。
-line unverified時はlineを省き、下の2fieldを記録する。それ以外では下の2fieldを省く。 -->
-- Location: `<repository>/<repository-root-relative-path>:<line-or-range>`
-- Confirmed symbol: `<confirmed symbol; line unverifiedかつ確認できた場合のみ>`
+line unverified時はlineを省き、次のstatusを追加する。確認済みsymbolがある場合だけ
+Confirmed symbolも追加する。line確認済みの場合は、どちらも追加しない。
 - Location line status: unverified
+- Confirmed symbol: `<confirmed symbol>` -->
+- Location: `<repository>/<repository-root-relative-path>:<line-or-range>`
 - Contract / invariant reference:
 - Actor / trigger:
 - Precondition:
