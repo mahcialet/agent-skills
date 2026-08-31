@@ -25,7 +25,7 @@ auth/configなど、再現に寄与しない実行環境依存のlocatorは記�
 
 | Finding | Priority | Classification | `action_required` | 修正と決定的な証拠 | `action_status` |
 |---|---|---|---|---|---|
-| `BPR-EE18236-RR-01-NF001` | Medium | `confirmed` | `yes` | Cross-platform root、完全な `..` component、安定するまでdecodeしたschemeを拒否するnegative testと互換性を守るpositive testを追加 | `fixed` |
+| `BPR-EE18236-RR-01-NF001` | Medium | `confirmed` | `yes` | 提示されたcross-platform root、backslash `..`、single/double encoded schemeは拒否。Fresh re-reviewでencoded query/fragment delimiter後のparent componentが検査から外れる新規bypassを確認 | `not-fixed` |
 | `BPR-EE18236-RR-01-NF002` | Low | `confirmed` | `yes` | Enumをstring型確認後に照合し、array/object等をfield単位のvalidation errorとして返すtestを追加 | `fixed` |
 | `BPR-EE18236-RR-01-NF003` | Low | `confirmed` | `yes` | Repository path外側ancestorの交換でreaderがre-anchorしないことを固定するcommitted regression testを追加 | `fixed` |
 
@@ -108,9 +108,10 @@ versionとcontent hashも変更していない。
 | 26 | Reviewer mutationをFAILとして検出する既存testを維持し、`reviewer.code_changes` のcross-platform escapeも拒否するtestを追加 | PROVEN |
 | 32 | Required structure、links、notice、catalog、fixtureの既存検査に加え、repository path外側ancestor交換を含むsecure readerの不変条件をcommitted regression testで固定 | PROVEN |
 | 34 | Validator 75件と既存Skillを含むfull gate 139件がすべてPASS | PROVEN |
-| 37 | 必須field、実行環境、Profile hash、permission、mode、output、limitationsの既存検査を維持し、POSIX / Windows / encoded path invariantとenum型契約を検査。Repository内のactual EvidenceもPASS | PROVEN |
+| 37 | 必須field、実行環境、Profile hash、permission、mode、output、limitationsの既存検査とenum型契約、提示されたcross-platform path caseはPASS。ただしencoded query/fragment delimiter後のparent componentを見落とす | NOT PROVEN |
 
-AC 21、32、37で前回残っていた証拠gapは上記testで解消した。AC 26、34も回帰がないことを再確認した。
+AC 21、32で前回残っていた証拠gapは上記testで解消した。AC 26、34も回帰がないことを再確認した。
+AC 37はfresh re-reviewで見つかった新規path bypassにより未達のままである。
 今回の修正はvalidator、回帰test、Evidence format契約だけであり、Agent conduct contractやCLI episodeを
 変更していないため、fresh CLI dogfood episodeは追加していない。
 
@@ -119,5 +120,22 @@ security、security/compliance guarantee、production readinessを証明しな�
 
 ## Fresh read-only re-review
 
-このremediationを対象とするfresh independent read-only re-reviewは未実施である。上記の修正前後testと
-verificationをfresh re-reviewの結果として扱わず、decisionや新規findingを先取りしない。
+- Report ID: `BPR-EE18236-RR-02`
+- Target: `7ae75aeecec1fabdda1e4841a03dc12e51689c7c`
+- Reviewer mechanism: fresh independent read-only context
+- Decision: `FAIL`
+- Reviewer changes: `NONE`
+- `BPR-EE18236-RR-01-NF001`: `PARTIALLY RESOLVED`
+- `BPR-EE18236-RR-01-NF002`: `RESOLVED`
+- `BPR-EE18236-RR-01-NF003`: `RESOLVED`
+- Verification: validator 75 / 75、installer 31 / 31、full gate 139 / 139、actual Evidence、
+  `git diff --check` がPASS。NF003 testはroot-anchor前相当の独立probeでFAILし、検出力も確認した。
+- New findings automatically remediated: `NO`
+
+新規 `BPR-EE18236-RR-02-NF001` はMedium、`confirmed`、`action_required=yes` である。反復decode後に
+URL query / fragment delimiterとして解釈された文字より後ろの完全な `..` componentが
+`parsed.path` の検査対象から外れ、pure path invariantを迂回できる。再現に必要なsynthetic inputは
+`src/%23/../../../outside.py` および同型の `%3F` caseで、targetでは `errors=[]` だった。
+このfindingはRR-02で初めて得たため、今回のauthorizationでは修正していない。
+
+Re-reviewの開始・終了ともtarget SHAは不変でworktree clean、reviewer writeは0件だった。

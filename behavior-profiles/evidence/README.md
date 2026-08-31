@@ -16,6 +16,8 @@ Evidence契約のdeterministic tooling evidenceであり、CLI実機episodeの�
 Fresh re-review `BPR-EE18236-RR-01` のdecisionは `FAIL` で、未修正の新規finding 3件も同文書に
 記録している。その後に明示的にauthorizeされた3件の裁定、修正、回帰test、acceptance criteriaとの
 対応は [`BPR-EE18236-RR-01-remediation.md`](BPR-EE18236-RR-01-remediation.md) に記録する。
+Fresh re-review `BPR-EE18236-RR-02` のdecisionは `FAIL` で、新規path finding 1件を同文書へ
+未修正として記録している。
 
 ## 2026-08-31 CLI実機確認
 
