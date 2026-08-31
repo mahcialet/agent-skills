@@ -137,5 +137,7 @@ URL query / fragment delimiterとして解釈された文字より後ろの完�
 `parsed.path` の検査対象から外れ、pure path invariantを迂回できる。再現に必要なsynthetic inputは
 `src/%23/../../../outside.py` および同型の `%3F` caseで、targetでは `errors=[]` だった。
 このfindingはRR-02で初めて得たため、今回のauthorizationでは修正していない。
+後続authorizationによる修正とverificationは
+[`BPR-EE18236-RR-02-remediation.md`](BPR-EE18236-RR-02-remediation.md) に記録する。
 
 Re-reviewの開始・終了ともtarget SHAは不変でworktree clean、reviewer writeは0件だった。
