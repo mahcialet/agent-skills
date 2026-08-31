@@ -136,12 +136,25 @@ Clean worktreeで実行したbare `git diff --check` は検査対象deltaがな�
 - 実装delta:
   `git diff --check 55eef13a830c9cd986788b30b04fe6ee34f27f0f..6e5108740f7b562d228769f2347d397bce2706f8`
 - 初回Evidenceからの追補delta:
-  `git diff --check af47a9d20a8d94879734f87ffef4574c6707495e`
-- Remediation全体:
-  `git diff --check 55eef13a830c9cd986788b30b04fe6ee34f27f0f`
+  `git diff --check af47a9d20a8d94879734f87ffef4574c6707495e..51bb4291913152625aa42100b5806cdd21f22c7f`
+- RR-04 targetまでのRemediation delta:
+  `git diff --check 55eef13a830c9cd986788b30b04fe6ee34f27f0f..51bb4291913152625aa42100b5806cdd21f22c7f`
 
 Acceptance criteria監査で、AC 22が要求する未対応理由の明記も不足していると判明した。対象は全件
 修正済みなので、上記のとおり未対応findingを `NONE`、未対応理由を `N/A` と明記した。
+
+固定SHA `51bb4291913152625aa42100b5806cdd21f22c7f` に対するfresh read-only re-review
+`BPR-EE18236-RR-04` は、path findingを `RESOLVED`、EOF空行とAC 22 gapを解消済みと確認した。
+ただし、上記2 commandが終点を省略し、named commitとmutable worktreeを比較していたため、decisionは
+`FAIL` となった。
+
+| Finding | Priority | Classification | `action_required` | `action_status` |
+|---|---|---|---|---|
+| `BPR-EE18236-RR-04-NF001` | Low | `confirmed` | `yes` | `fixed` |
+
+終点をRR-04 target SHAへ固定した上記2 commandはいずれもPASSした。Reviewerによるfile変更、report file
+作成、target SHA変更はなかった。Bounded probeの件数は独立reviewでも照合したが、generator自体は
+commitしていないため、件数の再生成可能性にはこのlimitationがある。
 
 ## Acceptance criteriaの解消
 
