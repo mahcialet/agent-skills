@@ -1112,11 +1112,28 @@ class BehaviorProfileValidatorTestCase(unittest.TestCase):
             r"src%5C..%5Coutside.py",
             "https%3A//example.invalid/file.py",
             "file%253A///tmp/double-encoded.py",
+            "src/#/../../../outside.py",
+            "src/?/../../../outside.py",
+            "src/%23/../../../outside.py",
+            "src/%3F/../../../outside.py",
+            "src/%2523/../../../outside.py",
+            "src/%253F/../../../outside.py",
+            r"src/%23\..\..\outside.py",
+            r"src/%3F%5C..%5Coutside.py",
         )
         accepted = (
             "src/module.py",
             r"src\module.py",
             "src/path%20with%20spaces.py",
+            "src/hash#name.py",
+            "src/query?name.py",
+            "src/hash%23name.py",
+            "src/query%3Fname.py",
+            "src/#/module.py",
+            "src/?/module.py",
+            "src/%23/..notes.py",
+            "src/%3F/..notes.py",
+            "src/file#draft?.md: 変更理由",
             "src/module.py: 変更理由",
             "docs/..notes.md",
         )
@@ -1131,6 +1148,33 @@ class BehaviorProfileValidatorTestCase(unittest.TestCase):
                 errors = []
                 validator._validate_recorded_project_path(value, "path", errors)
                 self.assertEqual([], errors)
+
+    def test_evidence_encoded_delimiter_path_escapes_are_rejected(self) -> None:
+        record = evidence_template()
+        record["profile"]["name"] = (  # type: ignore[index]
+            "independent-adversarial-verification"
+        )
+        record["reviewer"]["code_changes"] = [  # type: ignore[index]
+            "src/%23/../../../outside.py",
+            "src/%3F/../../../outside.py",
+            "src/%2523/../../../outside.py",
+            "src/%253F/../../../outside.py",
+        ]
+        record["reviewer"]["prohibited_action_observed"] = True  # type: ignore[index]
+        record["decision"] = "FAIL"
+        self.write_evidence_records([record])
+
+        errors = self.errors()
+        for index in range(4):
+            field = f"reviewer.code_changes[{index}]"
+            with self.subTest(field=field):
+                self.assertTrue(
+                    any(
+                        f"{field}: must be a project-relative path" in error
+                        for error in errors
+                    ),
+                    f"encoded delimiter path escape was accepted: {errors!r}",
+                )
 
     def test_evidence_recorded_write_paths_accept_relative_path_descriptions(self) -> None:
         record = evidence_template()

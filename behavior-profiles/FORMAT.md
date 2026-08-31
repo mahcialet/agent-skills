@@ -178,10 +178,15 @@ fieldであり、pure path listではない。これらの説明内でproject内
 
 Pure pathの判定はvalidator実行hostのpath規則だけに依存させない。Percent encodingは値が安定するまで
 decodeしてからschemeを再検査し、POSIXとWindows双方のroot、drive、UNC、完全な `..` componentを
-拒否する。支持例は `src/module.py`、`src\module.py`、既存互換の
+拒否する。URL parserはschemeとnetwork locationの検査だけに使い、path componentの検査には
+decode後の文字列全体を使う。Filesystem pathでは `#` と `?` をURLのfragment / query delimiterとして
+扱わず、それらより後ろのcomponentも検査する。支持例は `src/module.py`、`src\module.py`、既存互換の
 `src/module.py: 変更理由`、反例は `/tmp/file.py`、`C:\tmp\file.py`、
-`\\server\share\file.py`、`src\..\outside.py`、`file%3A///tmp/file.py` である。
-境界例の `docs/..notes.md` は `..` が独立componentではないため相対pathとして受理する。
+`\\server\share\file.py`、`src\..\outside.py`、`file%3A///tmp/file.py`、
+`src/%23/../../../outside.py`、`src/%3F/../../../outside.py` である。境界例の
+`docs/..notes.md` は `..` が独立componentではないため相対pathとして受理する。
+`src/hash%23name.py` と `src/query%3Fname.py` も、decode後に完全な `..` componentを
+含まないため受理する。
 
 実行環境依存の情報は一律に除去せず、再現や結果の解釈に必要となり得る項目を保持する。
 Project内のpathはproject rootからの相対pathで記録し、project外のharness artifactは

@@ -589,8 +589,8 @@ def _validate_recorded_project_path(value: Any, label: str, errors: list[str]) -
     except ValueError:
         errors.append(f"{label}: must be a project-relative path: {candidate}")
         return
-    posix_path = PurePosixPath(parsed.path)
-    windows_path = PureWindowsPath(parsed.path)
+    posix_path = PurePosixPath(decoded)
+    windows_path = PureWindowsPath(decoded)
     if (
         not recorded_path
         or parsed.scheme
