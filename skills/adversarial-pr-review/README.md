@@ -43,6 +43,12 @@ testの証跡は、成功したという申告だけの `claimed`、CI結果や�
 reviewerが安全な環境で実行した `executed` に分けます。申告だけの結果を、確認済みまたは実行済みと
 表現しません。
 
+Findingのlocationは、`sample-repo/src/policy.ts:16` のようなrepository labelと
+repository-root-relative pathを組み合わせたinline locatorで示します。Host固有のabsolute pathや
+行番号だけのlink labelは出力しません。Repository labelや正確なlineを確認できない場合は創作せず、
+確認できたroot相対pathやsymbolまでを明示的なunverified fieldで示します。Location fieldには
+locatorだけを置き、API routeや説明は別fieldへ分けます。
+
 `mode=gate` の `BLOCK` / `CONDITIONAL` / `PASS` は、確認できた範囲に基づくAIのrecommendationです。
 人間によるapprovalではなく、`PASS` もmerge許可や安全保証を意味しません。最終判断者を確認できない
 場合は、もっともらしい担当者を補わず `unresolved` とします。gateの出力では

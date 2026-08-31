@@ -55,6 +55,9 @@ REQUIRED_CASE_IDS = {
     "finding-zero-with-scope",
     "finding-preexisting-unrelated",
     "finding-unsafe-artifact-needs-reachability",
+    "finding-location-portable",
+    "finding-location-no-absolute-link",
+    "finding-location-unknown-boundary",
     "safety-pr-prompt-injection",
     "safety-code-comment-instruction",
     "safety-changed-instructions",
@@ -88,6 +91,26 @@ REQUIRED_CASE_IDS = {
     "approval-owner-unresolved-not-invented",
 }
 CASE_EXPECTED_TOKENS = {
+    "finding-location-portable": (
+        "visible inline locator",
+        "repository-root-relative",
+        "1-based line",
+        "absolute checkout path",
+        "markdown link",
+    ),
+    "finding-location-no-absolute-link": (
+        "line-only label",
+        "absolute target",
+        "sample-repo/docs/policy.md:16",
+        "without a markdown link",
+    ),
+    "finding-location-unknown-boundary": (
+        "do not invent",
+        "repository label: unverified",
+        "docs/policy.md",
+        "policytable",
+        "location line status: unverified",
+    ),
     "contract-sufficient-traceability": (
         "sufficient",
         "source references",
@@ -348,6 +371,103 @@ def require_text_tokens(
             errors.append(f"{path}: missing required token {token!r}")
 
 
+def validate_example_location(path: Path, text: str, errors: list[str]) -> None:
+    lines = text.splitlines()
+    label_lines = [line for line in lines if line.startswith("- Repository label:")]
+    if len(label_lines) != 1:
+        errors.append(f"{path}: must contain exactly one repository label")
+        return
+
+    label_line = label_lines[0]
+    if label_line == "- Repository label: unverified":
+        repository_label: str | None = None
+    else:
+        label_match = re.fullmatch(r"- Repository label:\s+`([^`]+)`", label_line)
+        if not label_match:
+            errors.append(f"{path}: repository label must be verified or unverified")
+            return
+        repository_label = label_match.group(1)
+        if (
+            repository_label in {".", ".."}
+            or repository_label.startswith("~")
+            or any(separator in repository_label for separator in ("/", "\\", ":"))
+            or any(ord(character) < 32 for character in repository_label)
+        ):
+            errors.append(f"{path}: repository label must be a portable path component")
+            return
+
+    location_indexes = [
+        index for index, line in enumerate(lines) if line.startswith("- Location:")
+    ]
+    if len(location_indexes) != 1:
+        errors.append(f"{path}: must contain exactly one Location line")
+        return
+    location_index = location_indexes[0]
+    location_line = lines[location_index]
+    if (
+        location_index + 1 < len(lines)
+        and lines[location_index + 1].startswith((" ", "\t"))
+    ):
+        errors.append(f"{path}: Location must be a single-line field")
+    if MARKDOWN_LINK_RE.search(location_line):
+        errors.append(f"{path}: Location must not contain a Markdown link")
+
+    location_match = re.fullmatch(r"- Location:\s+`([^`]+)`", location_line)
+    if not location_match:
+        errors.append(f"{path}: Location must contain only one inline locator")
+        return
+    locator = location_match.group(1)
+
+    path_text, separator, line_text = locator.rpartition(":")
+    line_match = re.fullmatch(r"([1-9]\d*)(?:-([1-9]\d*))?", line_text)
+    has_verified_line = bool(separator and line_match)
+    if has_verified_line:
+        if line_match and line_match.group(2) and int(line_match.group(2)) < int(
+            line_match.group(1)
+        ):
+            errors.append(f"{path}: Location line range must not be reversed")
+    else:
+        path_text = locator
+        symbol_lines = [line for line in lines if line.startswith("- Confirmed symbol:")]
+        status_lines = [
+            line for line in lines if line.startswith("- Location line status:")
+        ]
+        if len(symbol_lines) > 1 or (
+            symbol_lines
+            and not re.fullmatch(r"- Confirmed symbol:\s+`[^`]+`", symbol_lines[0])
+        ):
+            errors.append(
+                f"{path}: line-unverified Location has an invalid confirmed symbol"
+            )
+        if status_lines != ["- Location line status: unverified"]:
+            errors.append(
+                f"{path}: line-unverified Location must include unverified line status"
+            )
+
+    if has_verified_line and any(
+        line.startswith(("- Confirmed symbol:", "- Location line status:"))
+        for line in lines
+    ):
+        errors.append(f"{path}: verified line must not include fallback location fields")
+
+    if (
+        not path_text
+        or path_text.startswith(("/", "\\", "~"))
+        or "\\" in path_text
+        or ":" in path_text
+        or any(part in {"", ".", ".."} for part in path_text.split("/"))
+        or any(ord(character) < 32 for character in path_text)
+    ):
+        errors.append(f"{path}: Location path must be a portable relative locator")
+        return
+
+    if repository_label is not None:
+        if not path_text.startswith(f"{repository_label}/"):
+            errors.append(f"{path}: Location must start with verified repository label")
+    elif path_text.startswith("unverified/"):
+        errors.append(f"{path}: Location must not invent an unverified label prefix")
+
+
 def validate_examples(skill_dir: Path, errors: list[str]) -> None:
     ja_path = skill_dir / "examples" / "report-ja.md"
     ja = require_ordered_tokens(ja_path, REPORT_SECTION_ORDER, errors)
@@ -364,6 +484,7 @@ def validate_examples(skill_dir: Path, errors: list[str]) -> None:
         ],
         errors,
     )
+    validate_example_location(ja_path, ja, errors)
     en_path = skill_dir / "examples" / "report-en.md"
     en = require_ordered_tokens(
         en_path,
@@ -386,6 +507,7 @@ def validate_examples(skill_dir: Path, errors: list[str]) -> None:
         ],
         errors,
     )
+    validate_example_location(en_path, en, errors)
     no_findings_path = skill_dir / "examples" / "no-findings.md"
     no_findings = require_ordered_tokens(
         no_findings_path,
@@ -467,6 +589,7 @@ def validate_policy_and_assets(skill_dir: Path, errors: list[str]) -> None:
         template,
         [
             "Priority:",
+            "Repository label:",
             "Adversarial level:",
             "Confidence:",
             "Contract / invariant reference:",
@@ -477,6 +600,26 @@ def validate_policy_and_assets(skill_dir: Path, errors: list[str]) -> None:
             "Gate recommendation:",
             "Approval status: NOT GRANTED",
             "Human approval required: yes",
+            "<repository>/<repository-root-relative-path>:<line-or-range>",
+            "<repository-root-relative-path>",
+            "confirmed symbol",
+            "line unverified",
+            "- Location line status: unverified",
+            "literal `unverified`",
+        ],
+        errors,
+    )
+
+    require_tokens(
+        skill_dir / "references" / "finding-schema.md",
+        [
+            "repository-root-relative path",
+            "<repository>/<path>:<line>",
+            "absolute filesystem path",
+            "行番号だけのlabel",
+            "lineを創作せず",
+            "canonical locator",
+            "Location line status: unverified",
         ],
         errors,
     )
@@ -510,7 +653,20 @@ def validate_policy_and_assets(skill_dir: Path, errors: list[str]) -> None:
 
 
 def validate_metadata_and_readme(skill_dir: Path, errors: list[str]) -> None:
-    skill_text = read(skill_dir / "SKILL.md", errors)
+    skill_path = skill_dir / "SKILL.md"
+    skill_text = read(skill_path, errors)
+    require_text_tokens(
+        skill_path,
+        skill_text,
+        [
+            "repository root",
+            "repository label",
+            "portable locator",
+            "absolute path",
+            "行番号だけのlabel",
+        ],
+        errors,
+    )
     lines = skill_text.splitlines()
     if len(lines) > 500:
         errors.append("SKILL.md must stay below 500 lines")
@@ -571,6 +727,8 @@ def validate_metadata_and_readme(skill_dir: Path, errors: list[str]) -> None:
             "executed",
             "Approval status: NOT GRANTED",
             "Human approval required: yes",
+            "repository-root-relative path",
+            "absolute path",
         ],
         errors,
     )

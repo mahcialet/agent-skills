@@ -3,6 +3,8 @@
 ## Scope and parameters
 
 - Target:
+<!-- Repository label未確認時はbacktickなしのliteral `unverified` と記録する。 -->
+- Repository label: `<verified label>`
 - Base / head:
 - Level / minimum / depth / mode:
 - Selection rationale:
@@ -45,7 +47,11 @@ empty table.
 - Priority:
 - Adversarial level:
 - Confidence:
-- Location:
+<!-- Locationはlocatorだけを1行で記録する。Repository label未確認時はprefixを省く。
+line unverified時はlineを省き、下の2fieldを記録する。それ以外では下の2fieldを省く。 -->
+- Location: `<repository>/<repository-root-relative-path>:<line-or-range>`
+- Confirmed symbol: `<confirmed symbol; line unverifiedかつ確認できた場合のみ>`
+- Location line status: unverified
 - Contract / invariant reference:
 - Actor / trigger:
 - Precondition:

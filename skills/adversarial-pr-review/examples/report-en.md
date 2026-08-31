@@ -3,6 +3,7 @@
 ## Scope and parameters
 
 - Target: pull request adding an export endpoint
+- Repository label: `export-service`
 - Base / head: `main` / pull-request head
 - Level / minimum / depth / mode: `A3` / `A1` / `deep` / `gate`
 - Selection rationale: the endpoint accepts a tenant identifier from the request even though access must remain
@@ -44,7 +45,7 @@
 - Priority: P1
 - Adversarial level: A3
 - Confidence: Confirmed
-- Location: `src/export/handler.go`, where `body.TenantID` is passed to `LoadExportRows`
+- Location: `export-service/src/export/handler.go:64`
 - Contract / invariant reference: `docs/permission-matrix.md` / export permission and
   `Repository contract: data access is scoped to ctx.TenantID`
 - Actor / trigger: an authenticated user submits another tenant's identifier in the JSON body

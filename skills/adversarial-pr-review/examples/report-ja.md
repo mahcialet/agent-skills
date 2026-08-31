@@ -3,6 +3,7 @@
 ## Scope and parameters
 
 - Target: `base...head` の決済retry変更
+- Repository label: `payments-api`
 - Base / head: `main` / review対象branch
 - Level / minimum / depth / mode: `A2` / `A1` / `standard` / `review`
 - Selection rationale: 正規権限を持つclientが同じrequestを並行・再送でき、idempotencyと
@@ -46,7 +47,7 @@
 - Priority: P1
 - Adversarial level: A2
 - Confidence: Strongly supported
-- Location: `src/payments/service.ts` の存在確認後にledgerへinsertする変更箇所
+- Location: `payments-api/src/payments/service.ts:87`
 - Contract / invariant reference: PR description / retry criterion、および
   `Inferred invariant: one logical request produces at most one committed balance update`
 - Actor / trigger: 正規に認証されたclientが、同じidempotency keyで2requestを並行送信する

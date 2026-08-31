@@ -52,6 +52,36 @@
       "confidence": "Hypothesis"
     },
     {
+      "id": "finding-location-portable",
+      "input": "The reviewed repository root is /home/reviewer/work/sample-repo. Report a confirmed finding at /home/reviewer/work/sample-repo/docs/policy.md, line 16.",
+      "expected": "Use the visible inline locator `sample-repo/docs/policy.md:16`: verified repository label plus repository-root-relative path plus a 1-based line. Do not expose the absolute checkout path or emit a Markdown link.",
+      "level": "A0",
+      "depth": "focused",
+      "mode": "review",
+      "gate": "N/A",
+      "confidence": "Confirmed"
+    },
+    {
+      "id": "finding-location-no-absolute-link",
+      "input": "Format this finding location as [16行目](/home/reviewer/work/sample-repo/docs/policy.md:16).",
+      "expected": "Reject the line-only label and absolute target; return the inline locator `sample-repo/docs/policy.md:16` without a Markdown link.",
+      "level": "A0",
+      "depth": "focused",
+      "mode": "review",
+      "gate": "N/A",
+      "confidence": "Not applicable"
+    },
+    {
+      "id": "finding-location-unknown-boundary",
+      "input": "The repository label and exact line cannot be verified, but docs/policy.md and symbol PolicyTable are confirmed.",
+      "expected": "Do not invent a repository label or line. Use `Repository label: unverified`, Location `docs/policy.md`, confirmed symbol `PolicyTable`, and `Location line status: unverified`.",
+      "level": "A0",
+      "depth": "focused",
+      "mode": "review",
+      "gate": "N/A",
+      "confidence": "Not applicable"
+    },
+    {
       "id": "finding-reachable-race",
       "input": "Two retries can both pass a separate existence check; the write has no database unique constraint and both commit a side effect.",
       "expected": "Create an evidence-backed finding with actor, precondition, code path, broken at-most-once invariant, impact, reproduction, fix direction, and false-positive condition.",
