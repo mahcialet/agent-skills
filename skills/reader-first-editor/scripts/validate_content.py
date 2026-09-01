@@ -37,12 +37,15 @@ EVIDENCE_TYPES = {
     "EVIDENCE-GAP",
     "UNVERIFIED",
 }
+COVERAGE_STATUSES = {"checked", "partial", "not-checked"}
+ANOMALY_STATUSES = {"EXPLAINED", "UNEXPLAINED", "CONTRADICTED", "NOT-AN-OUTLIER"}
 REQUIRED_SUITES = {
     "semantic-preservation",
     "reread-risk-ja",
     "interaction-clarity-ja",
     "relationship-clarity-ja",
     "review-coverage-ja",
+    "local-consistency-review",
     "prose-pacing",
     "repository-grounded-review",
 }
@@ -53,6 +56,7 @@ REQUIRED_SCHEMAS = {
     "regression-plan.schema.json",
     "regression-report.schema.json",
     "regression-run.schema.json",
+    "review-coverage.schema.json",
     "rule-approval.schema.json",
     "rule-proposal.schema.json",
     "syntax-ab-input.schema.json",
@@ -62,11 +66,17 @@ REQUIRED_SCHEMAS = {
 REQUIRED_TOOL_FILES = {
     "scripts/analyze_ja.py",
     "scripts/corpus_tool.py",
+    "scripts/review_coverage.py",
+    "scripts/scan_db_consistency.py",
+    "scripts/scan_relationships.py",
     "scripts/reader_first/__init__.py",
+    "scripts/reader_first/db_consistency.py",
     "scripts/reader_first/github.py",
     "scripts/reader_first/investigation.py",
     "scripts/reader_first/japanese_syntax.py",
     "scripts/reader_first/regression.py",
+    "scripts/reader_first/relationship_candidates.py",
+    "scripts/reader_first/review_coverage.py",
     "scripts/reader_first/state.py",
 }
 REQUIRED_GITHUB_FIXTURES = {
@@ -132,6 +142,8 @@ def validate(eval_dir: Path) -> list[str]:
                 "expected_risks",
                 "expected_statuses",
                 "expected_evidence_types",
+                "expected_coverage_statuses",
+                "expected_anomaly_statuses",
             ):
                 if key in case:
                     value = case[key]
@@ -139,6 +151,14 @@ def validate(eval_dir: Path) -> list[str]:
                         isinstance(item, str) for item in value
                     ):
                         errors.append(f"{label}: {key} must be a string list")
+            coverage_statuses = case.get("expected_coverage_statuses")
+            if isinstance(coverage_statuses, list):
+                if unknown := set(coverage_statuses) - COVERAGE_STATUSES:
+                    errors.append(f"{label}: invalid coverage statuses {sorted(unknown)}")
+            anomaly_statuses = case.get("expected_anomaly_statuses")
+            if isinstance(anomaly_statuses, list):
+                if unknown := set(anomaly_statuses) - ANOMALY_STATUSES:
+                    errors.append(f"{label}: invalid anomaly statuses {sorted(unknown)}")
             if case.get("mode") == "repository-review":
                 statuses = case.get("expected_statuses")
                 evidence_types = case.get("expected_evidence_types")
@@ -205,7 +225,13 @@ def validate_tooling(skill_dir: Path) -> list[str]:
     for relative in sorted(REQUIRED_TOOL_FILES):
         if not (skill_dir / relative).is_file():
             errors.append(f"missing required corpus tool file: {relative}")
-    for name in ("corpus_tool.py", "analyze_ja.py"):
+    for name in (
+        "corpus_tool.py",
+        "analyze_ja.py",
+        "review_coverage.py",
+        "scan_db_consistency.py",
+        "scan_relationships.py",
+    ):
         tool = skill_dir / "scripts" / name
         if tool.is_file():
             result = subprocess.run(
