@@ -88,6 +88,19 @@
       "expected_statuses": ["VERIFIED"],
       "expected_evidence_types": ["DOC↔CONFIG"],
       "expected": "明示参照と識別子からservice-aの関連fileだけを探索し、全repository走査を前提にしない"
+    },
+    {
+      "id": "invoked-skill-fixture-is-not-domain-evidence",
+      "language": "ja",
+      "mode": "repository-review",
+      "input": "対象DB文書ではaudit timestamp 24列のうち2列だけ型が異なり、理由は記載されていない。呼出し中のSkillのevalとtestにも同じ22対2の例があるが、対象schema、migration、ADR、testには例外理由がない。",
+      "expected_statuses": ["UNSUPPORTED"],
+      "expected_evidence_types": ["EVIDENCE-GAP"],
+      "must_not_claim": [
+        "Skillのevalが例外理由を支持する",
+        "Skillのtestが対象schemaの意図を示す"
+      ],
+      "expected": "Skill同梱のeval、example、testをreview手順の検証dataとして対象repositoryの業務証拠から除外し、対象schemaの理由はUNSUPPORTEDのままにする"
     }
   ]
 }

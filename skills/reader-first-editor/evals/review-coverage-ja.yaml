@@ -1,5 +1,6 @@
 {
   "suite": "review-coverage-ja",
+  "provenance": "2026-09-02に利用者から提示された長文見落とし事例と設計要件",
   "cases": [
     {
       "id": "continue-after-early-findings-to-late-ambiguous-seihon",
@@ -20,7 +21,65 @@
         "config/base.yamlから各環境のファイルを生成する",
         "不一致時はconfig/base.yamlを優先する"
       ],
+      "expected_coverage_statuses": ["checked"],
       "expected": "前半の『利用者ID／ユーザーID』『10 秒』『必須／optional』を候補として確認した後も探索を終了せず、第5節の『正本』を関係の省略候補として候補記録に残す。『正本』から直接編集対象、生成方向、不一致時の優先先を推測せず、周囲に関係の説明がないことを文脈で確認する。候補検出時には重大度で絞らず、各候補の位置と確認結果を保持し、任意の上位3件だけでレビュー完了としない"
+    },
+    {
+      "id": "checked-zero-is-not-unchecked",
+      "language": "ja",
+      "mode": "review",
+      "input": "# 運用条件\n\n利用者は申請後に確認メールを受け取ります。\n\n## 例外\n\n申請を取り消した場合、確認メールは送信されません。",
+      "expected_coverage_statuses": ["checked"],
+      "must_not_claim": [
+        "モダリティは未確認",
+        "問題がないため確認を省略した"
+      ],
+      "expected": "モダリティとscopeを最後まで確認し、候補がなければchecked / 0 findingsと記録する。候補0件をnot-checkedへ置き換えず、問題を水増ししない"
+    },
+    {
+      "id": "keep-low-severity-after-three-higher-findings",
+      "language": "ja",
+      "mode": "review",
+      "input": "# 手順\n\n主体が不明な禁止事項があります。条件のscopeが二通りに読めます。例外の適用先も不明です。\n\n## 後半\n\n接続timeoutは10 秒です。通知設定は optional です。",
+      "must_preserve": ["10 秒", "optional"],
+      "must_not_claim": [
+        "主な3件のみ",
+        "軽微なため候補から除外した",
+        "ほかにもあります"
+      ],
+      "expected_coverage_statuses": ["checked"],
+      "expected": "前半の重大な3候補を検出した後も後半を確認し、表記上の軽微な候補もlocation付きで保持する。severityは検出後に付け、supported findingをtop-Nで省略しない"
+    },
+    {
+      "id": "global-pass-detects-cross-chunk-term-change",
+      "language": "ja",
+      "mode": "review",
+      "input": "# 利用者管理\n\n## 登録\n\n申請者IDを登録します。\n\n## 更新\n\n利用者IDを更新します。\n\n## 削除\n\nユーザーIDを削除します。",
+      "must_preserve": ["申請者ID", "利用者ID", "ユーザーID"],
+      "expected_coverage_statuses": ["checked"],
+      "expected": "各章の局所pass後にglobal passを行い、同じ概念を指す可能性がある3語の変化を章横断candidateとして記録する。文脈がなければ同一概念と断定せず、確認事項を示す"
+    },
+    {
+      "id": "protected-code-literal-is-candidate-not-edit-target",
+      "language": "ja",
+      "mode": "review",
+      "input": "# 設定例\n\n```yaml\ncanonical_label: 正本\n```\n\nコード例の後で、運用上の優先先を説明します。",
+      "must_preserve": ["canonical_label: 正本"],
+      "must_not_claim": ["code fence内を書き換える"],
+      "expected_coverage_statuses": ["checked"],
+      "expected": "code fenceを分割・改変せず、scannerで候補になってもliteral保護と周囲の文脈を確認する。語の出現だけではfindingにしない"
+    },
+    {
+      "id": "parser-failure-remains-partial",
+      "language": "ja",
+      "mode": "review",
+      "input": "# DB定義\n\n独自記法: users.created_at => tz-aware required\n独自記法: users.updated_at => tz-aware required",
+      "expected_coverage_statuses": ["partial"],
+      "must_not_claim": [
+        "局所整合性に問題はない",
+        "checked / 0 findings"
+      ],
+      "expected": "構造化parserが独自記法に対応しない場合、LLM-only確認を続けつつ、parserによる局所整合性coverageはpartialとし、未対応形式と未確認範囲を示す"
     }
   ]
 }
