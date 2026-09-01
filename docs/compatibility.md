@@ -160,6 +160,8 @@ Codexはread-only sandboxで、既知の同名scope衝突を避けるため内�
 | 関係candidate | 4件を1 finding、3 excludedへ分類 | 同じく4/4件を分類 |
 | DB構造化 | type 22対2、nullable・default・constraint 24件を列挙 | 同じ分布を列挙 |
 | 少数例の判定 | `UNEXPLAINED`／`UNSUPPORTED`。誤りと断定しなかった | 同じく断定せず、追加確認を要求 |
+| 説明済み例外 | ADRに理由がある少数型を `EXPLAINED`／`VERIFIED` とし、修正を提案しなかった | 同じく説明済み例外として修正を求めなかった |
+| 明示policyとの矛盾 | 少数派ではなく、例外を認めないpolicyとの直接矛盾から `CONTRADICTED`／`CONTRADICTED` とした | 同じ根拠と2状態を分けて記録した |
 | Skill検証dataの扱い | `.agents/skills/**` を対象schemaの証拠から除外 | 同じく除外を明記 |
 | 非破壊性 | 対象文書を変更しなかった | 対象文書を変更しなかった |
 
