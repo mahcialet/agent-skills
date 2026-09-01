@@ -80,6 +80,19 @@
         "checked / 0 findings"
       ],
       "expected": "構造化parserが独自記法に対応しない場合、LLM-only確認を続けつつ、parserによる局所整合性coverageはpartialとし、未対応形式と未確認範囲を示す"
+    },
+    {
+      "id": "relationship-scanner-unavailable-continues-review",
+      "language": "ja",
+      "mode": "review",
+      "input": "関係表現scannerを利用できない環境で、次の文書を確認する。\n\n# 管理対象\n\nconfig/base.yamlを正本とする。",
+      "expected_coverage_statuses": ["partial"],
+      "must_not_claim": [
+        "scannerがないためreviewを中止する",
+        "関係の省略に問題はない",
+        "checked / 0 findings"
+      ],
+      "expected": "scanner失敗をhard failureにせずLLM-onlyで文脈確認を続け、『正本』をcandidateとして扱う。関係表現の機械scanはpartialとし、未実施範囲を示す"
     }
   ]
 }
