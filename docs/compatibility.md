@@ -11,8 +11,10 @@
 |---|---|---|---|
 | GitHub CLI | 2.97.0 | Skillの検出、ローカル作業ツリーからのインストール、`publish --dry-run` | public preview。tag protection未設定のwarningが残る |
 | Codex CLI | 0.151.0 | `reader-first-editor` の明示起動、通常review、`repository-review` | 同名のuser scopeとproject scopeが併存する環境では正式名が一覧に表示されず、再確認が必要 |
+| Codex CLI | 0.152.0 | 長文coverage、関係candidate、DB局所整合性、Skill検証dataの証拠除外 | 同名scope衝突を避けた一時的な固有名で確認 |
 | Codex CLI | 0.151.0 | project scopeから `adversarial-pr-review` を明示起動し、review contractとapproval境界を確認 | 単一のsynthetic tenant越境ケースで確認。Copilot CLIとはpriority判定が異なった |
 | GitHub Copilot CLI | 1.0.82 | project scopeから正式名で `reader-first-editor` を起動 | 関係表現の確認では、Skillをテスト用リポジトリ内へ実コピーする必要があった |
+| GitHub Copilot CLI | 1.0.82 | 正式名で長文coverage、関係candidate、DB局所整合性、Skill検証dataの証拠除外を確認 | 一時リポジトリへSkillを実コピーして確認 |
 | GitHub Copilot CLI | 1.0.82 | project scopeから正式名で `adversarial-pr-review` を起動し、review contractとapproval境界を確認 | `write`、`shell`、URL accessを許可しない単一のsynthetic tenant越境ケースで確認 |
 | GitHub Copilot CLI | 1.0.81 | project scopeから正式名で `adversarial-pr-review` を起動 | 複数domainを一度に扱う長いreviewは最終版で未確認 |
 
@@ -133,6 +135,43 @@ mergeせず双方を選択肢へ表示するとしている。しかし、Codex 
 Copilotの最初の確認では、テスト用リポジトリ外を指すシンボリックリンクに対して
 追加の参照ファイルの読込みが拒否された。この結果は判定に含めず、現行Skillをテスト用リポジトリ内へ
 実コピーして再実行した。実コピー後は必要な参照ファイルを読み、上表の結果になった。
+
+#### 長文coverageと局所整合性の実機確認
+
+2026-09-02にCodex CLI 0.152.0、GitHub Copilot CLI 1.0.82、`gpt-5.4` で確認した。
+一時リポジトリへ現行Skillと、次のfixtureを実コピーした。
+
+- 前半に用語・表記・手順上の候補、後半に曖昧な「正本」を置いた6節のMarkdown
+- 曖昧、法務用語、文書内定義、生成関係明示済みの「正本」を各1件置いたMarkdown
+- 同じaudit timestamp peer groupとして、`timestamptz` 22列と `timestamp` 2列を置いたDB定義表
+- 型の例外理由や強制policyがないことを示す検証用repository
+
+Codexはread-only sandboxで、既知の同名scope衝突を避けるため内容を変えない一時的な固有名を
+明示起動した。Copilotはproject scopeの正式な `/reader-first-editor` を明示起動し、write toolを
+拒否した。両hostともSkill本文、coverage reference、局所整合性reference、補助scanner/parserを
+読み込んだ。
+
+| 確認項目 | Codex | GitHub Copilot |
+|---|---|---|
+| 長文の構造分割 | 7/7 chunkを局所確認 | 7/7 chunkを局所確認 |
+| global pass | 前半と後半を横断し、後半の「正本」を保持 | 同じく後半まで確認し、用語・役割の変化を統合 |
+| top-N抑制 | 前半の候補後も探索し、HIGHからLOWまで全findingを報告 | 6 findingsをHIGHからLOWまで全件報告 |
+| 0件と未確認 | 0 findingのchunk・属性を `checked` として表示 | 0 findingのchunk・属性を `checked` として表示 |
+| 関係candidate | 4件を1 finding、3 excludedへ分類 | 同じく4/4件を分類 |
+| DB構造化 | type 22対2、nullable・default・constraint 24件を列挙 | 同じ分布を列挙 |
+| 少数例の判定 | `UNEXPLAINED`／`UNSUPPORTED`。誤りと断定しなかった | 同じく断定せず、追加確認を要求 |
+| Skill検証dataの扱い | `.agents/skills/**` を対象schemaの証拠から除外 | 同じく除外を明記 |
+| 非破壊性 | 対象文書を変更しなかった | 対象文書を変更しなかった |
+
+最初のCodex試行では、Skill同梱testを対象schemaの例外理由には使わなかったものの、repository
+evidence ledgerへ「補助証拠」として列挙した。このforward-test結果を受け、呼出し中のSkill本文、
+reference、example、eval、test、scannerを、対象がSkill自体でない限り業務証拠へ使わない境界を
+追加した。回帰fixtureを追加後、Codexは `.agents/skills/**` を証拠から除外し、Copilotも同じ境界を
+守った。
+
+両hostの実行後、対象Markdownと検証用repository fileに差分はなかった。Pythonによる補助scanner
+実行で一時Skillコピー内の `__pycache__` だけが更新されたため、対象文書の非破壊性とSkillコピーの
+runtime cache生成は分けて記録する。
 
 ### adversarial-pr-review
 

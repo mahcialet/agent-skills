@@ -2,7 +2,8 @@
 
 `reader-first-editor` は、人間向けの日本語・英語の文章を校正・校閲・改稿するSkillです。
 誤字や表記だけでなく、要点を初読でつかめるか、読み返さずに条件・例外や情報同士の関係を
-理解できるか、重要な情報と補足のどちらを優先すべきか分かるかまで確認します。改稿では、
+理解できるか、重要な情報と補足のどちらを優先すべきか分かるかまで確認します。長文では
+確認範囲をcoverageとして示し、同じ役割を持つ要素群から外れる少数例も根拠とともに確認します。改稿では、
 元の内容が変わっていないことも確かめます。リポジトリ内校閲を明示された場合は、文書の記述を
 同一リポジトリ内のコード、設定、テスト、他文書などと照合します。
 
@@ -19,6 +20,8 @@
 | 校正・校閲 | 文法、表記、用語に加え、複数の意味に読める箇所、読み返さないと条件・例外が分からない箇所、要点と補足の優先順位を確認する | `review`。既定値であり、原文やファイルを変更しない |
 | 内容を変えない改稿 | 事実、条件、例外、必須・推奨・任意・可能性の違い、コード、コマンド、設定値、識別子などを保ちながら、並べ替え・分割・結合・明確化を行う | `revise-safe`。明示依頼が必要 |
 | リポジトリ内校閲 | 文書の記述を、同じリポジトリのコード、設定、テスト、他文書と照合する | `repository-review`。文書や証拠ファイルを変更しない |
+| 長文coverage | 見出しなどの構造単位で局所確認した後、文書全体を確認し、0件と未確認を区別する | 長文・複数file・網羅性を求められた `review`／`repository-review`。原文やファイルを変更しない |
+| 局所整合性 | 同じ役割を持つ要素群の型・値・表記から外れる少数例をcandidateとして拾い、意図的な例外かrepository evidenceを確認する | `review`／`repository-review`。少数派だけで誤りとせず、自動修正しない |
 | 構造変更の提案 | 情報の移動、重複の統合、削除候補と、失われる可能性のある内容を示す | `revise-structural`。明示的な削除許可がなければ提案だけを返す |
 | 変更点の比較 | 改稿前後の文章に、変更理由と内容が変わるリスクを対応付ける | `diff`。明示依頼が必要 |
 | 草案作成 | 既知情報から文章を作り、不明な期限・担当などは `TODO` や確認事項として示す | `authoring`。明示依頼が必要 |
@@ -28,7 +31,11 @@
 反映する場合は、`revise-safe` などの改稿モードも指定してください。各モードの正確な契約は
 [出力モード](references/core/output-modes.md)に記載しています。
 
-具体例は[関係を一語で済ませた文の確認例](examples/relationship-clarity-ja.md)を参照してください。
+具体例:
+
+- [関係を一語で済ませた文の確認例](examples/relationship-clarity-ja.md)
+- [長文のcoverage-driven review例](examples/coverage-review-ja.md)
+- [DB定義の局所整合性review例](examples/local-consistency-ja.md)
 
 ## 起動例
 
@@ -44,6 +51,12 @@ $reader-first-editor docs/guide.mdをrevise-safeで改稿してください。
 
 # リポジトリ内の証拠と照合する
 $reader-first-editor docs/configuration.mdをrepository-reviewで確認してください。
+
+# 長い文書を構造単位で確認し、coverageを示す
+$reader-first-editor docs/operations.mdを見落としがないようreviewし、coverageも示してください。
+
+# DB定義の同じ役割の列から外れる少数例と根拠を確認する
+$reader-first-editor docs/database.mdのaudit timestampをrepository-reviewしてください。
 
 # 日本語の表記だけを整える
 $reader-first-editor announcement.mdをjtf-onlyで整えてください。
@@ -104,6 +117,25 @@ Copilot CLI:
 明示依頼、証拠が競合する文脈の確認に限定します。詳細は
 [リポジトリ内の証拠に基づく校閲](references/core/repository-grounded-review.md)を
 参照してください。
+
+### 長文と局所整合性
+
+長文では、見出し、段落群、表、list、code fenceをinventory化し、構造単位の局所pass後に
+文書全体のglobal passを行います。前半で数件見つけても探索を止めず、severityはcandidate収集後に
+付けます。coverage summaryでは `checked`、`partial`、`not-checked` を使い、確認済み0件と
+未確認を区別します。詳細は
+[coverage-driven reviewの設計](docs/coverage-driven-review.md)を参照してください。
+
+DB定義表などでは、semantic peer groupを先に定義し、type、nullable、default、constraintなどの
+分布から少数値をcandidateとして確認できます。全体頻度や少数派だけでは誤りとせず、repository内の
+schema、migration、comment、code、test、ADRなどから例外理由を探します。結果は
+`EXPLAINED`、`UNEXPLAINED`、`CONTRADICTED`、`NOT-AN-OUTLIER` に分け、
+`UNEXPLAINED` を誤りや自動修正の根拠にしません。
+
+補助ツールとして、Markdownの構造inventoryとcoverage report検証、関係候補語の全出現scan、
+Markdown DB定義表の構造化と明示peer group内の少数値scanを実装しています。CSV、DDL、ORM
+schemaの構造化parserは未実装です。未対応形式やtool失敗ではLLM-only確認を続け、coverageを
+`partial` として未確認範囲を示します。
 
 出力例:
 
