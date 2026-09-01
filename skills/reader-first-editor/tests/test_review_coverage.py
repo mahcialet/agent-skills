@@ -195,6 +195,49 @@ CREATE TABLE events (
         errors = validate_coverage_report(non_string)
         self.assertTrue(any("severityが不正" in error for error in errors))
 
+    def test_root_shape_matches_schema_contract(self) -> None:
+        schema = json.loads(SCHEMA.read_text(encoding="utf-8"))
+        required = schema["required"]
+        for field in required:
+            with self.subTest(missing=field):
+                report = finding_report()
+                del report[field]
+                self.assertTrue(validate_coverage_report(report))
+
+        report = finding_report()
+        report["unexpected"] = True
+        errors = validate_coverage_report(report)
+        self.assertTrue(any("未知のfield" in error for error in errors))
+
+    def test_schema_integer_fields_reject_boolean(self) -> None:
+        report = finding_report()
+        report["candidates"][0]["line"] = True
+        report["findings"][0]["locations"][0]["line"] = True
+        report["dimensions"][0]["candidate_count"] = True
+        errors = validate_coverage_report(report)
+        self.assertTrue(any("1以上のline" in error for error in errors))
+        self.assertTrue(any("candidate_countは0以上の整数" in error for error in errors))
+        self.assertTrue(any("locationにはsourceと1以上のline" in error for error in errors))
+
+        non_integer = finding_report()
+        non_integer["candidates"][0]["line"] = "3"
+        errors = validate_coverage_report(non_integer)
+        self.assertTrue(any("1以上のline" in error for error in errors))
+
+    def test_closed_nested_objects_reject_unknown_fields(self) -> None:
+        mutations = (
+            ("chunk", lambda report: report["chunks"][0].update({"unexpected": True})),
+            ("dimension", lambda report: report["dimensions"][0].update({"unexpected": True})),
+            ("global_pass", lambda report: report["global_pass"].update({"unexpected": True})),
+        )
+        for label, mutate in mutations:
+            with self.subTest(label=label):
+                report = finding_report()
+                mutate(report)
+                self.assertTrue(
+                    any("未知のfield" in error for error in validate_coverage_report(report))
+                )
+
     def test_cli_rejects_invalid_severity(self) -> None:
         report = finding_report("CRITICAL")
         with tempfile.TemporaryDirectory() as directory:

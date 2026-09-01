@@ -289,14 +289,57 @@ def _validate_status(record: dict[str, object], label: str, errors: list[str]) -
         errors.append(f"{label}: {status}には未確認範囲が必要です")
 
 
+def _validate_exact_keys(
+    record: dict[str, object],
+    required: set[str],
+    label: str,
+    errors: list[str],
+) -> None:
+    missing = sorted(required - record.keys())
+    unknown = sorted(record.keys() - required)
+    if missing:
+        errors.append(f"{label}: 必須fieldがありません: {', '.join(missing)}")
+    if unknown:
+        errors.append(f"{label}: 未知のfieldがあります: {', '.join(unknown)}")
+
+
+def _is_integer(value: object, *, minimum: int) -> bool:
+    return isinstance(value, int) and not isinstance(value, bool) and value >= minimum
+
+
+def _is_string_list(value: object, *, nonempty_items: bool = False) -> bool:
+    return isinstance(value, list) and all(
+        isinstance(item, str) and (not nonempty_items or bool(item))
+        for item in value
+    )
+
+
 def validate_coverage_report(report: object) -> list[str]:
     errors: list[str] = []
     if not isinstance(report, dict):
         return ["report rootはobjectである必要があります"]
+    root_keys = {
+        "schema_version",
+        "report_type",
+        "sources",
+        "chunks",
+        "dimensions",
+        "global_pass",
+        "candidates",
+        "findings",
+        "limitations",
+    }
+    _validate_exact_keys(report, root_keys, "report", errors)
     if report.get("schema_version") != 1:
         errors.append("schema_versionは1である必要があります")
     if report.get("report_type") != "coverage-driven-review":
         errors.append("report_typeが不正です")
+    sources = report.get("sources")
+    if not _is_string_list(sources, nonempty_items=True) or not sources:
+        errors.append("sourcesは空でない文字列listである必要があります")
+    limitations = report.get("limitations")
+    if not _is_string_list(limitations):
+        errors.append("limitationsは文字列listである必要があります")
 
     candidates = report.get("candidates")
     candidate_map: dict[str, dict[str, object]] = {}
@@ -308,6 +351,12 @@ def validate_coverage_report(report: object) -> list[str]:
         if not isinstance(candidate, dict):
             errors.append(f"{label}: objectである必要があります")
             continue
+        required_candidate_keys = {"candidate_id", "source", "line", "resolution"}
+        missing_candidate_keys = sorted(required_candidate_keys - candidate.keys())
+        if missing_candidate_keys:
+            errors.append(
+                f"{label}: 必須fieldがありません: {', '.join(missing_candidate_keys)}"
+            )
         candidate_id = candidate.get("candidate_id")
         if not isinstance(candidate_id, str) or not candidate_id:
             errors.append(f"{label}: candidate_idが必要です")
@@ -319,8 +368,10 @@ def validate_coverage_report(report: object) -> list[str]:
             errors.append(f"{label}: resolutionが不正です")
         if not isinstance(candidate.get("source"), str) or not candidate.get("source"):
             errors.append(f"{label}: sourceが必要です")
-        if not isinstance(candidate.get("line"), int) or candidate.get("line", 0) < 1:
+        if not _is_integer(candidate.get("line"), minimum=1):
             errors.append(f"{label}: 1以上のlineが必要です")
+        if "reason" in candidate and not isinstance(candidate.get("reason"), str):
+            errors.append(f"{label}: reasonは文字列である必要があります")
         if candidate.get("resolution") in {"excluded", "unresolved"} and not candidate.get("reason"):
             errors.append(f"{label}: excluded/unresolvedにはreasonが必要です")
 
@@ -328,9 +379,7 @@ def validate_coverage_report(report: object) -> list[str]:
 
     def validate_candidate_refs(record: dict[str, object], label: str) -> None:
         candidate_ids = record.get("candidate_ids")
-        if not isinstance(candidate_ids, list) or not all(
-            isinstance(item, str) for item in candidate_ids
-        ):
+        if not _is_string_list(candidate_ids, nonempty_items=True):
             errors.append(f"{label}: candidate_idsは文字列listである必要があります")
             return
         if len(candidate_ids) != len(set(candidate_ids)):
@@ -349,6 +398,12 @@ def validate_coverage_report(report: object) -> list[str]:
         if not isinstance(chunk, dict):
             errors.append(f"chunk {index}: objectである必要があります")
             continue
+        _validate_exact_keys(
+            chunk,
+            {"chunk_id", "status", "candidate_ids", "unchecked_scope"},
+            f"chunk {index}",
+            errors,
+        )
         chunk_id = chunk.get("chunk_id")
         if not isinstance(chunk_id, str) or not chunk_id:
             errors.append(f"chunk {index}: chunk_idが必要です")
@@ -369,6 +424,22 @@ def validate_coverage_report(report: object) -> list[str]:
         if not isinstance(dimension, dict):
             errors.append(f"{label}: objectである必要があります")
             continue
+        _validate_exact_keys(
+            dimension,
+            {
+                "dimension",
+                "status",
+                "candidate_ids",
+                "candidate_count",
+                "finding_count",
+                "excluded_count",
+                "unresolved_count",
+                "exclusion_reasons",
+                "unchecked_scope",
+            },
+            label,
+            errors,
+        )
         name = dimension.get("dimension")
         if not isinstance(name, str) or not name:
             errors.append(f"{label}: dimension名が必要です")
@@ -378,9 +449,7 @@ def validate_coverage_report(report: object) -> list[str]:
             dimension_names.add(name)
         _validate_status(dimension, label, errors)
         candidate_ids = dimension.get("candidate_ids")
-        if not isinstance(candidate_ids, list) or not all(
-            isinstance(item, str) for item in candidate_ids
-        ):
+        if not _is_string_list(candidate_ids, nonempty_items=True):
             errors.append(f"{label}: candidate_idsは文字列listである必要があります")
             candidate_ids = []
         unknown = set(candidate_ids) - candidate_map.keys()
@@ -389,7 +458,7 @@ def validate_coverage_report(report: object) -> list[str]:
         counts: dict[str, int] = {}
         for key in ("candidate_count", "finding_count", "excluded_count", "unresolved_count"):
             value = dimension.get(key)
-            if not isinstance(value, int) or value < 0:
+            if not _is_integer(value, minimum=0):
                 errors.append(f"{label}: {key}は0以上の整数である必要があります")
                 value = 0
             counts[key] = value
@@ -420,6 +489,12 @@ def validate_coverage_report(report: object) -> list[str]:
     if not isinstance(global_pass, dict):
         errors.append("global_passはobjectである必要があります")
     else:
+        _validate_exact_keys(
+            global_pass,
+            {"status", "candidate_ids", "unchecked_scope"},
+            "global_pass",
+            errors,
+        )
         _validate_status(global_pass, "global_pass", errors)
         validate_candidate_refs(global_pass, "global_pass")
 
@@ -451,9 +526,11 @@ def validate_coverage_report(report: object) -> list[str]:
         if not isinstance(severity, str) or severity not in SEVERITIES:
             errors.append(f"{label}: severityが不正です: {severity!r}")
         linked = finding.get("candidate_ids")
-        if not isinstance(linked, list) or not linked:
+        if not _is_string_list(linked, nonempty_items=True) or not linked:
             errors.append(f"{label}: candidate_idsが必要です")
             continue
+        if len(linked) != len(set(linked)):
+            errors.append(f"{label}: candidate_idsが重複しています")
         for candidate_id in linked:
             if candidate_id not in candidate_map:
                 errors.append(f"{label}: 未定義candidateです: {candidate_id}")
@@ -469,17 +546,22 @@ def validate_coverage_report(report: object) -> list[str]:
             if (
                 not isinstance(location, dict)
                 or not isinstance(location.get("source"), str)
-                or not isinstance(location.get("line"), int)
-                or location.get("line", 0) < 1
+                or not location.get("source")
+                or not _is_integer(location.get("line"), minimum=1)
             ):
                 errors.append(f"{label}: locationにはsourceと1以上のlineが必要です")
                 continue
             location_pairs.add((location["source"], location["line"]))
-        missing_locations = {
-            (str(candidate_map[candidate_id].get("source")), int(candidate_map[candidate_id].get("line", 0)))
+        expected_locations = {
+            (candidate["source"], candidate["line"])
             for candidate_id in linked
             if candidate_id in candidate_map
-        } - location_pairs
+            for candidate in (candidate_map[candidate_id],)
+            if isinstance(candidate.get("source"), str)
+            and bool(candidate.get("source"))
+            and _is_integer(candidate.get("line"), minimum=1)
+        }
+        missing_locations = expected_locations - location_pairs
         if missing_locations:
             errors.append(f"{label}: candidateのlocationを保持していません: {sorted(missing_locations)}")
 

@@ -41,9 +41,10 @@ candidateからbehavior-changing ruleへ直接遷移することはできない�
 ## CLIの実装範囲
 
 provider-neutralかつ標準ライブラリ中心の `scripts/corpus_tool.py` を実装している。
-特定providerのAPIやCLIを内部から起動せず、networkに接続しない次の操作を利用できる。
+次のlocal操作は、特定providerのAPIやCLIを内部から起動せず、networkにも接続しない。
 
 ```text
+corpus collect
 corpus list
 corpus inspect <candidate-id>
 corpus annotate <candidate-id>
@@ -52,11 +53,14 @@ corpus reject <candidate-id>
 corpus validate
 corpus promote <candidate-id>
 corpus promote <candidate-id> --apply
-corpus collect-github --repository <owner/name> --pr-number <number> ...
 ```
 
-`promote` の既定動作はdry-runである。書込み対象、検証結果、拒否理由、生成予定diffを表示するが、
-`--apply` がなければstateもcorpusも変更しない。
+`corpus collect-github --repository <owner/name> --pr-number <number> ...` は例外であり、`--fixture` を
+指定しない場合だけGitHub REST APIへ接続する。CodexやGitHub CopilotなどのLLM providerは起動しない。
+
+`promote` の既定動作はdry-runである。現在と遷移後のstate、書込み対象、変更しないcore fileを
+表示する。gateを通過できない場合はerrorを返す。file内容のdiffは生成しない。`--apply` がなければ
+stateもcorpusも変更しない。
 
 `collect` には、一つのrecordを格納したJSON fileを渡す。`annotate` に渡すJSONは、
 `annotations` objectだけを持つ。`accept` の対象はannotated recordに限る。`reject` はcandidate
@@ -116,13 +120,17 @@ Local dataはインストール済みSkillのsource directoryから分離する�
 ```text
 reader-first-editor-data/
 ├── candidates/
+├── annotated/
 ├── accepted/
 ├── rejected/
 ├── promoted/
 ├── investigations/
 ├── proposals/
+├── regressions/
+├── approvals/
 ├── cache/
 └── audit/
+    └── pending/
 ```
 
 ## 収集するsample

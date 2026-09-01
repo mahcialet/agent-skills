@@ -52,3 +52,5 @@
 人向け出力を短くする場合も、全candidate、分類、locationをmachine-readable reportに保持する。
 machine-readable reportのseverityは `HIGH`、`MEDIUM`、`LOW` のいずれかとする。
 `CRITICAL` などの未定義値やseverityの欠落はvalidatorで拒否する。
+validatorはrootの必須fieldと未知fieldも確認し、integer fieldの `true`／`false` を数値として
+受理しない。

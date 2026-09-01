@@ -1,6 +1,6 @@
 {
   "suite": "review-coverage-ja",
-  "provenance": "2026-09-02に利用者から提示された長文見落とし事例、設計要件、severity validatorに関するrepository-review",
+  "provenance": "2026-09-02に利用者から提示された長文見落とし事例、設計要件、severityおよびschema制約とcustom validatorの差に関するrepository-review",
   "cases": [
     {
       "id": "continue-after-early-findings-to-late-ambiguous-seihon",
@@ -112,6 +112,24 @@
         "valid: true"
       ],
       "expected": "severityの欠落を暗黙の既定値で補わず、不正なreportとして拒否する"
+    },
+    {
+      "id": "coverage-validator-rejects-missing-required-and-unknown-root-fields",
+      "language": "ja",
+      "mode": "review",
+      "input": "coverage reportからsourcesとlimitationsが欠落し、schemaにないunexpected fieldがrootにある。validate-reportで検証する。",
+      "must_preserve": ["sources", "limitations", "unexpected"],
+      "must_not_claim": ["valid: true", "未知fieldを無視する"],
+      "expected": "schemaのrequired field欠落とadditionalProperties: falseに反する未知fieldを拒否し、valid: falseと具体的なvalidation errorを返す"
+    },
+    {
+      "id": "coverage-validator-rejects-boolean-integer-fields",
+      "language": "ja",
+      "mode": "review",
+      "input": "coverage reportのcandidate.lineとcandidate_countにtrueがある。validate-reportで検証する。",
+      "must_preserve": ["candidate.line", "candidate_count", "true"],
+      "must_not_claim": ["trueを1として受理する", "valid: true"],
+      "expected": "JSON Schemaのinteger制約に合わせ、booleanをintegerとして扱わず不正なreportとして拒否する"
     },
     {
       "id": "relationship-scanner-unavailable-continues-review",

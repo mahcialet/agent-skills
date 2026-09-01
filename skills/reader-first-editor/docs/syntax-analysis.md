@@ -102,7 +102,8 @@ accuracyのspreadと、同じcaseに対するrisk判定のdisagreement rateも�
 paired result不足、unsupported／error、parser unavailable、semantic regression、false positiveや
 unnecessary revisionの増加、provider差の増加、改善なしのいずれかがあれば `do-not-default` とする。
 blockerがなく改善が観測されても `human-review-required` に留め、`default_enabled` は常にfalseで
-ある。実際のCodex／GitHub Copilot resultはPhase 8で記録する。それまではoptional機能を既定化しない。
+ある。実際のCodex／GitHub Copilot resultは未収集である。resultを収集し、人間が確認するまでは
+optional機能を既定化しない。
 
 高度なcoreference、bridging reference、discourse relationが必要だという実文上の証拠が得られた
 場合だけ、KWJAなどをexperimental backendとして比較する。重い依存をCoreへ追加しない。

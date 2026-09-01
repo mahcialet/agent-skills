@@ -1,6 +1,7 @@
 # ライセンスとプライバシー
 
-状態: 一部implemented（local validationとpublic GitHub reference-only収集を実装済み）
+状態: 一部implemented（local schema・rights validationとpublic GitHub reference-only収集を実装済み。
+機密情報検出とredaction previewは未実装）
 
 corpus recordでは、sourceのprovenanceと、raw textを保存・再配布できる権利を別々に記録する。
 public repositoryであること、repositoryにlicenseがあること、textを匿名化したことだけを根拠に、
@@ -41,9 +42,11 @@ content単位でstatusを分ける。
 
 ## Privacy
 
-private repositoryや社内文書は既定では収集しない。明示指定されたlocal collectionでも、token、
-secret、credential、個人情報を保存しない。raw textを保存する前にredaction previewと保存先を示し、
-利用者が内容と保存場所を確認できるようにする。
+GitHub collectorはprivate repositoryや社内文書を収集しない。manualなlocal collectionは、利用者が
+明示したJSON recordを保存する機能であり、token、secret、credential、個人情報を自動検出・削除
+しない。`corpus collect --dry-run` はschema・rights制約を検証し、record IDと保存先を示すが、
+redaction previewは生成しない。利用者は保存前にraw textを確認し、機密情報と不要な個人情報を
+削除またはredactする。
 
 project-local dataは、誤ってcommitされないように保護する必要がある。toolはignore状態を確認するが、
 利用者の `.gitignore` は無断で変更しない。unignoredなdirectoryへのwriteを拒否し、
