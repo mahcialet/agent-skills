@@ -38,6 +38,12 @@ dominance ratio、最低group件数、少数値の件数は、見直す候補を
 typeの正規化はdialectを固定して行う。たとえばPostgreSQLでは `TIMESTAMPTZ` と
 `timestamp with time zone` を同じ表現へ正規化できるが、この対応を他のDBへ無条件に適用しない。
 
+nullableを示すheaderと必須性を示すheaderは極性が逆である。`nullable` では `yes` を
+`nullable`、`no` を `not-null` として扱う。`必須` では `yes` を `not-null`、
+`no` を `nullable` として扱う。同じ表に `nullable` と `必須` の両方がある場合は、
+`nullable` を抽出値として優先するが、両列の整合を確認できないためparser coverageを
+`partial` とする。
+
 実装済みの構造化parserはMarkdown tableを対象とする。semantic peer groupはAgentが文脈から
 先に定義し、column名と必要ならtable名のpatternとして明示する。
 

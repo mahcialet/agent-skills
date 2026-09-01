@@ -17,6 +17,13 @@ timestamp:    2
 確認する。Markdown tableを構造化できる場合はtype、nullable、default、constraint、comment、
 source locationを抽出する。dominance ratioはcandidate生成のtripwireであり、誤り判定ではない。
 
+### nullableと必須の極性
+
+`nullable` headerの `yes` はNULLを許可し、`no` はNULLを許可しない。`必須` headerでは
+意味が逆になり、`yes` は `not-null`、`no` は `nullable` となる。同じ表に両方のheaderが
+ある場合、parserは `nullable` を優先するが、両列の整合は未確認としてcoverageを `partial`
+にする。header名を無視して真偽値だけを正規化しない。
+
 ## 根拠が見つからない場合
 
 ```text

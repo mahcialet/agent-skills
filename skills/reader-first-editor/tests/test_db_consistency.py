@@ -67,6 +67,56 @@ class DatabaseConsistencyTests(unittest.TestCase):
         )
         self.assertEqual(generic["rows"][0]["normalized"]["type"], "timestamp with time zone")
 
+    def test_required_header_uses_opposite_polarity_from_nullable(self) -> None:
+        text = """| column | type | 必須 |
+|---|---|---|
+| created_at | timestamptz | yes |
+| updated_at | timestamptz | yes |
+| deleted_at | timestamptz | yes |
+| published_at | timestamptz | no |"""
+        extraction = extract_markdown_tables(text, source="required.md")
+        self.assertEqual(
+            [row["normalized"]["nullable"] for row in extraction["rows"]],
+            ["not-null", "not-null", "not-null", "nullable"],
+        )
+        self.assertTrue(
+            all(row["nullable_source"] == "required" for row in extraction["rows"])
+        )
+
+        report = analyze_peer_groups(
+            extraction,
+            [PeerGroupSpec(name="audit-timestamps", column_pattern=r"_at$")],
+            attributes=("nullable",),
+        )
+        self.assertEqual(report["candidate_count"], 1)
+        self.assertEqual(report["candidates"][0]["column"], "published_at")
+        self.assertEqual(report["candidates"][0]["minority_value"], "nullable")
+
+    def test_nullable_header_keeps_nullable_polarity(self) -> None:
+        text = """| column | type | nullable |
+|---|---|---|
+| created_at | timestamptz | yes |
+| updated_at | timestamptz | no |"""
+        extraction = extract_markdown_tables(text, source="nullable.md")
+        self.assertEqual(
+            [row["normalized"]["nullable"] for row in extraction["rows"]],
+            ["nullable", "not-null"],
+        )
+        self.assertTrue(
+            all(row["nullable_source"] == "nullable" for row in extraction["rows"])
+        )
+
+    def test_nullable_and_required_headers_are_partial(self) -> None:
+        text = """| column | type | nullable | 必須 |
+|---|---|---|---|
+| created_at | timestamptz | no | yes |"""
+        extraction = extract_markdown_tables(text, source="ambiguous.md")
+        self.assertEqual(extraction["status"], "partial")
+        self.assertTrue(any("nullableと必須の両方" in item for item in extraction["limitations"]))
+        row = extraction["rows"][0]
+        self.assertEqual(row["nullable_source"], "nullable")
+        self.assertEqual(row["normalized"]["nullable"], "not-null")
+
     def test_twenty_two_vs_two_creates_candidates_not_verdicts(self) -> None:
         rows: list[tuple[str, str, str, str, str, str]] = []
         for index in range(22):

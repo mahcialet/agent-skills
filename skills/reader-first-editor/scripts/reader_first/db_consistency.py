@@ -13,7 +13,8 @@ HEADER_ALIASES = {
     "table": {"table", "table name", "テーブル", "テーブル名"},
     "column": {"column", "column name", "field", "列", "列名", "カラム", "カラム名"},
     "type": {"type", "data type", "datatype", "型", "データ型"},
-    "nullable": {"nullable", "null", "null allowed", "null許可", "null可", "必須"},
+    "nullable": {"nullable", "null", "null allowed", "null許可", "null可"},
+    "required": {"必須"},
     "default": {"default", "default value", "既定値", "初期値", "デフォルト"},
     "constraint": {"constraint", "constraints", "制約"},
     "comment": {"comment", "description", "note", "説明", "備考", "コメント"},
@@ -74,10 +75,29 @@ def _normalize_nullable(value: str) -> str:
     return normalized or "<missing>"
 
 
-def _normalize_value(attribute: str, value: str, dialect: str) -> str:
+def _normalize_required(value: str) -> str:
+    normalized = value.strip().casefold()
+    yes = {"yes", "y", "true", "必須", "required"}
+    no = {"no", "n", "false", "任意", "optional"}
+    if normalized in yes:
+        return "not-null"
+    if normalized in no:
+        return "nullable"
+    return normalized or "<missing>"
+
+
+def _normalize_value(
+    attribute: str,
+    value: str,
+    dialect: str,
+    *,
+    nullable_source: str = "nullable",
+) -> str:
     if attribute == "type":
         return normalize_type(value, dialect)
     if attribute == "nullable":
+        if nullable_source == "required":
+            return _normalize_required(value)
         return _normalize_nullable(value)
     return re.sub(r"\s+", " ", value.strip().casefold()) or "<missing>"
 
@@ -115,6 +135,11 @@ def extract_markdown_tables(
                 f"{header_line}行目の表はDB定義候補ですがcolumnとtypeの両方を識別できません"
             )
             continue
+        if "nullable" in recognized and "required" in recognized:
+            limitations.append(
+                f"{header_line}行目の表はnullableと必須の両方を持つためnullableを優先し、"
+                "必須との整合は確認していません"
+            )
         parsed_table_count += 1
         for line_number, cells in table_rows:
             if len(cells) != len(headers):
@@ -130,6 +155,13 @@ def extract_markdown_tables(
             if not raw.get("column"):
                 limitations.append(f"{line_number}行目のcolumn名が空です")
                 continue
+            if "nullable" in raw:
+                nullable_source = "nullable"
+            elif "required" in raw:
+                nullable_source = "required"
+            else:
+                nullable_source = "absent"
+            nullable_value = raw.get(nullable_source, "")
             row_id = f"DBROW-{len(rows) + 1:04d}"
             rows.append(
                 {
@@ -139,12 +171,18 @@ def extract_markdown_tables(
                     "table": raw.get("table") or "<unspecified>",
                     "column": raw["column"],
                     "type": raw.get("type", ""),
-                    "nullable": raw.get("nullable", ""),
+                    "nullable": nullable_value,
+                    "nullable_source": nullable_source,
                     "default": raw.get("default", ""),
                     "constraint": raw.get("constraint", ""),
                     "comment": raw.get("comment", ""),
                     "normalized": {
-                        attribute: _normalize_value(attribute, raw.get(attribute, ""), dialect)
+                        attribute: _normalize_value(
+                            attribute,
+                            nullable_value if attribute == "nullable" else raw.get(attribute, ""),
+                            dialect,
+                            nullable_source=nullable_source,
+                        )
                         for attribute in ("type", "nullable", "default", "constraint")
                     },
                 }

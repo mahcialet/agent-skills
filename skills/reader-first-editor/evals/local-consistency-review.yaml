@@ -1,6 +1,6 @@
 {
   "suite": "local-consistency-review",
-  "provenance": "2026-09-02に利用者から提示されたDB日時型の少数例事例と設計要件",
+  "provenance": "2026-09-02に利用者から提示されたDB日時型の少数例事例、設計要件、必須headerの極性に関するrepository-review",
   "cases": [
     {
       "id": "unexplained-timestamp-minority",
@@ -53,6 +53,42 @@
         "timestampはtimestamptzへ統一する"
       ],
       "expected": "監査日時、暦日、利用者の現地時刻をglobal frequencyだけで同じpeer groupにせず、少数派という理由ではflagしない"
+    },
+    {
+      "id": "required-header-uses-required-polarity",
+      "language": "ja",
+      "mode": "review",
+      "input": "| column | type | 必須 |\n|---|---|---|\n| created_at | timestamptz | yes |\n| updated_at | timestamptz | yes |\n| deleted_at | timestamptz | yes |\n| published_at | timestamptz | no |",
+      "expected_coverage_statuses": ["checked"],
+      "must_not_claim": [
+        "必須yesはnullable",
+        "published_atはnot-null"
+      ],
+      "expected": "必須headerのyesをnot-null、noをnullableとして正規化し、3対1の少数例はpublished_atとして候補化する。headerの極性をnullableと同一視しない"
+    },
+    {
+      "id": "nullable-header-keeps-nullable-polarity",
+      "language": "ja",
+      "mode": "review",
+      "input": "| column | type | nullable |\n|---|---|---|\n| created_at | timestamptz | yes |\n| updated_at | timestamptz | no |",
+      "expected_coverage_statuses": ["checked"],
+      "must_not_claim": [
+        "nullable yesはnot-null",
+        "nullable noはnullable"
+      ],
+      "expected": "nullable headerでは従来どおりyesをnullable、noをnot-nullとして扱い、必須header向けの反転を適用しない"
+    },
+    {
+      "id": "nullable-and-required-headers-remain-partial",
+      "language": "ja",
+      "mode": "review",
+      "input": "| column | type | nullable | 必須 |\n|---|---|---|---|\n| created_at | timestamptz | no | yes |",
+      "expected_coverage_statuses": ["partial"],
+      "must_not_claim": [
+        "両headerの整合を確認済み",
+        "checked / 0 findings"
+      ],
+      "expected": "nullableと必須の両方がある場合はnullableを抽出値として優先するが、必須列との整合は未確認としてparser coverageをpartialにし、limitationsへ理由を残す"
     },
     {
       "id": "scanner-candidates-are-contextually-excluded",
