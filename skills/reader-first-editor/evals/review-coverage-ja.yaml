@@ -126,10 +126,10 @@
       "id": "coverage-validator-rejects-boolean-integer-fields",
       "language": "ja",
       "mode": "review",
-      "input": "coverage reportのcandidate.lineとcandidate_countにtrueがある。validate-reportで検証する。",
-      "must_preserve": ["candidate.line", "candidate_count", "true"],
+      "input": "coverage reportのschema_version、candidate.line、candidate_countにtrueがある。validate-reportで検証する。",
+      "must_preserve": ["schema_version", "candidate.line", "candidate_count", "true"],
       "must_not_claim": ["trueを1として受理する", "valid: true"],
-      "expected": "JSON Schemaのinteger制約に合わせ、booleanをintegerとして扱わず不正なreportとして拒否する"
+      "expected": "JSON Schemaのinteger制約に合わせ、schema_versionを含むinteger fieldでbooleanを数値として扱わず、不正なreportとして拒否する"
     },
     {
       "id": "relationship-scanner-unavailable-continues-review",

@@ -93,7 +93,7 @@ toolはsupport数をrecord件数ではなくcorrelation groupから再計算す�
 
 ### proposal draftを作る
 
-gateを通過した `PROMOTE` resultとhuman-reviewedなrule diffから、次でproposal draftを作る。
+gateを通過した `PROMOTE` resultと、review対象のnonemptyなrule diff draftから次でproposalを作る。
 
 ```bash
 python3 "$tool" --data-dir "$data_dir" rules propose \
@@ -103,6 +103,8 @@ python3 "$tool" --data-dir "$data_dir" rules propose \
 このcommandも既定ではpreviewだけを返す。`--apply` が意味するのは、local `proposals/` への
 保存だけである。proposalの `human_approval.approved` は必ずfalseであり、regression statusは全て
 `not-run` で始まり、`SKILL.md`、references、evalsを変更しない。
+この段階ではpatch構造、許可target、apply可能性を検証せず、human approvalも記録しない。これらは
+regression後の `rules approve` と `rules apply` で検証する。
 
 ### regressionから明示applyまで進める
 

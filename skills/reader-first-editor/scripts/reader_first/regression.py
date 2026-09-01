@@ -13,6 +13,7 @@ from copy import deepcopy
 from datetime import datetime, timezone
 from pathlib import Path
 
+from .schema_validation import is_schema_version
 from .state import STATE_DIRECTORIES, LocalCorpusStore, StoreError
 
 REQUIRED_PROVIDERS = ["codex", "github-copilot"]
@@ -120,7 +121,7 @@ def validate_rule_proposal(proposal: object) -> dict:
         "human_approval",
     }
     _exact_keys(data, keys, "proposal")
-    if data.get("schema_version") != 1 or data.get("status") != "PROMOTE":
+    if not is_schema_version(data.get("schema_version")) or data.get("status") != "PROMOTE":
         raise RegressionError("PROMOTE statusのschema v1 proposalが必要です")
     if not data.get("provenance_reviewed"):
         raise RegressionError("proposalのprovenance reviewが未完了です")
@@ -414,7 +415,7 @@ def validate_regression_plan(plan: object) -> dict:
         "requirements",
     }
     _exact_keys(data, keys, "regression plan")
-    if data.get("schema_version") != 1:
+    if not is_schema_version(data.get("schema_version")):
         raise RegressionError("regression plan schema_versionが未対応です")
     _string(data, "created_at", "regression plan")
     providers = _provider_matrix({"providers": data.get("providers")})
@@ -463,7 +464,7 @@ def validate_regression_run(run: object, plan: dict) -> dict:
         "cases",
     }
     _exact_keys(data, keys, "regression run")
-    if data.get("schema_version") != 1 or data.get("plan_id") != plan["id"]:
+    if not is_schema_version(data.get("schema_version")) or data.get("plan_id") != plan["id"]:
         raise RegressionError("regression runのschemaまたはplan IDが不正です")
     for key in ("provider", "model", "model_version", "host_version", "created_at"):
         _string(data, key, "regression run")
@@ -651,7 +652,7 @@ def validate_regression_report(report: object) -> dict:
         "blockers",
     }
     _exact_keys(data, keys, "regression report")
-    if data.get("schema_version") != 1:
+    if not is_schema_version(data.get("schema_version")):
         raise RegressionError("regression report schema_versionが未対応です")
     _string(data, "created_at", "regression report")
     run_ids = _strings(data, "run_ids", "regression report", nonempty=True, unique=True)
@@ -749,7 +750,7 @@ def validate_rule_approval(approval: object) -> dict:
         "reason",
     }
     _exact_keys(data, keys, "rule approval")
-    if data.get("schema_version") != 1 or data.get("approved") is not True:
+    if not is_schema_version(data.get("schema_version")) or data.get("approved") is not True:
         raise RegressionError("approved schema v1 artifactが必要です")
     for key in ("reviewer", "approved_at", "reason"):
         _string(data, key, "rule approval")

@@ -211,10 +211,12 @@ CREATE TABLE events (
 
     def test_schema_integer_fields_reject_boolean(self) -> None:
         report = finding_report()
+        report["schema_version"] = True
         report["candidates"][0]["line"] = True
         report["findings"][0]["locations"][0]["line"] = True
         report["dimensions"][0]["candidate_count"] = True
         errors = validate_coverage_report(report)
+        self.assertTrue(any("schema_versionは1" in error for error in errors))
         self.assertTrue(any("1以上のline" in error for error in errors))
         self.assertTrue(any("candidate_countは0以上の整数" in error for error in errors))
         self.assertTrue(any("locationにはsourceと1以上のline" in error for error in errors))

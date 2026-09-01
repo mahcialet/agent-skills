@@ -23,7 +23,8 @@ recordは、原文に正解labelを付けるためのものではない。proven
 - immutableなsource、取得日時、source内の相関を識別する情報
 - authorshipとAI assistanceの既知・不明
 - review signalと、その根拠
-- rights status、raw text再配布可否、local-only、匿名化・redaction・変更の有無
+- rights status、raw text再配布可否、local-only、匿名化・redaction・変更の有無。repository
+  licenseの値がある場合は、取得・確認方法を `rights.notes` に記録する
 - raw text、reference-only、hashのどれで保存したか
 - expected behavior、annotation rationale、semantic invariants、do-not-change constraints
 - decision state、reviewer、日時、理由

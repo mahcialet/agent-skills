@@ -22,10 +22,11 @@ parserがない環境でもSkill全体の処理は継続する。
 - [GiNZA repository](https://github.com/megagonlabs/ginza)
 
 `ginza==5.2.0` と `ja-ginza==5.2.0` のdependency宣言では、spaCy `<4.0.0,>=3.4.4` が許容される。
-ただし、2026-08-30のisolated testでは、spaCy 3.8系で `ja_ginza` のloadに失敗した。
-Python 3.12.13、`spacy==3.7.5`、`click==8.1.8` では解析に成功した。このため、導入例では
-実測済みversionをpinしている。将来versionを変更する場合は、同じload testとrecorded fixtureを
-再実行する。
+repositoryに保存している再現可能な結果は、Python 3.12.13、`spacy==3.7.5`、`click==8.1.8` での
+解析成功である。spaCy 3.8系でloadに失敗したという当時の観察については、exact version、error、
+failure fixtureが残っていないため、この文書では3.8系の非互換をclaimしない。導入例はrecorded
+fixtureと一致する3.7.5をpinしている。将来versionを変更する場合は、同じload testとrecorded
+fixtureを再実行する。
 
 初回installにはnetwork接続が必要である。約59 MBのmodel wheelに加え、spaCyやSudachiの依存も
 取得する。通常のreviewがpackage installやmodel downloadを開始することはない。GiNZA modelは

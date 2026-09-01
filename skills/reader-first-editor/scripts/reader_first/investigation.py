@@ -9,6 +9,7 @@ from copy import deepcopy
 from datetime import datetime, timezone
 from pathlib import Path
 
+from .schema_validation import is_schema_version
 from .state import STATE_DIRECTORIES, LocalCorpusStore, StoreError
 
 DECISIONS = {"PROMOTE", "REJECT", "HOLD", "NEEDS_MORE_EVIDENCE"}
@@ -314,7 +315,7 @@ def validate_investigation_bundle(bundle: object) -> dict:
         "output_contract",
     }
     _require_exact_keys(data, expected_keys, "bundle")
-    if data["schema_version"] != 1:
+    if not is_schema_version(data["schema_version"]):
         raise InvestigationError("bundle.schema_versionが未対応です")
     _require_string(data, "created_at", "bundle")
     _require_string(data, "actor", "bundle")
@@ -442,7 +443,7 @@ def validate_investigation_result(result: object, bundle: dict) -> tuple[dict, l
 
     data = deepcopy(_require_dict(result, "investigation"))
     _require_exact_keys(data, RESULT_KEYS, "investigation")
-    if data.get("schema_version") != 1:
+    if not is_schema_version(data.get("schema_version")):
         raise InvestigationError("investigation.schema_versionが未対応です")
     if data.get("bundle_id") != bundle["id"]:
         raise InvestigationError("investigation.bundle_idがbundleと一致しません")

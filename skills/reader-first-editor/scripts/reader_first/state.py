@@ -15,6 +15,8 @@ from copy import deepcopy
 from datetime import datetime, timezone
 from pathlib import Path
 
+from .schema_validation import is_schema_version
+
 SCHEMA_VERSION = 1
 TOOL_VERSION = "0.5.0"
 STATE_DIRECTORIES = {
@@ -209,7 +211,7 @@ def validate_corpus_record(record: dict) -> None:
     record_id = _require_string(record, "id")
     if not re.fullmatch(r"rfe-[0-9a-f]{20}", record_id):
         raise RecordValidationError("idはdeterministic candidate ID形式である必要があります")
-    if record["schema_version"] != SCHEMA_VERSION:
+    if not is_schema_version(record["schema_version"], SCHEMA_VERSION):
         raise RecordValidationError(f"未対応のschema_versionです: {record['schema_version']!r}")
     if record["language"] not in {"ja", "en"}:
         raise RecordValidationError("languageは'ja'または'en'である必要があります")

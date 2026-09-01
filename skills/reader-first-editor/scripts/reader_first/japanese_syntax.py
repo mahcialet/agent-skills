@@ -14,6 +14,8 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Any
 
+from .schema_validation import is_schema_version
+
 REQUIRED_PROVIDERS = ["codex", "github-copilot"]
 CONDITIONS = ["llm-only", "llm-plus-signals"]
 CONDITION_MARKERS = {
@@ -312,7 +314,7 @@ def validate_syntax_signal(value: object) -> dict:
     }
     if set(data) != keys:
         raise SyntaxAnalysisError("syntax signalのkeyがschema v1と一致しません")
-    if data["schema_version"] != 1 or data["backend"] != "ginza":
+    if not is_schema_version(data["schema_version"]) or data["backend"] != "ginza":
         raise SyntaxAnalysisError("syntax signalのschemaまたはbackendが不正です")
     if data["interpretation"] != "observation-only":
         raise SyntaxAnalysisError("parser outputを判定として保存できません")
@@ -341,7 +343,11 @@ def _require_ab_input(value: object) -> dict:
     data = deepcopy(value)
     if set(data) != {"schema_version", "experiment", "required_providers", "observations"}:
         raise SyntaxAnalysisError("A/B inputのkeyがschema v1と一致しません")
-    if data["schema_version"] != 1 or not isinstance(data["experiment"], str) or not data["experiment"].strip():
+    if (
+        not is_schema_version(data["schema_version"])
+        or not isinstance(data["experiment"], str)
+        or not data["experiment"].strip()
+    ):
         raise SyntaxAnalysisError("A/B inputのschemaまたはexperimentが不正です")
     if data["required_providers"] != REQUIRED_PROVIDERS:
         raise SyntaxAnalysisError("A/B inputにはCodexとGitHub Copilotをこの順で指定してください")
@@ -654,7 +660,7 @@ def validate_syntax_ab_report(value: object) -> dict:
         "recommendation",
         "default_enabled",
     }
-    if set(data) != keys or data.get("schema_version") != 1:
+    if set(data) != keys or not is_schema_version(data.get("schema_version")):
         raise SyntaxAnalysisError("syntax A/B reportのkeyまたはschema versionが不正です")
     body = {key: data[key] for key in keys - {"id", "created_at"}}
     if data.get("id") != f"rfsab-{_canonical_hash(body)[:20]}":

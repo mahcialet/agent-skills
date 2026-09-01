@@ -77,6 +77,7 @@ REQUIRED_TOOL_FILES = {
     "scripts/reader_first/regression.py",
     "scripts/reader_first/relationship_candidates.py",
     "scripts/reader_first/review_coverage.py",
+    "scripts/reader_first/schema_validation.py",
     "scripts/reader_first/state.py",
 }
 REQUIRED_GITHUB_FIXTURES = {

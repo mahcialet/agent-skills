@@ -17,6 +17,7 @@ from reader_first.japanese_syntax import (
     SyntaxAnalysisError,
     analyze_japanese,
     build_syntax_ab_report,
+    validate_syntax_ab_report,
     validate_syntax_signal,
 )
 
@@ -221,6 +222,16 @@ class JapaneseSyntaxTests(unittest.TestCase):
         }
         self.assertEqual(validate_syntax_signal(result)["signals"]["token_count"], 29)
 
+    def test_signal_rejects_boolean_schema_version(self) -> None:
+        result = analyze_japanese(
+            "その条件の場合は続行しない。",
+            loader=lambda _model: fake_backend(),
+            timer=iter([1.0, 1.01]).__next__,
+        )
+        result["schema_version"] = True
+        with self.assertRaisesRegex(SyntaxAnalysisError, "schema"):
+            validate_syntax_signal(result)
+
     def test_invalid_interpretation_is_rejected(self) -> None:
         result = analyze_japanese(
             "日本語です。",
@@ -232,6 +243,18 @@ class JapaneseSyntaxTests(unittest.TestCase):
 
 
 class SyntaxAbTests(unittest.TestCase):
+    def test_input_and_report_reject_boolean_schema_version(self) -> None:
+        experiment = improving_experiment()
+        invalid_experiment = deepcopy(experiment)
+        invalid_experiment["schema_version"] = True
+        with self.assertRaisesRegex(SyntaxAnalysisError, "schema"):
+            build_syntax_ab_report(invalid_experiment)
+
+        report = build_syntax_ab_report(experiment)
+        report["schema_version"] = True
+        with self.assertRaisesRegex(SyntaxAnalysisError, "schema"):
+            validate_syntax_ab_report(report)
+
     def test_improvement_requires_human_review_and_never_defaults(self) -> None:
         report = build_syntax_ab_report(
             improving_experiment(),

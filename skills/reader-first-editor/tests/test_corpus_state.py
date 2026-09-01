@@ -20,6 +20,7 @@ from reader_first.state import (
     RecordValidationError,
     StoreError,
     deterministic_candidate_id,
+    prepare_candidate_record,
     resolve_data_dir,
     validate_corpus_record,
 )
@@ -192,6 +193,12 @@ class RecordTests(unittest.TestCase):
         record["source"]["assumed_license"] = "MIT"
         with self.assertRaises(RecordValidationError):
             validate_corpus_record(record)
+
+    def test_record_validation_rejects_boolean_schema_version(self) -> None:
+        record = sample_record()
+        record["schema_version"] = True
+        with self.assertRaisesRegex(RecordValidationError, "schema_version"):
+            prepare_candidate_record(record)
 
     def test_record_validation_recomputes_deterministic_id(self) -> None:
         record = sample_record()

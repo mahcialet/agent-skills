@@ -140,6 +140,7 @@ constraintなどの分布から、少数値をcandidateとして確認できま�
 補助ツールとして、次の処理を実装しています。Markdownの構造inventory、coverage reportの
 schema・整合性検証、
 関係候補語の全出現scan、Markdown DB定義表の構造化、明示peer group内の少数値scanです。
+schema-backed artifactでは、booleanの `true` をversion 1として受理しません。
 CSV、DDL、ORM schemaの構造化parserは未実装です。未対応形式やtool失敗の場合も
 LLM-only確認を続け、coverageを `partial` として未確認範囲を示します。
 
@@ -224,7 +225,8 @@ python3 "$tool" --data-dir "$data_dir" corpus collect-github \
 
 保存するのは、変更済みMarkdownのpath・SHA、review state、inline threadの位置と件数だけです。
 これらを `github_evidence` に残し、rightsは `unknown`、textは `reference-only`、recordは
-`local_only` とします。`--dry-run` を外すまでlocal dataへも書き込みません。
+`local_only` とします。repository licenseの値と、GitHub REST APIのrepository metadataから
+観測したことは `rights.notes` に記録します。`--dry-run` を外すまでlocal dataへも書き込みません。
 
 #### ruleを調査・昇格する
 

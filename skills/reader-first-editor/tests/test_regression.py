@@ -25,7 +25,11 @@ from reader_first.regression import (
     parse_rule_patch,
     preview_rule_apply,
     validate_regression_run,
+    validate_regression_plan,
+    validate_regression_report,
     validate_report_against_runs,
+    validate_rule_approval,
+    validate_rule_proposal,
 )
 from reader_first.state import LocalCorpusStore
 from test_investigation import create_record, valid_result
@@ -211,6 +215,37 @@ class RegressionTests(unittest.TestCase):
         self.assertEqual(set(report["gates"].values()), {"pass"})
         self.assertEqual(report["metrics"]["no_change_accuracy"], 1.0)
         self.assertEqual(validate_report_against_runs(report, self.plan, self.runs), report)
+
+    def test_all_regression_artifacts_reject_boolean_schema_version(self) -> None:
+        report = build_regression_report(
+            self.plan,
+            self.runs,
+            clock=lambda: "2026-08-30T13:00:00Z",
+        )
+        approval = build_rule_approval(
+            self.proposal,
+            report,
+            reviewer="human-reviewer",
+            reason="all gates passed",
+            clock=lambda: "2026-08-30T14:00:00Z",
+        )
+        artifacts = (
+            ("proposal", validate_rule_proposal, self.proposal),
+            ("plan", validate_regression_plan, self.plan),
+            ("report", validate_regression_report, report),
+            ("approval", validate_rule_approval, approval),
+        )
+        for label, validator, artifact in artifacts:
+            with self.subTest(label=label):
+                invalid = deepcopy(artifact)
+                invalid["schema_version"] = True
+                with self.assertRaisesRegex(RegressionError, "schema"):
+                    validator(invalid)
+
+        invalid_run = passing_run(self.plan, self.plan["providers"][0], 1)
+        invalid_run["schema_version"] = True
+        with self.assertRaisesRegex(RegressionError, "schema"):
+            validate_regression_run(invalid_run, self.plan)
 
     def test_missing_repeat_fails_report(self) -> None:
         report = build_regression_report(self.plan, self.runs[:-1])

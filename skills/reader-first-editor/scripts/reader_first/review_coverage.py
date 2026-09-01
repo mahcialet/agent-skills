@@ -4,6 +4,8 @@ from dataclasses import dataclass
 import re
 from typing import Iterable
 
+from .schema_validation import is_schema_version
+
 
 COVERAGE_STATUSES = {"checked", "partial", "not-checked"}
 RESOLUTIONS = {"finding", "excluded", "unresolved"}
@@ -330,7 +332,7 @@ def validate_coverage_report(report: object) -> list[str]:
         "limitations",
     }
     _validate_exact_keys(report, root_keys, "report", errors)
-    if report.get("schema_version") != 1:
+    if not is_schema_version(report.get("schema_version")):
         errors.append("schema_versionは1である必要があります")
     if report.get("report_type") != "coverage-driven-review":
         errors.append("report_typeが不正です")

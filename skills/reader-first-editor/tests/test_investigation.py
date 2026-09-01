@@ -196,6 +196,18 @@ class InvestigationTests(unittest.TestCase):
         self.assertEqual(result["id"], second["id"])
         self.assertRegex(result["id"], r"^rfi-[0-9a-f]{20}$")
 
+    def test_bundle_and_result_reject_boolean_schema_version(self) -> None:
+        bundle = self.bundle()
+        invalid_bundle = deepcopy(bundle)
+        invalid_bundle["schema_version"] = True
+        with self.assertRaisesRegex(InvestigationError, "schema_version"):
+            validate_bundle_against_store(invalid_bundle, self.store)
+
+        result = valid_result(bundle)
+        result["schema_version"] = True
+        with self.assertRaisesRegex(InvestigationError, "schema_version"):
+            validate_investigation_result(result, bundle)
+
     def test_unexplained_counterexample_blocks_promote(self) -> None:
         bundle = self.bundle()
         result = valid_result(bundle)

@@ -53,4 +53,4 @@
 machine-readable reportのseverityは `HIGH`、`MEDIUM`、`LOW` のいずれかとする。
 `CRITICAL` などの未定義値やseverityの欠落はvalidatorで拒否する。
 validatorはrootの必須fieldと未知fieldも確認し、integer fieldの `true`／`false` を数値として
-受理しない。
+受理しない。`schema_version: true` もversion 1として扱わず拒否する。

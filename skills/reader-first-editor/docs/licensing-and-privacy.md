@@ -32,7 +32,8 @@ human／bot／unknownの種別だけを残す。
 - source type、repository、PR・commit・file・span
 - immutable revisionと取得日時
 - authorship、AI assistance、review signal
-- repository licenseとして観測した値と確認方法
+- repository licenseとして観測した値と確認方法。確認方法は `rights.notes` に記録し、GitHub
+  collectorはGitHub REST APIのrepository metadataから取得したことを明記する
 - raw text、PR本文、review commentそれぞれのredistribution status
 - local-only、public候補、redaction、改変の有無
 - record作成者とannotationの由来
@@ -42,11 +43,12 @@ content単位でstatusを分ける。
 
 ## Privacy
 
-GitHub collectorはprivate repositoryや社内文書を収集しない。manualなlocal collectionは、利用者が
-明示したJSON recordを保存する機能であり、token、secret、credential、個人情報を自動検出・削除
-しない。`corpus collect --dry-run` はschema・rights制約を検証し、record IDと保存先を示すが、
-redaction previewは生成しない。利用者は保存前にraw textを確認し、機密情報と不要な個人情報を
-削除またはredactする。
+GitHub collectorはprivate repositoryを収集しない。一方、public repository内の文書が社内向けか、
+機密情報を含むかは判定しない。reference-only recordにもpath、SHAなどのmetadataは保存する。
+manualなlocal collectionは、利用者が明示したJSON recordを保存する機能であり、token、secret、
+credential、個人情報を自動検出・削除しない。`corpus collect --dry-run` はschema・rights制約を
+検証し、record IDと保存先を示すが、redaction previewは生成しない。利用者は保存前にraw textを
+確認し、機密情報と不要な個人情報を削除またはredactする。
 
 project-local dataは、誤ってcommitされないように保護する必要がある。toolはignore状態を確認するが、
 利用者の `.gitignore` は無断で変更しない。unignoredなdirectoryへのwriteを拒否し、

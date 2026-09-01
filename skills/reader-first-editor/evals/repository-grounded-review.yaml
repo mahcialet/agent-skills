@@ -101,6 +101,16 @@
         "Skillのtestが対象schemaの意図を示す"
       ],
       "expected": "Skill同梱のeval、example、testをreview手順の検証dataとして対象repositoryの業務証拠から除外し、対象schemaの理由はUNSUPPORTEDのままにする"
+    },
+    {
+      "id": "required-provenance-needs-value-and-method",
+      "language": "ja",
+      "mode": "repository-review",
+      "input": "privacy文書はrepository licenseの値と確認方法を必須provenanceとしている。corpus recordにはrepository_licenseの値があるが、取得方法を示すfieldやnotesがない。",
+      "expected_statuses": ["CONTRADICTED"],
+      "expected_evidence_types": ["DOC↔CODE"],
+      "must_not_claim": ["license値だけで確認方法も分かる", "repository licenseがPR本文の権利を証明する"],
+      "expected": "必須とされた確認方法をrecordから特定できない不一致を報告し、取得元または確認方法を既存fieldへ明記するかschemaへ追加するよう提案する"
     }
   ]
 }

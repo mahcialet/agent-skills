@@ -102,6 +102,7 @@ consolidatorは、同じ原因を指すcandidateを統合できる。ただし�
 少数値candidateを返す。
 `scripts/review_coverage.py validate-report` はrootとclosed objectの必須・未知field、文字列list、
 integer field、coverage固有の件数・参照整合性を検証する。JSONのbooleanをintegerとして受理しない。
+`schema_version` もintegerとして検証し、`true` をversion 1として受理しない。
 findingのseverityは `HIGH`、`MEDIUM`、`LOW` に限定し、欠落やそれ以外の値を拒否する。
 
 ツールはAgentの判断を置き換えない。利用できない場合はLLM-onlyの確認を続け、coverageを
