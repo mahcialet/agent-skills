@@ -42,6 +42,7 @@ REQUIRED_SUITES = {
     "reread-risk-ja",
     "interaction-clarity-ja",
     "relationship-clarity-ja",
+    "review-coverage-ja",
     "prose-pacing",
     "repository-grounded-review",
 }
