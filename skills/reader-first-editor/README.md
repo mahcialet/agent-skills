@@ -1,16 +1,18 @@
 # Reader-First Editor
 
 `reader-first-editor` は、人間向けの日本語・英語の文章を校正・校閲・改稿するSkillです。
-誤字や表記だけでなく、要点を初読でつかめるか、読み返さずに条件・例外や情報同士の関係を
-理解できるか、重要な情報と補足のどちらを優先すべきか分かるかまで確認します。長文では
-確認範囲をcoverageとして示し、同じ役割を持つ要素群から外れる少数例も根拠とともに確認します。改稿では、
-元の内容が変わっていないことも確かめます。リポジトリ内校閲を明示された場合は、文書の記述を
-同一リポジトリ内のコード、設定、テスト、他文書などと照合します。
+誤字や表記に加え、要点を初読でつかめるか、条件・例外や情報同士の関係を読み返さずに
+理解できるか、重要な情報と補足の優先順位が分かるかを確認します。
 
-既定は、原文を変更しない `review` です。改稿には明示的な依頼が必要です。改稿する場合は、
-事実、誰が何をするか、条件、例外、否定、必須・推奨・任意・可能性の違い、用語などが
-変わっていないかを、改稿前後で確認します。不明な期限、担当、手順、保証、義務は
-創作しません。確認項目の詳細は
+長文では確認範囲をcoverageとして示します。また、同じ役割を持つ要素群から外れる少数例も、
+根拠とともに確認します。改稿では、元の内容が変わっていないことも確かめます。
+リポジトリ内校閲を明示された場合は、文書の記述を同一リポジトリ内のコード、設定、テスト、
+他文書などと照合します。
+
+既定は、原文を変更しない `review` です。改稿には明示的な依頼が必要です。
+改稿前後では、事実、誰が何をするか、条件、例外、否定、必須・推奨・任意・可能性の違い、
+用語などが変わっていないかを確認します。不明な期限、担当、手順、保証、義務は創作しません。
+確認項目の詳細は
 [改稿前後の確認項目](references/core/semantic-preservation.md)を参照してください。
 
 ## 主要機能
@@ -105,12 +107,14 @@ Copilot CLI:
 | `UNSUPPORTED` | 確認範囲内に、リポジトリ内の証拠もcitationも見つからない |
 | `UNVERIFIED` | 外部情報が必要で、通常のrepository-reviewでは確認できない |
 
-根拠が見つからないことを、文書の記述が誤っている証拠にはしません。コード、テスト、
-設定、文書が競合する場合も、一律の優先順位でどれかを正しいと決めません。資料が食い違う
-場合にどれを優先するか、各資料をどの用途で使うかがリポジトリ内で明示されているか確認し、
-競合を報告します。モデルの知識は検証済みの証拠として使いません。外部サービスの現在の
-提供状況など、真偽の確認にリポジトリ外の最新情報が必要な記述は `UNVERIFIED` とします。
-このような記述は、citationがないだけで `UNSUPPORTED` へ変えません。
+根拠が見つからないだけでは、文書の記述が誤っている証拠にはなりません。コード、テスト、
+設定、文書が競合する場合も、一律の優先順位でどれかを正しいとは決めません。どの資料を
+優先するか、各資料をどの用途で使うかがリポジトリ内で明示されているかを確認し、競合を
+報告します。
+
+モデルの知識は、検証済みの証拠として使いません。外部サービスの現在の提供状況など、
+真偽の確認にリポジトリ外の最新情報が必要な記述は `UNVERIFIED` とします。このような記述は、
+citationがないだけで `UNSUPPORTED` へ変えません。
 
 探索は対象文書の参照、識別子、設定キーから始め、関連する範囲へ段階的に広げます。
 大規模リポジトリを黙って全件走査しません。Git履歴の確認は、履歴に依存する文書の記述、
@@ -120,22 +124,23 @@ Copilot CLI:
 
 ### 長文と局所整合性
 
-長文では、見出し、段落群、表、list、code fenceをinventory化し、構造単位の局所pass後に
-文書全体のglobal passを行います。前半で数件見つけても探索を止めず、severityはcandidate収集後に
-付けます。coverage summaryでは `checked`、`partial`、`not-checked` を使い、確認済み0件と
-未確認を区別します。詳細は
+長文では、見出し、段落群、表、list、code fenceをinventory化します。構造単位ごとに
+局所passを行った後、文書全体のglobal passを行います。前半で数件見つけても探索を止めず、
+severityはcandidate収集後に付けます。coverage summaryでは `checked`、`partial`、
+`not-checked` を使い、確認済み0件と未確認を区別します。詳細は
 [coverage-driven reviewの設計](docs/coverage-driven-review.md)を参照してください。
 
-DB定義表などでは、semantic peer groupを先に定義し、type、nullable、default、constraintなどの
-分布から少数値をcandidateとして確認できます。全体頻度や少数派だけでは誤りとせず、repository内の
-schema、migration、comment、code、test、ADRなどから例外理由を探します。結果は
+DB定義表などでは、semantic peer groupを先に定義します。その上で、type、nullable、default、
+constraintなどの分布から、少数値をcandidateとして確認できます。全体頻度や少数派だけでは
+誤りとせず、repository内のschema、migration、comment、code、test、ADRなどから例外理由を
+探します。結果は
 `EXPLAINED`、`UNEXPLAINED`、`CONTRADICTED`、`NOT-AN-OUTLIER` に分け、
 `UNEXPLAINED` を誤りや自動修正の根拠にしません。
 
-補助ツールとして、Markdownの構造inventoryとcoverage report検証、関係候補語の全出現scan、
-Markdown DB定義表の構造化と明示peer group内の少数値scanを実装しています。CSV、DDL、ORM
-schemaの構造化parserは未実装です。未対応形式やtool失敗ではLLM-only確認を続け、coverageを
-`partial` として未確認範囲を示します。
+補助ツールとして、次の処理を実装しています。Markdownの構造inventory、coverage report検証、
+関係候補語の全出現scan、Markdown DB定義表の構造化、明示peer group内の少数値scanです。
+CSV、DDL、ORM schemaの構造化parserは未実装です。未対応形式やtool失敗の場合も
+LLM-only確認を続け、coverageを `partial` として未確認範囲を示します。
 
 出力例:
 
@@ -150,9 +155,9 @@ schemaの構造化parserは未実装です。未対応形式やtool失敗ではL
 
 ## 開発者向け：Skillの育成・評価（一部implemented）
 
-以下はSkillを育成・評価する開発者向けの機能です。通常の校正・校閲・改稿から分離されて
-います。local corpusや構造sensorを通常のreviewへ暗黙に読み込んだり、自動起動したりしません。
-校正・校閲・改稿だけを利用する場合、この節のCLI操作は不要です。
+以下は、Skillを育成・評価する開発者向けの機能です。通常の校正・校閲・改稿からは
+分離されています。local corpusや構造sensorを通常のreviewへ暗黙に読み込んだり、
+自動起動したりしません。校正・校閲・改稿だけを利用する場合、この節のCLI操作は不要です。
 
 ### ローカルコーパスを育成する
 
@@ -165,12 +170,12 @@ public promotionと通常のreviewでのlocal corpus利用は未実装であり�
 
 実装済みの範囲は、schema v1、local data directoryの解決、state transition、audit log、
 manual corpus CLI、local promotion、public GitHub PRのreference-only収集、
-adversarial investigation bundle、proposal draftです。provider-neutralなregression plan・
-result取込み・report、人間の承認artifact、限定したrule applyも利用できます。
+adversarial investigation bundle、proposal draftです。さらに、provider-neutralな
+regression plan・result取込み・report、人間の承認artifact、限定したrule applyも利用できます。
 
 候補の収集、corpusへのpromotion、behavior-changing ruleのpromotionは、別々の確認段階に
-分けています。収集したcandidateやpromoted local corpusを通常のreviewへ暗黙に読み込まず、
-明示的なapplyと人間の承認なしに `SKILL.md`、references、evalsを変更しません。
+分けています。収集したcandidateやpromoted local corpusを通常のreviewへ暗黙に読み込みません。
+また、明示的なapplyと人間の承認なしに `SKILL.md`、references、evalsを変更しません。
 
 #### local corpusを操作する
 
@@ -192,9 +197,10 @@ python3 "$tool" --data-dir "$data_dir" corpus promote <candidate-id> --apply \
   --actor reviewer --reason "local corpusへ昇格"
 ```
 
-最後の2コマンドのうち、前者は書き込まずpreviewだけを返します。後者は `--apply` により
-local dataだけへ書き込みます。どちらもcore ruleやbundled evalを変更しません。project scopeを
-使う場合は、projectの `.gitignore` に `.reader-first-editor/` を追加してください。
+最後の2コマンドは、書き込みの有無が異なります。前者は書き込まずpreviewだけを返し、
+後者は `--apply` によりlocal dataだけへ書き込みます。どちらもcore ruleやbundled evalを
+変更しません。project scopeを使う場合は、projectの `.gitignore` に
+`.reader-first-editor/` を追加してください。
 
 #### public GitHub PRから収集する
 
@@ -208,35 +214,37 @@ python3 "$tool" --data-dir "$data_dir" corpus collect-github \
   --actor reviewer --reason "reference-only candidate" --dry-run
 ```
 
-`collect-github` は明示実行時だけnetworkへ接続します。既定ではpublic repositoryだけを対象にし、
-PR本文、patch、review/comment本文を保存しません。変更済みMarkdownのpath・SHA、review state、
-inline threadの位置と件数だけを `github_evidence` に残し、rightsは `unknown`、textは
-`reference-only`、recordは `local_only` とします。`--dry-run` を外すまでlocal dataへも
-書き込みません。
+`collect-github` は、明示実行時だけnetworkへ接続します。既定ではpublic repositoryだけを
+対象とし、PR本文、patch、review/comment本文は保存しません。
+
+保存するのは、変更済みMarkdownのpath・SHA、review state、inline threadの位置と件数だけです。
+これらを `github_evidence` に残し、rightsは `unknown`、textは `reference-only`、recordは
+`local_only` とします。`--dry-run` を外すまでlocal dataへも書き込みません。
 
 #### ruleを調査・昇格する
 
 rule investigationは、support／control recordを明示して `rules bundle` を実行した場合だけ
 開始します。bundleではCounterexample Hunterを最優先にし、既定判断を `HOLD` とします。
-`rules validate-investigation` は未説明の反例、固定閾値だけ、頻度だけ、既存ruleのduplicateを
-含む `PROMOTE` を拒否します。`rules propose --apply` もlocal proposalを保存するだけで、core rule、
-references、evalsを変更しません。詳細は[Agentによる調査](docs/agent-investigation.md)を参照して
-ください。
+`rules validate-investigation` は、未説明の反例、固定閾値だけの根拠、頻度だけの根拠、
+既存ruleのduplicateを含む `PROMOTE` を拒否します。`rules propose --apply` も
+local proposalを保存するだけで、core rule、references、evalsを変更しません。
+詳細は[Agentによる調査](docs/agent-investigation.md)を参照してください。
 
-proposal後は `rules regression-plan`、`rules regression-ingest`、`rules regression-report` で、
-bundled eval全件、promoted corpus、proposal evalについて、CodexとGitHub Copilotの結果を
-集約します。Python tool自体はproviderを起動しません。pass reportは `rules approve` で人間が
-別artifactとして承認します。`rules apply` は既定ではpreviewを返し、`--apply` を付けた場合だけ、
-承認済みのexact diffを適用します。
-apply対象はSkill本文・references・evalsに限定され、validator失敗時はrollbackします。toolは
-commitもpushもしません。詳しくは[ルール昇格](docs/rule-promotion.md)を参照してください。
+proposal後は `rules regression-plan`、`rules regression-ingest`、`rules regression-report` を
+使います。bundled eval全件、promoted corpus、proposal evalを対象に、CodexとGitHub Copilotの
+結果を集約します。Python tool自体はproviderを起動しません。
+
+pass reportは、`rules approve` で人間が別artifactとして承認します。`rules apply` は既定で
+previewを返し、`--apply` を付けた場合だけ承認済みのexact diffを適用します。apply対象は
+Skill本文・references・evalsに限定され、validator失敗時はrollbackします。toolはcommitも
+pushもしません。詳しくは[ルール昇格](docs/rule-promotion.md)を参照してください。
 
 ### 日本語構造sensorを評価する
 
-日本語構造sensorはoptionalです。`scripts/analyze_ja.py analyze` を明示実行した場合だけGiNZAを
-読み込み、dependency未導入やparse失敗では非致命のavailability resultを返します。通常のreviewから
-install、model download、解析を自動実行しません。出力は構造観測値であり、可読性やRR labelの
-ground truthではありません。
+日本語構造sensorはoptionalです。`scripts/analyze_ja.py analyze` を明示実行した場合だけ
+GiNZAを読み込みます。dependency未導入やparse失敗の場合は、非致命のavailability resultを
+返します。通常のreviewからinstall、model download、解析を自動実行しません。出力は
+構造観測値であり、可読性やRR labelのground truthではありません。
 
 `ab-report` は、同じcaseのLLM-onlyとLLM-plus-signalsをCodex／GitHub Copilot間で比較します。
 回帰、provider差拡大、改善なしを `do-not-default` とし、改善が観測されても人間の確認なしに
@@ -255,8 +263,8 @@ ground truthではありません。
 ## ポータビリティ
 
 CodexとGitHub Copilotは、同じ `SKILL.md` に記載された共通の指示を使います。
-`agents/openai.yaml` に記載するのは、任意のCodex向けmetadataと暗黙起動を禁止する設定だけです。
-このファイルがなくても、ホストに依存しない共通の指示だけで動作します。
+`agents/openai.yaml` には、任意のCodex向けmetadataと暗黙起動を禁止する設定だけを記載します。
+このファイルがなくても、ホストに依存しない共通の指示で動作します。
 
 This is an independent, unofficial implementation. It does not reproduce the
 ISO 24495-1 standard and does not claim ISO conformance or certification. See
