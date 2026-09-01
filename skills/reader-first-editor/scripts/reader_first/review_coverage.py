@@ -7,6 +7,7 @@ from typing import Iterable
 
 COVERAGE_STATUSES = {"checked", "partial", "not-checked"}
 RESOLUTIONS = {"finding", "excluded", "unresolved"}
+SEVERITIES = {"HIGH", "MEDIUM", "LOW"}
 DEFAULT_DIMENSIONS = (
     "semantic-preservation",
     "information-structure",
@@ -446,6 +447,9 @@ def validate_coverage_report(report: object) -> list[str]:
             errors.append(f"{label}: finding_idが重複しています")
         else:
             finding_ids.add(finding_id)
+        severity = finding.get("severity")
+        if not isinstance(severity, str) or severity not in SEVERITIES:
+            errors.append(f"{label}: severityが不正です: {severity!r}")
         linked = finding.get("candidate_ids")
         if not isinstance(linked, list) or not linked:
             errors.append(f"{label}: candidate_idsが必要です")

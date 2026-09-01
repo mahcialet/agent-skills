@@ -1,6 +1,6 @@
 {
   "suite": "review-coverage-ja",
-  "provenance": "2026-09-02に利用者から提示された長文見落とし事例と設計要件",
+  "provenance": "2026-09-02に利用者から提示された長文見落とし事例、設計要件、severity validatorに関するrepository-review",
   "cases": [
     {
       "id": "continue-after-early-findings-to-late-ambiguous-seihon",
@@ -80,6 +80,38 @@
         "checked / 0 findings"
       ],
       "expected": "構造化parserが独自記法に対応しない場合、LLM-only確認を続けつつ、parserによる局所整合性coverageはpartialとし、未対応形式と未確認範囲を示す"
+    },
+    {
+      "id": "coverage-validator-accepts-schema-severities",
+      "language": "ja",
+      "mode": "review",
+      "input": "coverage reportの三つのfindingにseverityとしてHIGH、MEDIUM、LOWを設定し、validate-reportで検証する。",
+      "must_preserve": ["HIGH", "MEDIUM", "LOW"],
+      "must_not_claim": ["schemaにないseverityへ変換する"],
+      "expected": "schemaで定義されたHIGH、MEDIUM、LOWをすべて受理し、custom validatorの許可値をschemaのenumと一致させる"
+    },
+    {
+      "id": "coverage-validator-rejects-unknown-severity",
+      "language": "ja",
+      "mode": "review",
+      "input": "coverage reportのfindingにseverity: CRITICALがある。validate-reportで検証する。",
+      "must_preserve": ["CRITICAL"],
+      "must_not_claim": [
+        "valid: true",
+        "CRITICALをHIGHとして受理する"
+      ],
+      "expected": "CRITICALを未定義severityとして拒否し、valid: falseと具体的なvalidation errorを返す"
+    },
+    {
+      "id": "coverage-validator-rejects-missing-severity",
+      "language": "ja",
+      "mode": "review",
+      "input": "coverage reportのfindingにseverity fieldがない。validate-reportで検証する。",
+      "must_not_claim": [
+        "severityをLOWで補う",
+        "valid: true"
+      ],
+      "expected": "severityの欠落を暗黙の既定値で補わず、不正なreportとして拒否する"
     },
     {
       "id": "relationship-scanner-unavailable-continues-review",

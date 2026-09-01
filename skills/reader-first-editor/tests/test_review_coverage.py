@@ -12,6 +12,7 @@ SCRIPT_DIR = Path(__file__).resolve().parents[1] / "scripts"
 sys.path.insert(0, str(SCRIPT_DIR))
 
 from reader_first.review_coverage import (  # noqa: E402
+    SEVERITIES,
     build_markdown_inventory,
     build_report_skeleton,
     validate_coverage_report,
@@ -19,6 +20,44 @@ from reader_first.review_coverage import (  # noqa: E402
 
 
 CLI = SCRIPT_DIR / "review_coverage.py"
+SCHEMA = SCRIPT_DIR.parent / "schemas" / "review-coverage.schema.json"
+
+
+def finding_report(severity: str = "LOW") -> dict[str, object]:
+    inventory = build_markdown_inventory("# 文書\n\n候補。", source="finding.md")
+    report = build_report_skeleton(inventory, dimensions=["relationship-clarity"])
+    report["candidates"] = [
+        {
+            "candidate_id": "REL-0001",
+            "source": "finding.md",
+            "line": 3,
+            "resolution": "finding",
+        }
+    ]
+    report["chunks"][0].update(
+        {"status": "checked", "candidate_ids": ["REL-0001"], "unchecked_scope": []}
+    )
+    report["dimensions"][0].update(
+        {
+            "status": "checked",
+            "candidate_ids": ["REL-0001"],
+            "candidate_count": 1,
+            "finding_count": 1,
+            "unchecked_scope": [],
+        }
+    )
+    report["global_pass"].update(
+        {"status": "checked", "candidate_ids": [], "unchecked_scope": []}
+    )
+    report["findings"] = [
+        {
+            "finding_id": "FINDING-0001",
+            "candidate_ids": ["REL-0001"],
+            "locations": [{"source": "finding.md", "line": 3}],
+            "severity": severity,
+        }
+    ]
+    return report
 
 
 class ReviewCoverageTests(unittest.TestCase):
@@ -130,6 +169,47 @@ CREATE TABLE events (
             }
         ]
         self.assertFalse(any("保持されていないcandidate" in error for error in validate_coverage_report(report)))
+
+    def test_all_schema_severities_are_accepted(self) -> None:
+        schema = json.loads(SCHEMA.read_text(encoding="utf-8"))
+        schema_severities = set(
+            schema["$defs"]["finding"]["properties"]["severity"]["enum"]
+        )
+        self.assertEqual(SEVERITIES, schema_severities)
+        for severity in schema_severities:
+            with self.subTest(severity=severity):
+                self.assertEqual(validate_coverage_report(finding_report(severity)), [])
+
+    def test_invalid_or_missing_severity_is_rejected(self) -> None:
+        invalid = finding_report("CRITICAL")
+        errors = validate_coverage_report(invalid)
+        self.assertTrue(any("severityが不正" in error for error in errors))
+
+        missing = finding_report()
+        del missing["findings"][0]["severity"]
+        errors = validate_coverage_report(missing)
+        self.assertTrue(any("severityが不正" in error for error in errors))
+
+        non_string = finding_report()
+        non_string["findings"][0]["severity"] = ["HIGH"]
+        errors = validate_coverage_report(non_string)
+        self.assertTrue(any("severityが不正" in error for error in errors))
+
+    def test_cli_rejects_invalid_severity(self) -> None:
+        report = finding_report("CRITICAL")
+        with tempfile.TemporaryDirectory() as directory:
+            report_path = Path(directory) / "report.json"
+            report_path.write_text(json.dumps(report, ensure_ascii=False), encoding="utf-8")
+            validated = subprocess.run(
+                [sys.executable, str(CLI), "validate-report", str(report_path)],
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+        self.assertEqual(validated.returncode, 1, validated.stdout + validated.stderr)
+        result = json.loads(validated.stdout)
+        self.assertFalse(result["valid"])
+        self.assertTrue(any("severityが不正" in error for error in result["errors"]))
 
     def test_cli_inventory_and_report_validation(self) -> None:
         result = subprocess.run(
