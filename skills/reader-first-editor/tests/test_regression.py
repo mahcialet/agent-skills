@@ -120,6 +120,28 @@ def candidate_evals() -> dict:
 
 
 def passing_run(plan: dict, provider: dict, repeat: int) -> dict:
+    def passing_case(case: dict) -> dict:
+        result = {
+            "id": case["id"],
+            "status": "pass",
+            "expected_behavior_match": True,
+            "dimensions": {
+                "semantic_preservation": "pass",
+                "unnecessary_revision": "pass",
+                "literal": "pass",
+                "register": "pass",
+            },
+            "notes": "",
+        }
+        for expected_key, observed_key in (
+            ("expected_risks", "observed_risks"),
+            ("expected_statuses", "observed_statuses"),
+            ("expected_evidence_types", "observed_evidence_types"),
+        ):
+            if expected_key in case:
+                result[observed_key] = deepcopy(case[expected_key])
+        return result
+
     return {
         "id": "draft",
         "schema_version": 1,
@@ -130,21 +152,7 @@ def passing_run(plan: dict, provider: dict, repeat: int) -> dict:
         "host_version": provider["host_version"],
         "repeat_index": repeat,
         "created_at": f"2026-08-30T12:00:0{repeat}Z",
-        "cases": [
-            {
-                "id": case["id"],
-                "status": "pass",
-                "expected_behavior_match": True,
-                "dimensions": {
-                    "semantic_preservation": "pass",
-                    "unnecessary_revision": "pass",
-                    "literal": "pass",
-                    "register": "pass",
-                },
-                "notes": "",
-            }
-            for case in plan["cases"]
-        ],
+        "cases": [passing_case(case) for case in plan["cases"]],
     }
 
 
@@ -221,6 +229,34 @@ class RegressionTests(unittest.TestCase):
         corpus_case = next(case for case in self.plan["cases"] if case["category"] == "corpus")
         self.assertEqual(corpus_case["input"]["kind"], "record-reference")
         self.assertIsNone(corpus_case["input"]["value"])
+
+    def test_plan_preserves_bundled_structured_oracles(self) -> None:
+        by_id = {case["id"]: case for case in self.plan["cases"]}
+        ambiguous = by_id[
+            "bundled:prose-pacing:natural-sounding-ambiguous-action-is-finding"
+        ]
+        self.assertEqual(ambiguous["expected_risks"], ["RR-01", "RR-06"])
+
+        contradicted = by_id[
+            "bundled:repository-grounded-review:"
+            "natural-prose-still-contradicts-config-default"
+        ]
+        self.assertEqual(contradicted["expected_statuses"], ["CONTRADICTED"])
+        self.assertEqual(contradicted["expected_evidence_types"], ["DOC↔CONFIG"])
+
+    def test_plan_rejects_invalid_structured_oracle_type(self) -> None:
+        plan = deepcopy(self.plan)
+        bundled = next(case for case in plan["cases"] if case["source"] == "bundled")
+        bundled["expected_risks"] = "RR-12"
+        with self.assertRaisesRegex(RegressionError, "expected_risks"):
+            validate_regression_plan(plan)
+
+    def test_run_requires_planned_structured_oracles(self) -> None:
+        run = passing_run(self.plan, self.plan["providers"][0], 1)
+        case = next(item for item in run["cases"] if "observed_statuses" in item)
+        case["observed_statuses"] = ["VERIFIED"]
+        with self.assertRaisesRegex(RegressionError, "期待値"):
+            validate_regression_run(run, self.plan)
 
     def test_complete_repeated_runs_pass_all_gates(self) -> None:
         report = build_regression_report(

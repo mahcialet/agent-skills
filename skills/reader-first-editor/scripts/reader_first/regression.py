@@ -26,6 +26,29 @@ DIMENSIONS = {
     "register",
 }
 CATEGORIES = {"existing", "corpus", "positive", "negative", "boundary"}
+STRUCTURED_ORACLES = {
+    "expected_risks": (
+        "observed_risks",
+        {f"RR-{index:02d}" for index in range(1, 17)},
+    ),
+    "expected_statuses": (
+        "observed_statuses",
+        {"VERIFIED", "CONTRADICTED", "SUPPORTED-BY-CITATION", "UNSUPPORTED", "UNVERIFIED"},
+    ),
+    "expected_evidence_types": (
+        "observed_evidence_types",
+        {
+            "DOC↔CODE",
+            "DOC↔CONFIG",
+            "DOC↔TEST",
+            "DOC↔DOC",
+            "DOC↔HISTORY",
+            "CITATION",
+            "EVIDENCE-GAP",
+            "UNVERIFIED",
+        },
+    ),
+}
 ALLOWED_RULE_TARGETS = (
     re.compile(r"skills/reader-first-editor/SKILL\.md"),
     re.compile(r"skills/reader-first-editor/references/(?:[^/]+/)*[^/]+\.md"),
@@ -262,6 +285,20 @@ def _bundled_cases(eval_dir: Path) -> list[dict]:
             ]
             if not all(isinstance(item, str) for item in [*must_preserve, *must_not]):
                 raise RegressionError(f"{path}: {case_id}のconstraintが不正です")
+            structured_oracles: dict[str, list[str]] = {}
+            for key, (_, allowed_values) in STRUCTURED_ORACLES.items():
+                if key in case:
+                    value = case[key]
+                    if not isinstance(value, list) or not all(
+                        isinstance(item, str) for item in value
+                    ):
+                        raise RegressionError(f"{path}: {case_id}の{key}が不正です")
+                    if unknown := sorted(set(value) - allowed_values):
+                        raise RegressionError(
+                            f"{path}: {case_id}の{key}に未知の値があります: "
+                            f"{', '.join(unknown)}"
+                        )
+                    structured_oracles[key] = list(value)
             cases.append(
                 {
                     "id": f"bundled:{suite}:{case_id}",
@@ -284,6 +321,7 @@ def _bundled_cases(eval_dir: Path) -> list[dict]:
                     "expected": case["expected"],
                     "must_preserve": list(must_preserve),
                     "must_not": must_not,
+                    **structured_oracles,
                 }
             )
     return cases
@@ -454,6 +492,14 @@ def validate_regression_plan(plan: object) -> dict:
         case_ids.append(_string(item, "id", "regression plan.cases[]"))
         if item.get("category") not in CATEGORIES:
             raise RegressionError("regression case categoryが不正です")
+        for key, (_, allowed_values) in STRUCTURED_ORACLES.items():
+            if key in item:
+                values = _strings(item, key, "regression plan.cases[]", unique=True)
+                if unknown := sorted(set(values) - allowed_values):
+                    raise RegressionError(
+                        f"regression plan.cases[].{key}に未知の値があります: "
+                        f"{', '.join(unknown)}"
+                    )
     if len(case_ids) != len(set(case_ids)):
         raise RegressionError("regression plan case IDが重複しています")
     if {case["category"] for case in cases} != CATEGORIES:
@@ -509,11 +555,23 @@ def validate_regression_run(run: object, plan: dict) -> dict:
     if not isinstance(cases, list):
         raise RegressionError("regression run.casesはarrayである必要があります")
     case_ids: list[str] = []
-    case_keys = {"id", "status", "expected_behavior_match", "dimensions", "notes"}
+    required_case_keys = {"id", "status", "expected_behavior_match", "dimensions", "notes"}
+    optional_case_keys = {
+        observed_key for observed_key, _ in STRUCTURED_ORACLES.values()
+    }
+    plan_cases = {case["id"]: case for case in plan["cases"]}
     for case in cases:
         item = _require_dict(case, "regression run.cases[]")
-        _exact_keys(item, case_keys, "regression run.cases[]")
-        case_ids.append(_string(item, "id", "regression run.cases[]"))
+        if missing := sorted(required_case_keys - item.keys()):
+            raise RegressionError(
+                "regression run.cases[]に必須keyがありません: " + ", ".join(missing)
+            )
+        if unknown := sorted(item.keys() - required_case_keys - optional_case_keys):
+            raise RegressionError(
+                "regression run.cases[]に未知のkeyがあります: " + ", ".join(unknown)
+            )
+        case_id = _string(item, "id", "regression run.cases[]")
+        case_ids.append(case_id)
         if item.get("status") not in {"pass", "fail", "unsupported", "error"}:
             raise RegressionError("regression case statusが不正です")
         if not isinstance(item.get("expected_behavior_match"), bool):
@@ -523,6 +581,41 @@ def validate_regression_run(run: object, plan: dict) -> dict:
         if any(value not in {"pass", "fail", "not-applicable"} for value in dimensions.values()):
             raise RegressionError("regression dimension statusが不正です")
         _string(item, "notes", "regression case", empty=True)
+        planned_case = plan_cases.get(case_id)
+        if planned_case is None:
+            continue
+        for expected_key, (observed_key, allowed_values) in STRUCTURED_ORACLES.items():
+            if expected_key not in planned_case:
+                if observed_key in item:
+                    observed = _strings(
+                        item,
+                        observed_key,
+                        "regression run.cases[]",
+                        unique=True,
+                    )
+                    if unknown := sorted(set(observed) - allowed_values):
+                        raise RegressionError(
+                            f"regression run.cases[].{observed_key}に未知の値があります: "
+                            f"{', '.join(unknown)}"
+                        )
+                continue
+            observed = _strings(
+                item,
+                observed_key,
+                "regression run.cases[]",
+                unique=True,
+            )
+            if unknown := sorted(set(observed) - allowed_values):
+                raise RegressionError(
+                    f"regression run.cases[].{observed_key}に未知の値があります: "
+                    f"{', '.join(unknown)}"
+                )
+            missing_expected = set(planned_case[expected_key]) - set(observed)
+            if missing_expected:
+                raise RegressionError(
+                    f"regression run.cases[].{observed_key}に期待値がありません: "
+                    f"{', '.join(sorted(missing_expected))}"
+                )
     expected_ids = [case["id"] for case in plan["cases"]]
     if case_ids != expected_ids:
         raise RegressionError("regression runはplanの全caseを同じ順序で含める必要があります")

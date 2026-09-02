@@ -108,12 +108,16 @@ rules apply（既定preview、--applyで変更）
 `regression-plan` は、既定の `--eval-dir` にあるbundled eval全件、callerが `--corpus-record` で
 選んだpromoted record、proposalのpositive／negative／boundary evalを含む。`--eval-dir` を明示すると
 そのdirectoryへ置き換わり、Skillのbundled eval directoryか、全suiteを含むかは検証しない。
+bundled evalに `expected_risks`、`expected_statuses`、`expected_evidence_types` がある場合は、
+外部runnerが構造化された期待値を照合できるようplanへ保持する。
 promoted record全件は自動選択しない。provider、model、
 model version、host version、repeat回数を固定し、CodexとGitHub Copilotを必須providerとして記録する。
 local corpusのraw textはplanへ複製せず、record path、content hash、取得要否だけを保持する。
 manual recordのcontent hashはrecordに保存されたcaller-supplied値であり、plan作成時にも再計算しない。
 
 `regression-ingest` はplanと同じcase順、provider metadata、repeat indexを検証してlocal保存する。
+planに構造化された期待値があるcaseでは、外部runnerの `observed_risks`、`observed_statuses`、
+`observed_evidence_types` に期待値が含まれることも検証する。
 各caseは `pass`、`fail`、`unsupported`、`error` を区別し、semantic preservation、unnecessary
 revision、literal、register、expected behaviorの一致を記録する。`unsupported` は通常のfailureと
 件数を分けるが、gateは通さない。

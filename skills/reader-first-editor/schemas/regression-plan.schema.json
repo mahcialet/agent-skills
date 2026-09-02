@@ -57,7 +57,10 @@
           },
           "expected": {"type": "string", "minLength": 1},
           "must_preserve": {"type": "array", "items": {"type": "string"}},
-          "must_not": {"type": "array", "items": {"type": "string"}}
+          "must_not": {"type": "array", "items": {"type": "string"}},
+          "expected_risks": {"type": "array", "uniqueItems": true, "items": {"type": "string", "pattern": "^RR-(0[1-9]|1[0-6])$"}},
+          "expected_statuses": {"type": "array", "uniqueItems": true, "items": {"enum": ["VERIFIED", "CONTRADICTED", "SUPPORTED-BY-CITATION", "UNSUPPORTED", "UNVERIFIED"]}},
+          "expected_evidence_types": {"type": "array", "uniqueItems": true, "items": {"enum": ["DOC↔CODE", "DOC↔CONFIG", "DOC↔TEST", "DOC↔DOC", "DOC↔HISTORY", "CITATION", "EVIDENCE-GAP", "UNVERIFIED"]}}
         }
       }
     },

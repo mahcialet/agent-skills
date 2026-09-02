@@ -37,7 +37,10 @@
               "register": {"enum": ["pass", "fail", "not-applicable"]}
             }
           },
-          "notes": {"type": "string"}
+          "notes": {"type": "string"},
+          "observed_risks": {"type": "array", "uniqueItems": true, "items": {"type": "string", "pattern": "^RR-(0[1-9]|1[0-6])$"}},
+          "observed_statuses": {"type": "array", "uniqueItems": true, "items": {"enum": ["VERIFIED", "CONTRADICTED", "SUPPORTED-BY-CITATION", "UNSUPPORTED", "UNVERIFIED"]}},
+          "observed_evidence_types": {"type": "array", "uniqueItems": true, "items": {"enum": ["DOC↔CODE", "DOC↔CONFIG", "DOC↔TEST", "DOC↔DOC", "DOC↔HISTORY", "CITATION", "EVIDENCE-GAP", "UNVERIFIED"]}}
         }
       }
     }
