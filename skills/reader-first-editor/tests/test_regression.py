@@ -25,7 +25,11 @@ from reader_first.regression import (
     parse_rule_patch,
     preview_rule_apply,
     validate_regression_run,
+    validate_regression_plan,
+    validate_regression_report,
     validate_report_against_runs,
+    validate_rule_approval,
+    validate_rule_proposal,
 )
 from reader_first.state import LocalCorpusStore
 from test_investigation import create_record, valid_result
@@ -34,8 +38,30 @@ SKILL_DIR = Path(__file__).resolve().parents[1]
 CLI = SKILL_DIR / "scripts" / "corpus_tool.py"
 
 
-def rule_patch() -> str:
-    return """diff --git a/skills/reader-first-editor/references/core/regression-test-rule.md b/skills/reader-first-editor/references/core/regression-test-rule.md
+def persisted_candidate_evals() -> list[dict]:
+    cases: list[dict] = []
+    for category_cases in candidate_evals().values():
+        for candidate in category_cases:
+            case = deepcopy(candidate)
+            case["must_not_claim"] = case.pop("must_not")
+            cases.append(case)
+    return cases
+
+
+def rule_patch(
+    *,
+    cases: list[dict] | None = None,
+    metadata: dict | None = None,
+) -> str:
+    suite: dict[str, object] = {
+        "suite": "regression-test-rule",
+        "cases": persisted_candidate_evals() if cases is None else cases,
+    }
+    if metadata is not None:
+        suite["metadata"] = metadata
+    eval_lines = json.dumps(suite, ensure_ascii=False, indent=2).splitlines()
+    added_eval = "\n".join(f"+{line}" for line in eval_lines)
+    return f"""diff --git a/skills/reader-first-editor/references/core/regression-test-rule.md b/skills/reader-first-editor/references/core/regression-test-rule.md
 new file mode 100644
 --- /dev/null
 +++ b/skills/reader-first-editor/references/core/regression-test-rule.md
@@ -47,15 +73,8 @@ diff --git a/skills/reader-first-editor/evals/regression-test-rule.yaml b/skills
 new file mode 100644
 --- /dev/null
 +++ b/skills/reader-first-editor/evals/regression-test-rule.yaml
-@@ -0,0 +1,8 @@
-+{
-+  "suite": "regression-test-rule",
-+  "cases": [
-+    {"id": "eval-positive-1"},
-+    {"id": "eval-negative-1"},
-+    {"id": "eval-boundary-1"}
-+  ]
-+}
+@@ -0,0 +1,{len(eval_lines)} @@
+{added_eval}
 """
 
 
@@ -163,6 +182,8 @@ class RegressionTests(unittest.TestCase):
         )
         investigation, blockers = validate_investigation_result(valid_result(bundle), bundle)
         self.assertEqual(blockers, [])
+        self.bundle = bundle
+        self.investigation = investigation
         self.proposal = build_rule_proposal(
             investigation,
             bundle,
@@ -211,6 +232,43 @@ class RegressionTests(unittest.TestCase):
         self.assertEqual(set(report["gates"].values()), {"pass"})
         self.assertEqual(report["metrics"]["no_change_accuracy"], 1.0)
         self.assertEqual(validate_report_against_runs(report, self.plan, self.runs), report)
+
+    def test_all_regression_artifacts_reject_boolean_schema_version(self) -> None:
+        report = build_regression_report(
+            self.plan,
+            self.runs,
+            clock=lambda: "2026-08-30T13:00:00Z",
+        )
+        approval = build_rule_approval(
+            self.proposal,
+            report,
+            reviewer="human-reviewer",
+            reason="all gates passed",
+            clock=lambda: "2026-08-30T14:00:00Z",
+        )
+        artifacts = (
+            ("proposal", validate_rule_proposal, self.proposal),
+            ("plan", validate_regression_plan, self.plan),
+            ("report", validate_regression_report, report),
+            ("approval", validate_rule_approval, approval),
+        )
+        for label, validator, artifact in artifacts:
+            with self.subTest(label=label):
+                invalid = deepcopy(artifact)
+                invalid["schema_version"] = True
+                with self.assertRaisesRegex(RegressionError, "schema"):
+                    validator(invalid)
+
+        invalid_run = passing_run(self.plan, self.plan["providers"][0], 1)
+        invalid_run["schema_version"] = True
+        with self.assertRaisesRegex(RegressionError, "schema"):
+            validate_regression_run(invalid_run, self.plan)
+
+    def test_proposal_rejects_eval_id_reused_across_categories(self) -> None:
+        proposal = deepcopy(self.proposal)
+        proposal["evals"]["negative"] = deepcopy(proposal["evals"]["positive"])
+        with self.assertRaisesRegex(RegressionError, "category間で重複"):
+            validate_rule_proposal(proposal)
 
     def test_missing_repeat_fails_report(self) -> None:
         report = build_regression_report(self.plan, self.runs[:-1])
@@ -273,6 +331,17 @@ class RegressionTests(unittest.TestCase):
         self.assertTrue(approval["approved"])
         self.assertEqual(approval["diff_hash"], passed["diff_hash"])
 
+    def test_approval_records_caller_supplied_reviewer_without_authentication(self) -> None:
+        passed = build_regression_report(self.plan, self.runs)
+        approval = build_rule_approval(
+            self.proposal,
+            passed,
+            reviewer="automation-bot",
+            reason="caller supplied attestation",
+        )
+        self.assertTrue(approval["approved"])
+        self.assertEqual(approval["reviewer"], "automation-bot")
+
     def test_patch_parser_requires_rule_and_eval_targets(self) -> None:
         self.assertEqual(len(parse_rule_patch(self.proposal["rule_diff"])), 2)
         unsafe = self.proposal["rule_diff"].replace(
@@ -281,6 +350,93 @@ class RegressionTests(unittest.TestCase):
         )
         with self.assertRaises(RegressionError):
             parse_rule_patch(unsafe)
+
+    def _apply_artifacts_for_patch(self, patch: str) -> tuple[dict, dict, dict, dict]:
+        proposal = build_rule_proposal(self.investigation, self.bundle, patch)
+        plan = build_regression_plan(
+            proposal,
+            self.store,
+            eval_dir=SKILL_DIR / "evals",
+            provider_matrix=provider_matrix(repeats=1),
+            candidate_evals=candidate_evals(),
+            corpus_record_ids=[self.promoted["id"]],
+        )
+        runs = [
+            validate_regression_run(passing_run(plan, provider, 1), plan)
+            for provider in plan["providers"]
+        ]
+        report = build_regression_report(plan, runs)
+        approval = build_rule_approval(
+            proposal,
+            report,
+            reviewer="reviewer-attestation",
+            reason="exact diff reviewed outside the tool",
+        )
+        return proposal, plan, report, approval
+
+    def test_patch_rejects_eval_id_not_declared_by_proposal(self) -> None:
+        cases = persisted_candidate_evals()
+        extra = deepcopy(cases[0])
+        extra["id"] = "eval-extra"
+        patch = rule_patch(cases=[*cases, extra])
+        proposal, plan, report, approval = self._apply_artifacts_for_patch(patch)
+        with self.assertRaisesRegex(RegressionError, "proposalにないeval ID"):
+            preview_rule_apply(
+                proposal,
+                plan,
+                report,
+                approval,
+                repository_root=self._test_repository(),
+            )
+
+    def test_patch_rejects_missing_proposal_eval_id(self) -> None:
+        cases = [
+            case
+            for case in persisted_candidate_evals()
+            if case["id"] != "eval-boundary-1"
+        ]
+        proposal, plan, report, approval = self._apply_artifacts_for_patch(
+            rule_patch(cases=cases)
+        )
+        with self.assertRaisesRegex(RegressionError, "proposal eval IDがありません"):
+            preview_rule_apply(
+                proposal,
+                plan,
+                report,
+                approval,
+                repository_root=self._test_repository(),
+            )
+
+    def test_patch_rejects_ids_present_only_in_metadata(self) -> None:
+        metadata = {
+            "ids": ["eval-positive-1", "eval-negative-1", "eval-boundary-1"]
+        }
+        proposal, plan, report, approval = self._apply_artifacts_for_patch(
+            rule_patch(cases=[], metadata=metadata)
+        )
+        with self.assertRaisesRegex(RegressionError, "proposal eval IDがありません"):
+            preview_rule_apply(
+                proposal,
+                plan,
+                report,
+                approval,
+                repository_root=self._test_repository(),
+            )
+
+    def test_patch_rejects_proposal_eval_content_mismatch(self) -> None:
+        cases = persisted_candidate_evals()
+        cases[0]["expected"] = "different expectation"
+        proposal, plan, report, approval = self._apply_artifacts_for_patch(
+            rule_patch(cases=cases)
+        )
+        with self.assertRaisesRegex(RegressionError, "caseの内容が一致しません"):
+            preview_rule_apply(
+                proposal,
+                plan,
+                report,
+                approval,
+                repository_root=self._test_repository(),
+            )
 
     def _test_repository(self, *, validators_pass: bool = True) -> Path:
         repository = self.root / ("apply-pass" if validators_pass else "apply-fail")
@@ -324,14 +480,18 @@ class RegressionTests(unittest.TestCase):
         repository = self._test_repository()
         preview = preview_rule_apply(
             self.proposal,
+            self.plan,
             report,
             approval,
             repository_root=repository,
         )
         self.assertFalse(preview["will_commit"])
         self.assertFalse(preview["will_push"])
+        self.assertEqual(preview["reviewer_attestation"], "human-reviewer")
+        self.assertNotIn("human_reviewer", preview)
         applied = apply_rule_patch(
             self.proposal,
+            self.plan,
             report,
             approval,
             repository_root=repository,
@@ -342,6 +502,7 @@ class RegressionTests(unittest.TestCase):
         with self.assertRaises(RegressionError):
             preview_rule_apply(
                 self.proposal,
+                self.plan,
                 report,
                 approval,
                 repository_root=repository,
@@ -360,6 +521,7 @@ class RegressionTests(unittest.TestCase):
         with self.assertRaisesRegex(RegressionError, "rollback"):
             apply_rule_patch(
                 self.proposal,
+                self.plan,
                 report,
                 approval,
                 repository_root=repository,

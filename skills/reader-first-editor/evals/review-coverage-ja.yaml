@@ -1,5 +1,6 @@
 {
   "suite": "review-coverage-ja",
+  "provenance": "2026-09-02に利用者から提示された長文見落とし事例と設計要件、および2026-09-03のinventory真正性・review mode・空文書境界に関するadversarial PR review",
   "cases": [
     {
       "id": "continue-after-early-findings-to-late-ambiguous-seihon",
@@ -20,7 +21,158 @@
         "config/base.yamlから各環境のファイルを生成する",
         "不一致時はconfig/base.yamlを優先する"
       ],
+      "expected_coverage_statuses": ["checked"],
       "expected": "前半の『利用者ID／ユーザーID』『10 秒』『必須／optional』を候補として確認した後も探索を終了せず、第5節の『正本』を関係の省略候補として候補記録に残す。『正本』から直接編集対象、生成方向、不一致時の優先先を推測せず、周囲に関係の説明がないことを文脈で確認する。候補検出時には重大度で絞らず、各候補の位置と確認結果を保持し、任意の上位3件だけでレビュー完了としない"
+    },
+    {
+      "id": "checked-zero-is-not-unchecked",
+      "language": "ja",
+      "mode": "review",
+      "input": "# 運用条件\n\n利用者は申請後に確認メールを受け取ります。\n\n## 例外\n\n申請を取り消した場合、確認メールは送信されません。",
+      "expected_coverage_statuses": ["checked"],
+      "must_not_claim": [
+        "モダリティは未確認",
+        "問題がないため確認を省略した"
+      ],
+      "expected": "モダリティとscopeを最後まで確認し、候補がなければchecked / 0 findingsと記録する。候補0件をnot-checkedへ置き換えず、問題を水増ししない"
+    },
+    {
+      "id": "keep-low-severity-after-three-higher-findings",
+      "language": "ja",
+      "mode": "review",
+      "input": "# 手順\n\n主体が不明な禁止事項があります。条件のscopeが二通りに読めます。例外の適用先も不明です。\n\n## 後半\n\n接続timeoutは10 秒です。通知設定は optional です。",
+      "must_preserve": ["10 秒", "optional"],
+      "must_not_claim": [
+        "主な3件のみ",
+        "軽微なため候補から除外した",
+        "ほかにもあります"
+      ],
+      "expected_coverage_statuses": ["checked"],
+      "expected": "前半の重大な3候補を検出した後も後半を確認し、表記上の軽微な候補もlocation付きで保持する。severityは検出後に付け、supported findingをtop-Nで省略しない"
+    },
+    {
+      "id": "global-pass-detects-cross-chunk-term-change",
+      "language": "ja",
+      "mode": "review",
+      "input": "# 利用者管理\n\n## 登録\n\n申請者IDを登録します。\n\n## 更新\n\n利用者IDを更新します。\n\n## 削除\n\nユーザーIDを削除します。",
+      "must_preserve": ["申請者ID", "利用者ID", "ユーザーID"],
+      "expected_coverage_statuses": ["checked"],
+      "expected": "各章の局所pass後にglobal passを行い、同じ概念を指す可能性がある3語の変化を章横断candidateとして記録する。文脈がなければ同一概念と断定せず、確認事項を示す"
+    },
+    {
+      "id": "protected-code-literal-is-candidate-not-edit-target",
+      "language": "ja",
+      "mode": "review",
+      "input": "# 設定例\n\n```yaml\ncanonical_label: 正本\n```\n\nコード例の後で、運用上の優先先を説明します。",
+      "must_preserve": ["canonical_label: 正本"],
+      "must_not_claim": ["code fence内を書き換える"],
+      "expected_coverage_statuses": ["checked"],
+      "expected": "code fenceを分割・改変せず、scannerで候補になってもliteral保護と周囲の文脈を確認する。語の出現だけではfindingにしない"
+    },
+    {
+      "id": "parser-failure-remains-partial",
+      "language": "ja",
+      "mode": "review",
+      "input": "# DB定義\n\n独自記法: users.created_at => tz-aware required\n独自記法: users.updated_at => tz-aware required",
+      "expected_coverage_statuses": ["partial"],
+      "must_not_claim": [
+        "局所整合性に問題はない",
+        "checked / 0 findings"
+      ],
+      "expected": "構造化parserが独自記法に対応しない場合、LLM-only確認を続けつつ、parserによる局所整合性coverageはpartialとし、未対応形式と未確認範囲を示す"
+    },
+    {
+      "id": "coverage-validator-accepts-schema-severities",
+      "language": "ja",
+      "mode": "review",
+      "input": "coverage reportの三つのfindingにseverityとしてHIGH、MEDIUM、LOWを設定し、validate-reportで検証する。",
+      "must_preserve": ["HIGH", "MEDIUM", "LOW"],
+      "must_not_claim": ["schemaにないseverityへ変換する"],
+      "expected": "schemaで定義されたHIGH、MEDIUM、LOWをすべて受理し、custom validatorの許可値をschemaのenumと一致させる"
+    },
+    {
+      "id": "coverage-validator-rejects-unknown-severity",
+      "language": "ja",
+      "mode": "review",
+      "input": "coverage reportのfindingにseverity: CRITICALがある。validate-reportで検証する。",
+      "must_preserve": ["CRITICAL"],
+      "must_not_claim": [
+        "valid: true",
+        "CRITICALをHIGHとして受理する"
+      ],
+      "expected": "CRITICALを未定義severityとして拒否し、valid: falseと具体的なvalidation errorを返す"
+    },
+    {
+      "id": "coverage-validator-rejects-missing-severity",
+      "language": "ja",
+      "mode": "review",
+      "input": "coverage reportのfindingにseverity fieldがない。validate-reportで検証する。",
+      "must_not_claim": [
+        "severityをLOWで補う",
+        "valid: true"
+      ],
+      "expected": "severityの欠落を暗黙の既定値で補わず、不正なreportとして拒否する"
+    },
+    {
+      "id": "coverage-validator-rejects-missing-required-and-unknown-root-fields",
+      "language": "ja",
+      "mode": "review",
+      "input": "coverage reportからsourcesとlimitationsが欠落し、schemaにないunexpected fieldがrootにある。validate-reportで検証する。",
+      "must_preserve": ["sources", "limitations", "unexpected"],
+      "must_not_claim": ["valid: true", "未知fieldを無視する"],
+      "expected": "schemaのrequired field欠落とadditionalProperties: falseに反する未知fieldを拒否し、valid: falseと具体的なvalidation errorを返す"
+    },
+    {
+      "id": "coverage-validator-rejects-boolean-integer-fields",
+      "language": "ja",
+      "mode": "review",
+      "input": "coverage reportのschema_version、candidate.line、candidate_countにtrueがある。validate-reportで検証する。",
+      "must_preserve": ["schema_version", "candidate.line", "candidate_count", "true"],
+      "must_not_claim": ["trueを1として受理する", "valid: true"],
+      "expected": "JSON Schemaのinteger制約に合わせ、schema_versionを含むinteger fieldでbooleanを数値として扱わず、不正なreportとして拒否する"
+    },
+    {
+      "id": "coverage-validator-rejects-forged-inventory",
+      "language": "ja",
+      "mode": "repository-review",
+      "input": "元Markdownは100行あるが、手製inventoryには本文、行範囲、見出し、block種別がなく、CHUNK-0001だけがある。new-reportとvalidate-reportへ元Markdownとともに渡す。",
+      "must_preserve": ["CHUNK-0001", "元Markdown"],
+      "must_not_claim": ["valid: true", "inventory hashが一致するため十分"],
+      "expected_statuses": ["UNSUPPORTED"],
+      "expected_evidence_types": ["EVIDENCE-GAP"],
+      "expected": "inventory schemaの必須fieldを検査し、さらに元Markdownから正規inventoryを再生成して完全一致を確認する。不完全または置換済みinventoryをcoverage入力として拒否する"
+    },
+    {
+      "id": "repository-review-profile-requires-repository-consistency",
+      "language": "ja",
+      "mode": "repository-review",
+      "input": "coverage reportは通常reviewの6観点だけをcheckedにし、repository-consistencyを含まない。期待modeをrepository-reviewとしてvalidate-reportを実行する。",
+      "must_preserve": ["repository-consistency", "repository-review"],
+      "must_not_claim": ["6観点でrepository-review完了", "valid: true"],
+      "expected_statuses": ["CONTRADICTED"],
+      "expected_evidence_types": ["DOC↔CODE"],
+      "expected": "report modeとcallerが指定したcoverage profileを照合し、repository-reviewではrepository-consistencyの欠落または未確認を拒否する"
+    },
+    {
+      "id": "empty-markdown-stops-at-inventory-boundary",
+      "language": "ja",
+      "mode": "review",
+      "input": "空文字または空白行だけのMarkdownをinventory commandへ渡す。",
+      "must_not_claim": ["status: complete", "後段のnew-reportまで成功する"],
+      "expected": "空または空白のみのMarkdownは対象外であることをinventory生成時点の明示的なerrorとして返し、後段が受理できないcomplete artifactを生成しない"
+    },
+    {
+      "id": "relationship-scanner-unavailable-continues-review",
+      "language": "ja",
+      "mode": "review",
+      "input": "関係表現scannerを利用できない環境で、次の文書を確認する。\n\n# 管理対象\n\nconfig/base.yamlを正本とする。",
+      "expected_coverage_statuses": ["partial"],
+      "must_not_claim": [
+        "scannerがないためreviewを中止する",
+        "関係の省略に問題はない",
+        "checked / 0 findings"
+      ],
+      "expected": "scanner失敗をhard failureにせずLLM-onlyで文脈確認を続け、『正本』をcandidateとして扱う。関係表現の機械scanはpartialとし、未実施範囲を示す"
     }
   ]
 }

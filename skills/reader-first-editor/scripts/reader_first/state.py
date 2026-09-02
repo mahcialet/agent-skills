@@ -15,6 +15,8 @@ from copy import deepcopy
 from datetime import datetime, timezone
 from pathlib import Path
 
+from .schema_validation import is_schema_version
+
 SCHEMA_VERSION = 1
 TOOL_VERSION = "0.5.0"
 STATE_DIRECTORIES = {
@@ -178,7 +180,11 @@ def _require_optional_sha(container: dict, key: str, context: str) -> str | None
     return value
 
 
-def validate_corpus_record(record: dict) -> None:
+def validate_corpus_record(
+    record: dict,
+    *,
+    require_license_evidence: bool = True,
+) -> None:
     """依存libraryなしでcorpus recordの主要invariantを検証する。"""
 
     if not isinstance(record, dict):
@@ -209,7 +215,7 @@ def validate_corpus_record(record: dict) -> None:
     record_id = _require_string(record, "id")
     if not re.fullmatch(r"rfe-[0-9a-f]{20}", record_id):
         raise RecordValidationError("idはdeterministic candidate ID形式である必要があります")
-    if record["schema_version"] != SCHEMA_VERSION:
+    if not is_schema_version(record["schema_version"], SCHEMA_VERSION):
         raise RecordValidationError(f"未対応のschema_versionです: {record['schema_version']!r}")
     if record["language"] not in {"ja", "en"}:
         raise RecordValidationError("languageは'ja'または'en'である必要があります")
@@ -315,6 +321,13 @@ def validate_corpus_record(record: dict) -> None:
     for key in ("repository_license", "notes"):
         if rights[key] is not None and not isinstance(rights[key], str):
             raise RecordValidationError(f"rights.{key}はstringまたはnullである必要があります")
+    if require_license_evidence and rights["repository_license"] is not None:
+        if not rights["repository_license"].strip():
+            raise RecordValidationError("rights.repository_licenseは空でないstringまたはnullである必要があります")
+        if not isinstance(rights["notes"], str) or not rights["notes"].strip():
+            raise RecordValidationError(
+                "repository licenseの取得・確認方法をrights.notesへ記録する必要があります"
+            )
 
     handling = _require_object(record, "handling")
     handling_keys = {"anonymized", "modified", "redactions"}
@@ -959,7 +972,7 @@ class LocalCorpusStore:
         except (OSError, json.JSONDecodeError) as exc:
             raise StoreError(f"recordを読み込めません: {path}: {exc}") from exc
         try:
-            validate_corpus_record(data)
+            validate_corpus_record(data, require_license_evidence=False)
         except RecordValidationError as exc:
             raise StoreError(f"破損したrecordです: {path}: {exc}") from exc
         if data["decision"]["state"] != state:
@@ -1093,7 +1106,7 @@ class LocalCorpusStore:
                 for path in sorted(directory.glob("*.json")):
                     try:
                         record = json.loads(path.read_text(encoding="utf-8"))
-                        validate_corpus_record(record)
+                        validate_corpus_record(record, require_license_evidence=False)
                         if record["decision"]["state"] != state:
                             errors.append(f"{path}: directoryとdecision.stateが一致しません")
                         if record["id"] in records:
@@ -1142,7 +1155,7 @@ class LocalCorpusStore:
                 "decided_at": self.clock(),
                 "reason": reason,
             }
-            validate_corpus_record(record)
+            validate_corpus_record(record, require_license_evidence=False)
             if not record["annotations"]["rationale"].strip():
                 raise RecordValidationError("annotation rationaleが必要です")
             event = self._make_event(
@@ -1198,7 +1211,7 @@ class LocalCorpusStore:
                 "decided_at": self.clock(),
                 "reason": reason,
             }
-            validate_corpus_record(record)
+            validate_corpus_record(record, require_license_evidence=False)
             event = self._make_event(
                 action="promote-local",
                 record_id=record_id,
@@ -1236,7 +1249,7 @@ class LocalCorpusStore:
                 "decided_at": now,
                 "reason": reason,
             }
-            validate_corpus_record(record)
+            validate_corpus_record(record, require_license_evidence=False)
             event = self._make_event(
                 action=AUDIT_ACTION_BY_TRANSITION[(old_state, target_state)],
                 record_id=record_id,

@@ -17,6 +17,7 @@ from reader_first.japanese_syntax import (
     SyntaxAnalysisError,
     analyze_japanese,
     build_syntax_ab_report,
+    validate_syntax_ab_report,
     validate_syntax_signal,
 )
 
@@ -221,6 +222,16 @@ class JapaneseSyntaxTests(unittest.TestCase):
         }
         self.assertEqual(validate_syntax_signal(result)["signals"]["token_count"], 29)
 
+    def test_signal_rejects_boolean_schema_version(self) -> None:
+        result = analyze_japanese(
+            "その条件の場合は続行しない。",
+            loader=lambda _model: fake_backend(),
+            timer=iter([1.0, 1.01]).__next__,
+        )
+        result["schema_version"] = True
+        with self.assertRaisesRegex(SyntaxAnalysisError, "schema"):
+            validate_syntax_signal(result)
+
     def test_invalid_interpretation_is_rejected(self) -> None:
         result = analyze_japanese(
             "日本語です。",
@@ -232,6 +243,18 @@ class JapaneseSyntaxTests(unittest.TestCase):
 
 
 class SyntaxAbTests(unittest.TestCase):
+    def test_input_and_report_reject_boolean_schema_version(self) -> None:
+        experiment = improving_experiment()
+        invalid_experiment = deepcopy(experiment)
+        invalid_experiment["schema_version"] = True
+        with self.assertRaisesRegex(SyntaxAnalysisError, "schema"):
+            build_syntax_ab_report(invalid_experiment)
+
+        report = build_syntax_ab_report(experiment)
+        report["schema_version"] = True
+        with self.assertRaisesRegex(SyntaxAnalysisError, "schema"):
+            validate_syntax_ab_report(report)
+
     def test_improvement_requires_human_review_and_never_defaults(self) -> None:
         report = build_syntax_ab_report(
             improving_experiment(),
@@ -298,6 +321,48 @@ class SyntaxAbTests(unittest.TestCase):
         report = build_syntax_ab_report(data)
         self.assertIn("provider間のrisk判定差が増加しました", report["automatic_blockers"])
         self.assertEqual(report["recommendation"], "do-not-default")
+
+    def test_provider_accuracy_spread_increase_blocks_default(self) -> None:
+        data = improving_experiment()
+        for item in data["observations"]:
+            if item["condition"] == "llm-only":
+                item["expected_behavior_match"] = item["case_id"] == "risk-case"
+            else:
+                item["expected_behavior_match"] = item["provider"] == "codex"
+        report = build_syntax_ab_report(data)
+        self.assertEqual(
+            report["provider_difference"]["expected_behavior_accuracy_spread_delta"],
+            1.0,
+        )
+        self.assertIn(
+            "provider間のexpected behavior accuracy差が増加しました",
+            report["automatic_blockers"],
+        )
+        self.assertEqual(report["recommendation"], "do-not-default")
+
+    def test_provider_accuracy_uses_only_matched_case_repeat_sets(self) -> None:
+        data = improving_experiment()
+        data["observations"].extend(
+            [
+                observation(
+                    "codex-only-case",
+                    "codex",
+                    condition,
+                    expected_risk=False,
+                    risk_detected=False,
+                    behavior_match=condition == "llm-only",
+                )
+                for condition in ("llm-only", "llm-plus-signals")
+            ]
+        )
+        report = build_syntax_ab_report(data)
+        signals = report["provider_difference"]["llm-plus-signals"]
+        self.assertEqual(signals["risk_decision_pairs"], 2)
+        self.assertEqual(
+            signals["expected_behavior_accuracy_by_provider"],
+            {"codex": 1.0, "github-copilot": 1.0},
+        )
+        self.assertEqual(signals["expected_behavior_accuracy_spread"], 0.0)
 
     def test_unsupported_result_is_counted_and_blocks_default(self) -> None:
         data = improving_experiment()

@@ -21,6 +21,12 @@
 外部URLの内容は自動取得しない。モデルの記憶や一般知識を、リポジトリ内の証拠や
 外部検証済みの証拠として扱わない。現在のファイルと過去の履歴も区別する。
 
+呼出し中のSkill本文、reference、example、eval、test、scanner実装はreview手順であり、対象文書の
+業務claimを支持・反証するrepository evidenceではない。hostが `.agents/skills`、`.github/skills`
+などへ配置したSkillのcopyも、内容がtargetと似ていることだけでは証拠にしない。対象文書がその
+Skillの挙動やfileを明示的にclaimしている場合、またはSkill自体がreview対象の場合だけ、通常の
+証拠gateを通して対象fileとして扱う。
+
 ## claimを抽出する
 
 対象文書から、リポジトリ内の証拠と照合できる主張を抽出する。特に、default値、環境変数、

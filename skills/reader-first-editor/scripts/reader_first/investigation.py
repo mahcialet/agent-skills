@@ -9,6 +9,7 @@ from copy import deepcopy
 from datetime import datetime, timezone
 from pathlib import Path
 
+from .schema_validation import is_schema_version
 from .state import STATE_DIRECTORIES, LocalCorpusStore, StoreError
 
 DECISIONS = {"PROMOTE", "REJECT", "HOLD", "NEEDS_MORE_EVIDENCE"}
@@ -92,6 +93,12 @@ def _require_exact_keys(container: dict, keys: set[str], context: str) -> None:
         raise InvestigationError(f"{context}に必須keyがありません: {', '.join(missing)}")
     if unknown:
         raise InvestigationError(f"{context}に未知のkeyがあります: {', '.join(unknown)}")
+
+
+def _require_nonnegative_int(value: object, context: str) -> int:
+    if not isinstance(value, int) or isinstance(value, bool) or value < 0:
+        raise InvestigationError(f"{context}は0以上のintegerである必要があります")
+    return value
 
 
 def _record_summary(store: LocalCorpusStore, record: dict, role: str) -> dict:
@@ -314,7 +321,7 @@ def validate_investigation_bundle(bundle: object) -> dict:
         "output_contract",
     }
     _require_exact_keys(data, expected_keys, "bundle")
-    if data["schema_version"] != 1:
+    if not is_schema_version(data["schema_version"]):
         raise InvestigationError("bundle.schema_versionが未対応です")
     _require_string(data, "created_at", "bundle")
     _require_string(data, "actor", "bundle")
@@ -442,7 +449,7 @@ def validate_investigation_result(result: object, bundle: dict) -> tuple[dict, l
 
     data = deepcopy(_require_dict(result, "investigation"))
     _require_exact_keys(data, RESULT_KEYS, "investigation")
-    if data.get("schema_version") != 1:
+    if not is_schema_version(data.get("schema_version")):
         raise InvestigationError("investigation.schema_versionが未対応です")
     if data.get("bundle_id") != bundle["id"]:
         raise InvestigationError("investigation.bundle_idがbundleと一致しません")
@@ -495,7 +502,11 @@ def validate_investigation_result(result: object, bundle: dict) -> tuple[dict, l
     example_groups = {
         records_by_id[record_id]["source"]["correlation_group"] for record_id in examples
     }
-    if support.get("independent_sources") != len(example_groups):
+    independent_sources = _require_nonnegative_int(
+        support.get("independent_sources"),
+        "investigation.support.independent_sources",
+    )
+    if independent_sources != len(example_groups):
         raise InvestigationError("support.independent_sourcesがprovenanceからの集計と一致しません")
     if not isinstance(support.get("mechanism"), str):
         raise InvestigationError("support.mechanismはstringである必要があります")

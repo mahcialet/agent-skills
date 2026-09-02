@@ -1,0 +1,155 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/reader-first-editor/review-coverage.schema.json",
+  "title": "Reader-First Editor coverage report",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "report_type",
+    "mode",
+    "inventory_hash",
+    "sources",
+    "chunks",
+    "dimensions",
+    "global_pass",
+    "candidates",
+    "findings",
+    "limitations"
+  ],
+  "properties": {
+    "schema_version": {"const": 2},
+    "report_type": {"const": "coverage-driven-review"},
+    "mode": {"enum": ["review", "repository-review"]},
+    "inventory_hash": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+    "sources": {
+      "type": "array",
+      "minItems": 1,
+      "items": {"type": "string", "minLength": 1}
+    },
+    "chunks": {
+      "type": "array",
+      "minItems": 1,
+      "items": {"$ref": "#/$defs/coverageItem"}
+    },
+    "dimensions": {
+      "type": "array",
+      "minItems": 1,
+      "items": {"$ref": "#/$defs/dimension"}
+    },
+    "global_pass": {"$ref": "#/$defs/coverageState"},
+    "candidates": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/candidate"}
+    },
+    "findings": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/finding"}
+    },
+    "limitations": {
+      "type": "array",
+      "items": {"type": "string"}
+    }
+  },
+  "$defs": {
+    "status": {
+      "enum": ["checked", "partial", "not-checked"]
+    },
+    "coverageState": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "candidate_ids", "unchecked_scope"],
+      "properties": {
+        "status": {"$ref": "#/$defs/status"},
+        "candidate_ids": {
+          "type": "array",
+          "items": {"type": "string", "minLength": 1}
+        },
+        "unchecked_scope": {
+          "type": "array",
+          "items": {"type": "string"}
+        }
+      }
+    },
+    "coverageItem": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["chunk_id", "status", "candidate_ids", "unchecked_scope"],
+      "properties": {
+        "chunk_id": {"type": "string", "minLength": 1},
+        "status": {"$ref": "#/$defs/status"},
+        "candidate_ids": {
+          "type": "array",
+          "items": {"type": "string", "minLength": 1}
+        },
+        "unchecked_scope": {
+          "type": "array",
+          "items": {"type": "string"}
+        }
+      }
+    },
+    "dimension": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "dimension",
+        "status",
+        "candidate_ids",
+        "candidate_count",
+        "finding_count",
+        "excluded_count",
+        "unresolved_count",
+        "exclusion_reasons",
+        "unchecked_scope"
+      ],
+      "properties": {
+        "dimension": {"type": "string", "minLength": 1},
+        "status": {"$ref": "#/$defs/status"},
+        "candidate_ids": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {"type": "string", "minLength": 1}
+        },
+        "candidate_count": {"type": "integer", "minimum": 0},
+        "finding_count": {"type": "integer", "minimum": 0},
+        "excluded_count": {"type": "integer", "minimum": 0},
+        "unresolved_count": {"type": "integer", "minimum": 0},
+        "exclusion_reasons": {
+          "type": "array",
+          "items": {"type": "string", "pattern": "\\S"}
+        },
+        "unchecked_scope": {
+          "type": "array",
+          "items": {"type": "string"}
+        }
+      }
+    },
+    "candidate": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["candidate_id", "source", "line", "resolution"],
+      "properties": {
+        "candidate_id": {"type": "string", "minLength": 1},
+        "source": {"type": "string", "minLength": 1},
+        "line": {"type": "integer", "minimum": 1},
+        "resolution": {"enum": ["finding", "excluded", "unresolved"]},
+        "reason": {"type": "string", "pattern": "\\S"}
+      }
+    },
+    "finding": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["finding_id", "candidate_ids", "locations", "severity"],
+      "properties": {
+        "finding_id": {"type": "string", "minLength": 1},
+        "candidate_ids": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"type": "string", "minLength": 1}
+        },
+        "locations": {"type": "array", "minItems": 1, "uniqueItems": true},
+        "severity": {"enum": ["HIGH", "MEDIUM", "LOW"]}
+      }
+    }
+  }
+}

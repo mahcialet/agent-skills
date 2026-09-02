@@ -5,14 +5,17 @@ from __future__ import annotations
 import hashlib
 import json
 import re
+import shutil
 import subprocess
 import sys
+import tempfile
 from collections import Counter
 from collections.abc import Callable
 from copy import deepcopy
 from datetime import datetime, timezone
 from pathlib import Path
 
+from .schema_validation import is_schema_version
 from .state import STATE_DIRECTORIES, LocalCorpusStore, StoreError
 
 REQUIRED_PROVIDERS = ["codex", "github-copilot"]
@@ -120,7 +123,7 @@ def validate_rule_proposal(proposal: object) -> dict:
         "human_approval",
     }
     _exact_keys(data, keys, "proposal")
-    if data.get("schema_version") != 1 or data.get("status") != "PROMOTE":
+    if not is_schema_version(data.get("schema_version")) or data.get("status") != "PROMOTE":
         raise RegressionError("PROMOTE statusのschema v1 proposalが必要です")
     if not data.get("provenance_reviewed"):
         raise RegressionError("proposalのprovenance reviewが未完了です")
@@ -154,8 +157,30 @@ def validate_rule_proposal(proposal: object) -> dict:
     if not isinstance(rule_diff, str) or not rule_diff.strip():
         raise RegressionError("proposalにrule diffがありません")
     evals = _require_dict(data.get("evals"), "proposal.evals")
+    categorized_eval_ids: dict[str, list[str]] = {}
     for key in ("positive", "negative", "boundary"):
-        _strings(evals, key, "proposal.evals", nonempty=True, unique=True)
+        categorized_eval_ids[key] = _strings(
+            evals,
+            key,
+            "proposal.evals",
+            nonempty=True,
+            unique=True,
+        )
+    eval_categories_by_id: dict[str, list[str]] = {}
+    for category, eval_ids in categorized_eval_ids.items():
+        for eval_id in eval_ids:
+            eval_categories_by_id.setdefault(eval_id, []).append(category)
+    cross_category_duplicates = {
+        eval_id: categories
+        for eval_id, categories in eval_categories_by_id.items()
+        if len(categories) > 1
+    }
+    if cross_category_duplicates:
+        details = ", ".join(
+            f"{eval_id} ({'/'.join(categories)})"
+            for eval_id, categories in sorted(cross_category_duplicates.items())
+        )
+        raise RegressionError(f"proposal eval IDをcategory間で重複指定できません: {details}")
     regressions = _require_dict(data.get("regressions"), "proposal.regressions")
     if set(regressions) != {
         "existing_evals",
@@ -414,7 +439,7 @@ def validate_regression_plan(plan: object) -> dict:
         "requirements",
     }
     _exact_keys(data, keys, "regression plan")
-    if data.get("schema_version") != 1:
+    if not is_schema_version(data.get("schema_version")):
         raise RegressionError("regression plan schema_versionが未対応です")
     _string(data, "created_at", "regression plan")
     providers = _provider_matrix({"providers": data.get("providers")})
@@ -463,7 +488,7 @@ def validate_regression_run(run: object, plan: dict) -> dict:
         "cases",
     }
     _exact_keys(data, keys, "regression run")
-    if data.get("schema_version") != 1 or data.get("plan_id") != plan["id"]:
+    if not is_schema_version(data.get("schema_version")) or data.get("plan_id") != plan["id"]:
         raise RegressionError("regression runのschemaまたはplan IDが不正です")
     for key in ("provider", "model", "model_version", "host_version", "created_at"):
         _string(data, key, "regression run")
@@ -651,7 +676,7 @@ def validate_regression_report(report: object) -> dict:
         "blockers",
     }
     _exact_keys(data, keys, "regression report")
-    if data.get("schema_version") != 1:
+    if not is_schema_version(data.get("schema_version")):
         raise RegressionError("regression report schema_versionが未対応です")
     _string(data, "created_at", "regression report")
     run_ids = _strings(data, "run_ids", "regression report", nonempty=True, unique=True)
@@ -713,7 +738,7 @@ def build_rule_approval(
     if report["proposal_id"] != proposal["id"] or report["diff_hash"] != diff_hash:
         raise RegressionError("reportとproposalのdiff identityが一致しません")
     if not reviewer.strip() or not reason.strip():
-        raise RegressionError("human reviewerと承認理由が必要です")
+        raise RegressionError("reviewer attestationと承認理由が必要です")
     identity = {
         "proposal_id": proposal["id"],
         "report_id": report["id"],
@@ -749,7 +774,7 @@ def validate_rule_approval(approval: object) -> dict:
         "reason",
     }
     _exact_keys(data, keys, "rule approval")
-    if data.get("schema_version") != 1 or data.get("approved") is not True:
+    if not is_schema_version(data.get("schema_version")) or data.get("approved") is not True:
         raise RegressionError("approved schema v1 artifactが必要です")
     for key in ("reviewer", "approved_at", "reason"):
         _string(data, key, "rule approval")
@@ -762,8 +787,14 @@ def validate_rule_approval(approval: object) -> dict:
     return data
 
 
-def validate_apply_artifacts(proposal: dict, report: dict, approval: dict) -> tuple[dict, dict, dict]:
+def validate_apply_artifacts(
+    proposal: dict,
+    plan: dict,
+    report: dict,
+    approval: dict,
+) -> tuple[dict, dict, dict, dict]:
     proposal = validate_rule_proposal(proposal)
+    plan = validate_regression_plan(plan)
     report = validate_regression_report(report)
     approval = validate_rule_approval(approval)
     diff_hash = rule_diff_hash(proposal["rule_diff"])
@@ -771,13 +802,16 @@ def validate_apply_artifacts(proposal: dict, report: dict, approval: dict) -> tu
         raise RegressionError("regression reportがpassではありません")
     if (
         report["proposal_id"] != proposal["id"]
+        or plan["proposal_id"] != proposal["id"]
+        or report["plan_id"] != plan["id"]
+        or plan["diff_hash"] != diff_hash
         or report["diff_hash"] != diff_hash
         or approval["proposal_id"] != proposal["id"]
         or approval["report_id"] != report["id"]
         or approval["diff_hash"] != diff_hash
     ):
         raise RegressionError("proposal、report、approvalのidentityが一致しません")
-    return proposal, report, approval
+    return proposal, plan, report, approval
 
 
 def parse_rule_patch(rule_diff: str) -> list[str]:
@@ -808,6 +842,103 @@ def parse_rule_patch(rule_diff: str) -> list[str]:
     return targets
 
 
+def _read_eval_cases(root: Path) -> list[dict]:
+    cases: list[dict] = []
+    eval_dir = root / "skills/reader-first-editor/evals"
+    if not eval_dir.is_dir():
+        return cases
+    for path in sorted(eval_dir.glob("*.yaml")):
+        try:
+            suite = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError) as exc:
+            raise RegressionError(f"eval suiteをJSON-compatible YAMLとして読めません: {path}: {exc}") from exc
+        if not isinstance(suite, dict) or not isinstance(suite.get("cases"), list):
+            raise RegressionError(f"eval suiteにcases arrayがありません: {path}")
+        for case in suite["cases"]:
+            if not isinstance(case, dict) or not isinstance(case.get("id"), str) or not case["id"]:
+                raise RegressionError(f"eval caseにIDがありません: {path}")
+            cases.append(case)
+    return cases
+
+
+def _expected_proposal_eval_cases(proposal: dict, plan: dict) -> dict[str, dict]:
+    planned = {case["id"]: case for case in plan["cases"] if case.get("source") == "proposal"}
+    expected: dict[str, dict] = {}
+    for category in ("positive", "negative", "boundary"):
+        for eval_id in proposal["evals"][category]:
+            planned_id = f"proposal:{category}:{eval_id}"
+            case = planned.get(planned_id)
+            if case is None:
+                raise RegressionError(f"regression planにproposal evalがありません: {eval_id}")
+            expected[eval_id] = {
+                "id": eval_id,
+                "language": case["language"],
+                "mode": case["mode"],
+                "input": case["input"]["value"],
+                "expected": case["expected"],
+                "expected_behavior": case["expected_behavior"],
+                "must_preserve": case["must_preserve"],
+                "must_not_claim": case["must_not"],
+            }
+    return expected
+
+
+def _validate_proposal_eval_cases(
+    root: Path,
+    targets: list[str],
+    rule_diff: str,
+    proposal: dict,
+    plan: dict,
+) -> None:
+    before = _read_eval_cases(root)
+    with tempfile.TemporaryDirectory(prefix="reader-first-editor-evals-") as temporary:
+        staged_root = Path(temporary)
+        eval_source = root / "skills/reader-first-editor/evals"
+        if eval_source.is_dir():
+            shutil.copytree(
+                eval_source,
+                staged_root / "skills/reader-first-editor/evals",
+            )
+        for relative in targets:
+            source = root / relative
+            destination = staged_root / relative
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            if source.is_file() and not ALLOWED_EVAL_TARGET.fullmatch(relative):
+                shutil.copy2(source, destination)
+        applied = _git(
+            staged_root,
+            ["apply", "--whitespace=error-all", "-"],
+            input_text=_git_patch_input(rule_diff),
+        )
+        if applied.returncode:
+            raise RegressionError(f"一時領域へrule patchを適用できません: {applied.stderr.strip()}")
+        after = _read_eval_cases(staged_root)
+
+    before_ids = {case["id"] for case in before}
+    after_counts = Counter(case["id"] for case in after)
+    expected = _expected_proposal_eval_cases(proposal, plan)
+    added = {case["id"]: case for case in after if case["id"] not in before_ids}
+    duplicates = sorted(eval_id for eval_id, count in after_counts.items() if count > 1)
+    missing = sorted(set(expected) - set(added))
+    unexpected = sorted(set(added) - set(expected))
+    mismatched = sorted(
+        eval_id
+        for eval_id in set(expected) & set(added)
+        if added[eval_id] != expected[eval_id]
+    )
+    errors: list[str] = []
+    if missing:
+        errors.append("proposal eval IDがありません: " + ", ".join(missing))
+    if unexpected:
+        errors.append("proposalにないeval IDがあります: " + ", ".join(unexpected))
+    if duplicates:
+        errors.append("eval IDが重複しています: " + ", ".join(duplicates))
+    if mismatched:
+        errors.append("proposal eval caseの内容が一致しません: " + ", ".join(mismatched))
+    if errors:
+        raise RegressionError("rule patchのeval caseがproposalと一致しません: " + "; ".join(errors))
+
+
 def _git(root: Path, args: list[str], *, input_text: str | None = None) -> subprocess.CompletedProcess[str]:
     return subprocess.run(
         ["git", *args],
@@ -826,12 +957,15 @@ def _git_patch_input(rule_diff: str) -> str:
 
 def preview_rule_apply(
     proposal: dict,
+    plan: dict,
     report: dict,
     approval: dict,
     *,
     repository_root: Path,
 ) -> dict:
-    proposal, report, approval = validate_apply_artifacts(proposal, report, approval)
+    proposal, plan, report, approval = validate_apply_artifacts(
+        proposal, plan, report, approval
+    )
     root = repository_root.expanduser().resolve()
     top = _git(root, ["rev-parse", "--show-toplevel"])
     if top.returncode or Path(top.stdout.strip()).resolve() != root:
@@ -856,21 +990,20 @@ def preview_rule_apply(
     )
     if check.returncode:
         raise RegressionError(f"rule patchが適用不能またはno-opです: {check.stderr.strip()}")
-    missing_eval_ids = [
-        eval_id
-        for category in ("positive", "negative", "boundary")
-        for eval_id in proposal["evals"][category]
-        if eval_id not in proposal["rule_diff"]
-    ]
-    if missing_eval_ids:
-        raise RegressionError("rule patchにproposal eval IDがありません: " + ", ".join(missing_eval_ids))
+    _validate_proposal_eval_cases(
+        root,
+        targets,
+        proposal["rule_diff"],
+        proposal,
+        plan,
+    )
     return {
         "proposal_id": proposal["id"],
         "report_id": report["id"],
         "approval_id": approval["id"],
         "diff_hash": rule_diff_hash(proposal["rule_diff"]),
         "targets": targets,
-        "human_reviewer": approval["reviewer"],
+        "reviewer_attestation": approval["reviewer"],
         "will_commit": False,
         "will_push": False,
     }
@@ -878,6 +1011,7 @@ def preview_rule_apply(
 
 def apply_rule_patch(
     proposal: dict,
+    plan: dict,
     report: dict,
     approval: dict,
     *,
@@ -885,6 +1019,7 @@ def apply_rule_patch(
 ) -> dict:
     preview = preview_rule_apply(
         proposal,
+        plan,
         report,
         approval,
         repository_root=repository_root,

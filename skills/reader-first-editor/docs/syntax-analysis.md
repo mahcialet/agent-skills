@@ -22,10 +22,11 @@ parserがない環境でもSkill全体の処理は継続する。
 - [GiNZA repository](https://github.com/megagonlabs/ginza)
 
 `ginza==5.2.0` と `ja-ginza==5.2.0` のdependency宣言では、spaCy `<4.0.0,>=3.4.4` が許容される。
-ただし、2026-08-30のisolated testでは、spaCy 3.8系で `ja_ginza` のloadに失敗した。
-Python 3.12.13、`spacy==3.7.5`、`click==8.1.8` では解析に成功した。このため、導入例では
-実測済みversionをpinしている。将来versionを変更する場合は、同じload testとrecorded fixtureを
-再実行する。
+repositoryに保存している再現可能な結果は、Python 3.12.13、`spacy==3.7.5`、`click==8.1.8` での
+解析成功である。spaCy 3.8系でloadに失敗したという当時の観察については、exact version、error、
+failure fixtureが残っていないため、この文書では3.8系の非互換をclaimしない。導入例はrecorded
+fixtureと一致する3.7.5をpinしている。将来versionを変更する場合は、同じload testとrecorded
+fixtureを再実行する。
 
 初回installにはnetwork接続が必要である。約59 MBのmodel wheelに加え、spaCyやSudachiの依存も
 取得する。通常のreviewがpackage installやmodel downloadを開始することはない。GiNZA modelは
@@ -77,6 +78,12 @@ uv run --python 3.12 \
 しない。一つのparseが返っただけでは、読者が文を一意に解釈できる証拠にはならない。合成文の
 recorded resultは `tests/fixtures/syntax/ginza-5.2.0-ja-ginza-5.2.0.json` に保存している。
 
+`validate_syntax_signal()` は汎用JSON Schema validatorではなく、top-level key、availability分岐、
+conservative interpretationなど一部のruntime invariantだけを確認する。たとえば、現行custom
+validatorは `available` のboolean型、`text_hash` のpattern、`analysis_ms` の非負値、nested signalsの
+全型制約をschemaと同じ強さでは検証しない。外部入力の完全なschema適合を確認する用途では、schema
+fileによる別検証が必要である。
+
 ## LLM-onlyとのA/B
 
 `schemas/syntax-ab-input.schema.json` に従い、同じcaseを次の2条件で記録する。
@@ -100,9 +107,20 @@ expected-behavior accuracy、処理時間、parse-failure rateを条件間で比
 accuracyのspreadと、同じcaseに対するrisk判定のdisagreement rateも比較する。
 
 paired result不足、unsupported／error、parser unavailable、semantic regression、false positiveや
-unnecessary revisionの増加、provider差の増加、改善なしのいずれかがあれば `do-not-default` とする。
+unnecessary revisionの増加、provider別accuracy spreadまたはrisk disagreementの増加、改善なしの
+いずれかがあれば `do-not-default` とする。
+ここで改善として数えるのは、RR recallの増加、false positiveまたはunnecessary revisionの減少、
+expected behavior accuracyの増加、risk disagreementの減少である。semantic preservationの増加、
+parse failure・処理時間・accuracy spreadの減少だけでは「改善あり」にしない。
 blockerがなく改善が観測されても `human-review-required` に留め、`default_enabled` は常にfalseで
-ある。実際のCodex／GitHub Copilot resultはPhase 8で記録する。それまではoptional機能を既定化しない。
+ある。実際のCodex／GitHub Copilot resultは未収集である。resultを収集し、人間が確認するまでは
+optional機能を既定化しない。
+
+pairing gateは、入力に現れた各case・provider・repeatについて両conditionがあることと、両providerが
+各conditionのどこかに現れることを確認する。ただし、CodexとGitHub Copilotが同じcase集合を評価した
+ことは確認しない。provider間risk disagreementも両providerに共通するcase・repeatだけで計算する。
+case集合が一致しない入力でもblockerなしになり得るため、人間reviewではprovider間のcase matrixも
+照合する。
 
 高度なcoreference、bridging reference、discourse relationが必要だという実文上の証拠が得られた
 場合だけ、KWJAなどをexperimental backendとして比較する。重い依存をCoreへ追加しない。

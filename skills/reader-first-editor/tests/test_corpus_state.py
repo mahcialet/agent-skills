@@ -20,6 +20,7 @@ from reader_first.state import (
     RecordValidationError,
     StoreError,
     deterministic_candidate_id,
+    prepare_candidate_record,
     resolve_data_dir,
     validate_corpus_record,
 )
@@ -186,12 +187,63 @@ class RecordTests(unittest.TestCase):
         with self.assertRaises(RecordValidationError):
             validate_corpus_record(record)
 
+    def test_manual_repository_license_requires_nonempty_acquisition_method(self) -> None:
+        for notes in (None, "", "   "):
+            with self.subTest(notes=notes):
+                record = sample_record()
+                record["source"].update(
+                    {
+                        "type": "manual",
+                        "repository": None,
+                        "pr_number": None,
+                        "commit": None,
+                        "file": None,
+                        "url": None,
+                        "immutable_revision": "b" * 64,
+                    }
+                )
+                record["rights"]["repository_license"] = "MIT"
+                record["rights"]["notes"] = notes
+                record["id"] = deterministic_candidate_id(record)
+                with self.assertRaisesRegex(RecordValidationError, "取得・確認方法"):
+                    validate_corpus_record(record)
+
+    def test_repository_license_accepts_recorded_acquisition_method(self) -> None:
+        record = sample_record()
+        record["rights"]["repository_license"] = "MIT"
+        record["rights"]["notes"] = "GitHub REST APIのrepository metadataから取得"
+        record["id"] = deterministic_candidate_id(record)
+        validate_corpus_record(record)
+
+    def test_unknown_repository_license_allows_null_notes(self) -> None:
+        record = sample_record()
+        record["rights"]["repository_license"] = None
+        record["rights"]["notes"] = None
+        record["id"] = deterministic_candidate_id(record)
+        validate_corpus_record(record)
+
+    def test_legacy_v1_license_without_notes_is_read_compatible(self) -> None:
+        record = sample_record()
+        record["rights"]["repository_license"] = "MIT"
+        record["rights"]["notes"] = None
+        record["id"] = deterministic_candidate_id(record)
+
+        with self.assertRaises(RecordValidationError):
+            validate_corpus_record(record)
+        validate_corpus_record(record, require_license_evidence=False)
+
     def test_record_validation_rejects_unknown_fields(self) -> None:
         record = sample_record()
         record["id"] = deterministic_candidate_id(record)
         record["source"]["assumed_license"] = "MIT"
         with self.assertRaises(RecordValidationError):
             validate_corpus_record(record)
+
+    def test_record_validation_rejects_boolean_schema_version(self) -> None:
+        record = sample_record()
+        record["schema_version"] = True
+        with self.assertRaisesRegex(RecordValidationError, "schema_version"):
+            prepare_candidate_record(record)
 
     def test_record_validation_recomputes_deterministic_id(self) -> None:
         record = sample_record()
@@ -270,6 +322,18 @@ class StoreTests(unittest.TestCase):
         events = [json.loads(line) for line in self.store.audit_path.read_text(encoding="utf-8").splitlines()]
         self.assertEqual(len(events), 1)
         self.assertEqual(events[0]["new_state"], "candidate")
+
+    def test_store_reads_legacy_v1_license_without_notes(self) -> None:
+        record = sample_record()
+        record["rights"]["repository_license"] = "MIT"
+        record["rights"]["notes"] = None
+        record["id"] = deterministic_candidate_id(record)
+        self.store.initialize()
+        path = self.store.root / "candidates" / f"{record['id']}.json"
+        path.write_text(json.dumps(record, ensure_ascii=False), encoding="utf-8")
+
+        self.assertEqual(self.store.load_record(record["id"]), record)
+        self.assertEqual(self.store.list_records()[0]["id"], record["id"])
 
     def test_batch_duplicate_preflight_prevents_partial_creation(self) -> None:
         existing = self.store.create_candidate(sample_record(), actor="tester", reason="fixture")

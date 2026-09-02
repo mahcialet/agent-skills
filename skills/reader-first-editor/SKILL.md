@@ -82,7 +82,7 @@ repository-reviewの判定前に、次の順でgateを通す。
 
 ## 編集前に診断する
 
-`references/core/reread-risk.md` を使い、重要な指摘だけを報告する。
+`references/core/reread-risk.md` を使って候補を診断し、読者影響に応じて報告順を決める。
 
 - `HIGH`: 誤読、条件・scopeの誤認、行動ミス、複数回の読み返しにつながる。
 - `MEDIUM`: 理解速度を明確に下げる、または情報階層を隠す。
@@ -90,6 +90,24 @@ repository-reviewの判定前に、次の順でgateを通す。
 
 文長、同じ文頭、受身、段落長を自動的な不合格条件にしない。context内で再読する
 ためのtripwireとして使う。
+
+対象が複数の章・大きな表・複数fileにまたがる場合、一回のpassで全文と全観点を保持しにくい
+場合、または利用者が網羅性やcoverageを求めた場合は、
+`references/core/coverage-driven-review.md` を読む。構造単位のchunkごとに候補を確認した後、
+文書全体のglobal passを行う。前半で複数件を見つけても探索を止めず、severityは候補収集後に
+付ける。`checked / 0 findings`、`partial`、`not-checked` を区別し、未確認範囲を問題なしと
+表現しない。補助reportの作成・検証では、作成元inventoryと元Markdownを渡して正規inventoryとの
+完全一致を確認する。reportのmodeを対象依頼と一致させ、`repository-review` では
+`repository-consistency` を必須にする。source、全chunk、必須観点、candidate所属、局所passと
+global passの順序を照合する。空または空白のみのMarkdownはinventory化しない。
+
+同じ役割を持つ要素群の型、nullable、default、constraint、命名、表記に強い局所規則が見える
+場合は、`references/core/local-consistency-review.md` を読む。全体頻度ではなくsemantic peer
+groupを先に定義し、少数例をcandidateとして記録する。通常の `review` では、与えられた本文と
+contextの範囲で再確認し、repository探索へ無条件に広げない。`repository-review` または利用者が
+根拠確認を明示した場合だけ、関連するrepository evidenceを限定的に確認する。
+少数派だけを理由に誤りとせず、`UNEXPLAINED` を修正対象と断定しない。review中に値を自動修正
+しない。
 
 ## 診断語彙と利用者向け表現を分ける
 
@@ -117,6 +135,14 @@ repository-reviewの判定前に、次の順でgateを通す。
 
 - `references/core/principles.md`
 - `references/core/reread-risk.md`
+
+長文、複数file、網羅性を求められたreviewでは読む。
+
+- `references/core/coverage-driven-review.md`
+
+同じ役割を持つ要素群の局所規則や少数例を確認する場合は読む。
+
+- `references/core/local-consistency-review.md`
 
 日本語は `references/ja/japanese-techniques.md` から始め、主題、構文、モダリティ、
 register、pacing、技術内容、ジャンル、JTF層へ振り分ける。構造決定後にだけ

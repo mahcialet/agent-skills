@@ -88,6 +88,59 @@
       "expected_statuses": ["VERIFIED"],
       "expected_evidence_types": ["DOC↔CONFIG"],
       "expected": "明示参照と識別子からservice-aの関連fileだけを探索し、全repository走査を前提にしない"
+    },
+    {
+      "id": "invoked-skill-fixture-is-not-domain-evidence",
+      "language": "ja",
+      "mode": "repository-review",
+      "input": "対象DB文書ではaudit timestamp 24列のうち2列だけ型が異なり、理由は記載されていない。呼出し中のSkillのevalとtestにも同じ22対2の例があるが、対象schema、migration、ADR、testには例外理由がない。",
+      "expected_statuses": ["UNSUPPORTED"],
+      "expected_evidence_types": ["EVIDENCE-GAP"],
+      "must_not_claim": [
+        "Skillのevalが例外理由を支持する",
+        "Skillのtestが対象schemaの意図を示す"
+      ],
+      "expected": "Skill同梱のeval、example、testをreview手順の検証dataとして対象repositoryの業務証拠から除外し、対象schemaの理由はUNSUPPORTEDのままにする"
+    },
+    {
+      "id": "required-provenance-needs-value-and-method",
+      "language": "ja",
+      "mode": "repository-review",
+      "input": "privacy文書はrepository licenseの値と確認方法を必須provenanceとしている。corpus recordにはrepository_licenseの値があるが、取得方法を示すfieldやnotesがない。",
+      "expected_statuses": ["CONTRADICTED"],
+      "expected_evidence_types": ["DOC↔CODE"],
+      "must_not_claim": ["license値だけで確認方法も分かる", "repository licenseがPR本文の権利を証明する"],
+      "expected": "必須とされた確認方法をrecordから特定できない不一致を報告し、取得元または確認方法を既存fieldへ明記するかschemaへ追加するよう提案する"
+    },
+    {
+      "id": "structured-flag-is-not-semantic-detection",
+      "language": "ja",
+      "mode": "repository-review",
+      "input": "文書はvalidatorが頻度だけのruleとduplicate ruleを本文から検出すると説明する。実装はAgentが提出したfrequency_onlyとduplicate_ruleのbooleanだけを確認し、mechanismやexisting_rule_analysisの自然言語は判定しない。",
+      "expected_statuses": ["CONTRADICTED"],
+      "expected_evidence_types": ["DOC↔CODE"],
+      "must_not_claim": ["structured booleanが本文の正しさを証明する", "toolが自然言語からduplicateを検出する"],
+      "expected": "自動検出と自己申告flagの検証を区別し、文書を実装済みのstructured gateへ限定するよう提案する"
+    },
+    {
+      "id": "eval-id-set-needs-bidirectional-check",
+      "language": "ja",
+      "mode": "repository-review",
+      "input": "文書はproposalにないeval IDをrule patchで拒否すると説明する。実装はproposalのIDがdiff文字列に含まれることだけを確認し、diff側の追加IDは列挙・比較しない。",
+      "expected_statuses": ["CONTRADICTED"],
+      "expected_evidence_types": ["DOC↔CODE"],
+      "must_not_claim": ["片方向の包含確認で集合一致を保証できる"],
+      "expected": "proposal IDの欠落確認と未列挙IDの拒否を区別し、patch後または追加行のID集合を双方向比較するよう提案する"
+    },
+    {
+      "id": "caller-supplied-reviewer-is-not-human-authentication",
+      "language": "ja",
+      "mode": "repository-review",
+      "input": "文書はhuman approvalをruntimeで確認すると説明する。実装はpass reportと空でないreviewer・reasonだけを検証し、reviewerの主体を認証しない。",
+      "expected_statuses": ["CONTRADICTED"],
+      "expected_evidence_types": ["DOC↔CODE"],
+      "must_not_claim": ["reviewer文字列が人間であることを証明する"],
+      "expected": "caller-supplied attestationと人間認証を区別し、tool外の運用責任を明記するか独立した承認証拠を要求するよう提案する"
     }
   ]
 }

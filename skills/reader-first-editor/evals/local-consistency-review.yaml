@@ -1,0 +1,116 @@
+{
+  "suite": "local-consistency-review",
+  "provenance": "2026-09-02に利用者から提示されたDB日時型の少数例事例、設計要件、必須headerの極性に関するrepository-review",
+  "cases": [
+    {
+      "id": "unexplained-timestamp-minority",
+      "language": "ja",
+      "mode": "repository-review",
+      "input": "DB定義表のaudit timestamps 24列のうち22列はtimestamptz、foo.published_atとbar.completed_atの2列はtimestampである。DDL、migration、column comment、testを確認したが、この2列だけ異なる理由は記載されていない。",
+      "expected_statuses": ["UNSUPPORTED"],
+      "expected_evidence_types": ["EVIDENCE-GAP"],
+      "expected_anomaly_statuses": ["UNEXPLAINED"],
+      "must_not_claim": [
+        "timestampは誤り",
+        "timestamptzへ変更する",
+        "修正漏れである"
+      ],
+      "expected": "同じaudit timestamp peer groupである根拠と22対2の分布、2列のlocation、探索した証拠を示す。理由が見つからないためUNEXPLAINEDとするが、少数派だけでは誤りと断定しない"
+    },
+    {
+      "id": "explained-local-time-exception",
+      "language": "ja",
+      "mode": "repository-review",
+      "input": "audit timestampsの大半はtimestamptzだが、events.local_occurred_atだけtimestampである。ADR-012とcolumn commentは、外部端末が送った現地時刻をtimezoneなしで保存すると明記している。",
+      "expected_statuses": ["VERIFIED"],
+      "expected_evidence_types": ["DOC↔DOC", "DOC↔CODE"],
+      "expected_anomaly_statuses": ["EXPLAINED"],
+      "must_not_claim": [
+        "timestamptzへ変更する",
+        "型が不整合である"
+      ],
+      "expected": "少数型は意図的な例外としてEXPLAINEDにし、確認済みcandidateをcoverageへ残すが修正提案をしない"
+    },
+    {
+      "id": "minority-contradicts-schema-policy",
+      "language": "ja",
+      "mode": "repository-review",
+      "input": "schema policyとtestはaudit timestampをtimestamptzに限定しているが、events.completed_atだけtimestampである。例外を認める記述はない。",
+      "expected_statuses": ["CONTRADICTED"],
+      "expected_evidence_types": ["DOC↔CODE", "DOC↔TEST"],
+      "expected_anomaly_statuses": ["CONTRADICTED"],
+      "must_not_claim": ["少数派だから誤り"],
+      "expected": "少数派であることではなく、明示policyとtestへの具体的な矛盾を根拠にCONTRADICTEDとする。anomaly_statusとevidence_statusを別fieldで記録する"
+    },
+    {
+      "id": "different-peer-groups-are-not-compared",
+      "language": "ja",
+      "mode": "review",
+      "input": "| column | type |\n|---|---|\n| created_at | timestamptz |\n| updated_at | timestamptz |\n| birth_date | date |\n| local_time | timestamp |",
+      "expected_anomaly_statuses": ["NOT-AN-OUTLIER"],
+      "must_not_claim": [
+        "dateは少数派なので不整合",
+        "timestampはtimestamptzへ統一する"
+      ],
+      "expected": "監査日時、暦日、利用者の現地時刻をglobal frequencyだけで同じpeer groupにせず、少数派という理由ではflagしない"
+    },
+    {
+      "id": "ordinary-review-stays-within-provided-context",
+      "language": "ja",
+      "mode": "review",
+      "input": "次の表だけを校閲してください。audit timestampsの3列はtimestamptz、published_atだけtimestampです。repository内の根拠確認は依頼していません。",
+      "expected_anomaly_statuses": ["UNEXPLAINED"],
+      "must_not_claim": [
+        "repositoryを検索した",
+        "schemaとtestを確認した",
+        "timestampは誤り"
+      ],
+      "expected": "与えられた本文の範囲で少数例をcandidateとして示し、repository探索へ広げず、理由未確認と少数派だけを根拠に誤りと断定しない"
+    },
+    {
+      "id": "required-header-uses-required-polarity",
+      "language": "ja",
+      "mode": "review",
+      "input": "| column | type | 必須 |\n|---|---|---|\n| created_at | timestamptz | yes |\n| updated_at | timestamptz | yes |\n| deleted_at | timestamptz | yes |\n| published_at | timestamptz | no |",
+      "expected_coverage_statuses": ["checked"],
+      "must_not_claim": [
+        "必須yesはnullable",
+        "published_atはnot-null"
+      ],
+      "expected": "必須headerのyesをnot-null、noをnullableとして正規化し、3対1の少数例はpublished_atとして候補化する。headerの極性をnullableと同一視しない"
+    },
+    {
+      "id": "nullable-header-keeps-nullable-polarity",
+      "language": "ja",
+      "mode": "review",
+      "input": "| column | type | nullable |\n|---|---|---|\n| created_at | timestamptz | yes |\n| updated_at | timestamptz | no |",
+      "expected_coverage_statuses": ["checked"],
+      "must_not_claim": [
+        "nullable yesはnot-null",
+        "nullable noはnullable"
+      ],
+      "expected": "nullable headerでは従来どおりyesをnullable、noをnot-nullとして扱い、必須header向けの反転を適用しない"
+    },
+    {
+      "id": "nullable-and-required-headers-remain-partial",
+      "language": "ja",
+      "mode": "review",
+      "input": "| column | type | nullable | 必須 |\n|---|---|---|---|\n| created_at | timestamptz | no | yes |",
+      "expected_coverage_statuses": ["partial"],
+      "must_not_claim": [
+        "両headerの整合を確認済み",
+        "checked / 0 findings"
+      ],
+      "expected": "nullableと必須の両方がある場合はnullableを抽出値として優先するが、必須列との整合は未確認としてparser coverageをpartialにし、limitationsへ理由を残す"
+    },
+    {
+      "id": "scanner-candidates-are-contextually-excluded",
+      "language": "ja",
+      "mode": "review",
+      "input": "署名済み契約書の正本を法務部が保管する。\n本手順では、承認済みPDFを『正本』と呼ぶ。\nSKILL.mdを管理上の正本とする。変更はSKILL.mdだけに加え、そこからホスト別fileを生成する。",
+      "must_preserve": ["正本", "法務部", "承認済みPDF", "SKILL.md"],
+      "expected_coverage_statuses": ["checked"],
+      "expected": "scannerでは3件すべてをcandidateにする。文脈確認後、法務用語、文書内定義、生成関係が明示された用法として各locationと除外理由を残し、findingは0件とする"
+    }
+  ]
+}

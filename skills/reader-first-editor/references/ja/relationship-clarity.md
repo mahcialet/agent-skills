@@ -14,6 +14,21 @@
 禁止語でも網羅的な一覧でもなく、出現回数を品質指標にしたり、語の存在だけで指摘したりしない。
 同じ語でも、必要な関係が周囲に明示されていれば維持する。
 
+長文のcoverage-driven reviewでは、次の初期候補語を
+`scripts/scan_relationships.py` で決定的に列挙できる。marker内はscannerが読むため、書式を
+変更する場合はscannerのtestも更新する。
+
+<!-- relationship-tripwires:start -->
+- `正本`
+- `source of truth`
+- `source-of-truth`
+<!-- relationship-tripwires:end -->
+
+scannerの結果はcandidateでありfindingではない。全出現箇所を文脈で確認し、法務・記録管理上の
+用法、文書内で一意に定義された用法、必要な関係が周囲に明示された用法は除外理由を残して
+`excluded` とする。scannerを利用できない場合はLLM-onlyで確認を続け、coverageを `partial` と
+して未実施を記録する。
+
 例えば、次の一文だけでは関係を一意に決められない。
 
 ```text

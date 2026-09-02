@@ -14,6 +14,8 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Any
 
+from .schema_validation import is_schema_version
+
 REQUIRED_PROVIDERS = ["codex", "github-copilot"]
 CONDITIONS = ["llm-only", "llm-plus-signals"]
 CONDITION_MARKERS = {
@@ -312,7 +314,7 @@ def validate_syntax_signal(value: object) -> dict:
     }
     if set(data) != keys:
         raise SyntaxAnalysisError("syntax signalのkeyがschema v1と一致しません")
-    if data["schema_version"] != 1 or data["backend"] != "ginza":
+    if not is_schema_version(data["schema_version"]) or data["backend"] != "ginza":
         raise SyntaxAnalysisError("syntax signalのschemaまたはbackendが不正です")
     if data["interpretation"] != "observation-only":
         raise SyntaxAnalysisError("parser outputを判定として保存できません")
@@ -341,7 +343,11 @@ def _require_ab_input(value: object) -> dict:
     data = deepcopy(value)
     if set(data) != {"schema_version", "experiment", "required_providers", "observations"}:
         raise SyntaxAnalysisError("A/B inputのkeyがschema v1と一致しません")
-    if data["schema_version"] != 1 or not isinstance(data["experiment"], str) or not data["experiment"].strip():
+    if (
+        not is_schema_version(data["schema_version"])
+        or not isinstance(data["experiment"], str)
+        or not data["experiment"].strip()
+    ):
         raise SyntaxAnalysisError("A/B inputのschemaまたはexperimentが不正です")
     if data["required_providers"] != REQUIRED_PROVIDERS:
         raise SyntaxAnalysisError("A/B inputにはCodexとGitHub Copilotをこの順で指定してください")
@@ -460,21 +466,26 @@ def _provider_metrics(observations: list[dict], condition: str) -> dict:
         for item in observations
         if item["condition"] == condition and item["status"] == "completed"
     ]
+    grouped: dict[tuple[str, int], dict[str, dict]] = defaultdict(dict)
+    for item in completed:
+        grouped[(item["case_id"], item["repeat_index"])][item["provider"]] = item
+    comparable = [
+        values
+        for values in grouped.values()
+        if set(values) == set(REQUIRED_PROVIDERS)
+    ]
     accuracy_by_provider: dict[str, float | None] = {}
     for provider in REQUIRED_PROVIDERS:
-        provider_items = [item for item in completed if item["provider"] == provider]
+        provider_items = [values[provider] for values in comparable]
         accuracy_by_provider[provider] = _rate(
             sum(bool(item["expected_behavior_match"]) for item in provider_items),
             len(provider_items),
         )
     available_accuracy = [value for value in accuracy_by_provider.values() if value is not None]
-    grouped: dict[tuple[str, int], dict[str, bool]] = defaultdict(dict)
-    for item in completed:
-        grouped[(item["case_id"], item["repeat_index"])][item["provider"]] = bool(
-            item["risk_detected"]
-        )
-    comparable = [values for values in grouped.values() if set(values) == set(REQUIRED_PROVIDERS)]
-    disagreements = sum(len(set(values.values())) > 1 for values in comparable)
+    disagreements = sum(
+        len({bool(item["risk_detected"]) for item in values.values()}) > 1
+        for values in comparable
+    )
     return {
         "expected_behavior_accuracy_by_provider": accuracy_by_provider,
         "expected_behavior_accuracy_spread": (
@@ -597,6 +608,9 @@ def build_syntax_ab_report(
     disagreement_delta = provider_difference["risk_decision_disagreement_rate_delta"]
     if disagreement_delta is not None and disagreement_delta > 0:
         blockers.append("provider間のrisk判定差が増加しました")
+    accuracy_spread_delta = provider_difference["expected_behavior_accuracy_spread_delta"]
+    if accuracy_spread_delta is not None and accuracy_spread_delta > 0:
+        blockers.append("provider間のexpected behavior accuracy差が増加しました")
 
     improvements: list[str] = []
     improvement_rules = {
@@ -654,7 +668,7 @@ def validate_syntax_ab_report(value: object) -> dict:
         "recommendation",
         "default_enabled",
     }
-    if set(data) != keys or data.get("schema_version") != 1:
+    if set(data) != keys or not is_schema_version(data.get("schema_version")):
         raise SyntaxAnalysisError("syntax A/B reportのkeyまたはschema versionが不正です")
     body = {key: data[key] for key in keys - {"id", "created_at"}}
     if data.get("id") != f"rfsab-{_canonical_hash(body)[:20]}":

@@ -9,7 +9,7 @@ toolが生成したprovider-neutralなinvestigation bundleを読むのは、Code
 
 bundle作成から、対象を限定したrule applyまでの経路は実装済みである。この経路では、
 Agent resultのruntime gate、human-unapproved proposal draft、regression結果の集約、
-人間による明示承認を順に行う。
+tool外の人間review、caller-suppliedなapproval artifactを順に扱う。
 
 ## 既定姿勢
 
@@ -44,9 +44,12 @@ proposal作成時とは別のfresh contextを使うことが望ましい。
 
 ## Bundle
 
-bundleには、仮説、対象scope、record ID、source correlation、支持例、反例、known exception、
-semantic invariants、既存rule、提案eval、未確認事項を含める。rightsを確認していないraw
-third-party textはbundleへ複製しない。reference-only recordでは、参照とhashだけを渡す。
+bundleには、仮説、対象scope、support／control record ID、source correlation、分類metadata、
+expected behavior、source・rights summary、textの参照とhash、Agentの役割、readiness blocker、
+output contractを含める。rightsを確認していないraw third-party textはbundleへ複製しない。
+semantic invariantsはbundleが参照するlocal recordに保持する。Agentは参照先recordと既存ruleを
+確認し、known exception、既存rule分析、提案eval、未確認事項をinvestigation resultの
+counterexamples、`existing_rule_analysis`、`proposed_evals`、decisionへ記録する。
 
 Agentの出力はproposal recordのdraftにすぎず、toolのstate transitionや人間の承認を代行しない。
 未説明の反例があればdecisionを `HOLD` にし、情報が足りなければ
@@ -56,9 +59,10 @@ Agentの出力はproposal recordのdraftにすぎず、toolのstate transition�
 
 ### bundleを作る
 
-最初に、人間がsupportとcontrolを明示的に選ぶ。supportに使用できるのは
+最初に、callerがsupportとcontrolを明示的に選ぶ。supportに使用できるのは
 accepted／promoted recordだけである。controlにはaccepted／promoted／rejected recordを
-使用できる。candidateから直接調査を始めることはできない。
+使用できる。candidateから直接調査を始めることはできない。人間による選択はtool外の運用要件であり、
+toolはcallerや `--actor` が人間かを認証しない。
 
 ```bash
 tool=skills/reader-first-editor/scripts/corpus_tool.py
@@ -72,28 +76,38 @@ python3 "$tool" --data-dir "$data_dir" rules bundle \
 ```
 
 既定ではpreviewだけを返す。`investigations/<bundle-id>/bundle.json` へ保存するのは、
-`--apply` を付けた場合だけである。bundleはraw textを複製せず、record path、content hash、
-provenance、分類metadataだけを持つ。embeddedなlocal textも別fileへcopyしない。
+`--apply` を付けた場合だけである。bundleはraw textを複製せず、record path、recordに保存された
+content hash、provenance、分類metadataだけを持つ。embeddedなlocal textも別fileへcopyしない。
 
 ### Agent resultを検証する
 
-Agentにはbundleと `../references/core/rule-investigation.md` を明示して調査を依頼し、
-`investigation.schema.json` に適合するJSONを作らせる。resultは次で検証する。
+Agentにはbundle、bundle内の `text_reference.record_path` が指すlocal record、
+`../references/core/rule-investigation.md` を明示して調査を依頼し、
+`investigation.schema.json` のfield構成に沿うJSONを作らせる。`id` には空でないplaceholder stringを
+指定する。次のCLIはcustom validatorでresultを検証し、submitted `id` を採用せず、内容から
+deterministic IDを再計算する。JSON Schema validator自体は実行しないため、入力JSONそのものの
+schema適合性を独立に保証するgateではない。
 
 ```bash
 python3 "$tool" --data-dir "$data_dir" rules validate-investigation \
   --bundle-id <bundle-id> --result investigation.json
 ```
 
-toolはsupport数をrecord件数ではなくcorrelation groupから再計算する。また、bundle外record、
-改ざんされたsource correlation、未説明のcounterexample、provenance未確認、固定閾値や頻度だけに
-基づく判断、duplicate ruleを検出する。無効な `PROMOTE` は、effective statusを `HOLD` として返す。
-この場合は `--apply` があっても保存しない。`HOLD` と `NEEDS_MORE_EVIDENCE` は正常な調査結果として
-保存できる。
+toolはsupport数をrecord件数ではなくcorrelation groupから再計算し、bundle外record、改ざんされた
+source correlation、選択済みcontrolの `explained`／boundaryへの記載漏れを独立に検出する。nonemptyな
+`unexplained` も拒否するが、`explained` に列挙されたcontrolの説明が妥当かは自然言語から判定しない。
+boundary pairは各fieldが空でないstringであることを確認し、`does_not_fire` によって選択済みcontrolを
+accountedにできる。一方、`fires` が選択済みsupportか、両IDがbundle内に実在するか、意味上のminimal
+pairかは検証しない。これらはAgent resultと参照recordを後段の人間reviewで照合する。
+provenance未確認、固定閾値・頻度だけの判断、duplicate ruleについては、Agent resultのstructured
+booleanを検証して拒否する。toolは `mechanism` や `existing_rule_analysis` の自然言語からbooleanの
+正しさを推論しないため、Agentの自己申告と本文、counterexample説明の整合は後段の人間reviewで
+確認する。flag上で無効な `PROMOTE` はeffective statusを `HOLD` として返し、`--apply` があっても
+保存しない。`HOLD` と `NEEDS_MORE_EVIDENCE` は正常な調査結果として保存できる。
 
 ### proposal draftを作る
 
-gateを通過した `PROMOTE` resultとhuman-reviewedなrule diffから、次でproposal draftを作る。
+gateを通過した `PROMOTE` resultと、review対象のnonemptyなrule diff draftから次でproposalを作る。
 
 ```bash
 python3 "$tool" --data-dir "$data_dir" rules propose \
@@ -103,15 +117,23 @@ python3 "$tool" --data-dir "$data_dir" rules propose \
 このcommandも既定ではpreviewだけを返す。`--apply` が意味するのは、local `proposals/` への
 保存だけである。proposalの `human_approval.approved` は必ずfalseであり、regression statusは全て
 `not-run` で始まり、`SKILL.md`、references、evalsを変更しない。
+この段階ではpatch構造、許可target、apply可能性を検証せず、human approvalも記録しない。これらは
+regression後の `rules approve` と `rules apply` で検証する。positive／negative／boundary間で同じeval
+IDを指定したresultもproposalとして保存できるが、後段のproposal validationはcategory間の重複を
+拒否する。
 
 ### regressionから明示applyまで進める
 
-proposal後は、bundled eval、promoted corpus、positive／negative／boundary evalを含むplanを
-`rules regression-plan` で作る。CodexとGitHub Copilotで実行したresultは
+proposal後は、既定の `--eval-dir` にあるbundled eval、`--corpus-record` で選んだpromoted record、
+positive／negative／boundary evalを含むplanを `rules regression-plan` で作る。`--eval-dir` を明示すると
+別directoryへ置き換わり、Skillのbundled eval全件を含むかは検証しない。promoted record全件は
+自動選択しない。
+CodexとGitHub Copilotで実行したresultは
 `rules regression-ingest` で取り込み、`rules regression-report` で全provider・repeatを
 集約する。toolはproviderを直接起動せず、planとresultの検証・保存・再集計だけを担う。
 
 全gateがpassしたreportだけを、`rules approve` で別artifactとして承認できる。`rules apply` は
-既定ではpreviewを返す。承認済みのexact diffを、許可されたSkill本文・reference・evalへ適用する
-のは、`--apply` がある場合だけである。詳細なgateとartifactの関係は
+既定ではpreviewを返す。承認済みのexact diffを、意図したSkill本文・reference・evalへ適用する
+のは、`--apply` がある場合だけである。ただし、現行target parserではquotedまたは空白を含む追加sectionが
+許可path検査から漏れ得るため、previewだけをtarget限定の保証にしない。詳細なgateとartifactの関係は
 [ルール昇格](rule-promotion.md)を参照する。

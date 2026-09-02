@@ -196,6 +196,18 @@ class InvestigationTests(unittest.TestCase):
         self.assertEqual(result["id"], second["id"])
         self.assertRegex(result["id"], r"^rfi-[0-9a-f]{20}$")
 
+    def test_bundle_and_result_reject_boolean_schema_version(self) -> None:
+        bundle = self.bundle()
+        invalid_bundle = deepcopy(bundle)
+        invalid_bundle["schema_version"] = True
+        with self.assertRaisesRegex(InvestigationError, "schema_version"):
+            validate_bundle_against_store(invalid_bundle, self.store)
+
+        result = valid_result(bundle)
+        result["schema_version"] = True
+        with self.assertRaisesRegex(InvestigationError, "schema_version"):
+            validate_investigation_result(result, bundle)
+
     def test_unexplained_counterexample_blocks_promote(self) -> None:
         bundle = self.bundle()
         result = valid_result(bundle)
@@ -233,11 +245,42 @@ class InvestigationTests(unittest.TestCase):
         _, blockers = validate_investigation_result(result, bundle)
         self.assertEqual(len(blockers), 4)
 
+    def test_gate_uses_structured_flags_instead_of_inferring_them_from_prose(self) -> None:
+        bundle = self.bundle()
+        result = valid_result(bundle)
+        result["support"]["mechanism"] = "出現率が80%以上なら常に適用する"
+        result["existing_rule_analysis"] = "既存ruleと同じ内容を再提案する"
+        validated, blockers = validate_investigation_result(result, bundle)
+        self.assertFalse(validated["fixed_threshold_only"])
+        self.assertFalse(validated["frequency_only"])
+        self.assertFalse(validated["duplicate_rule"])
+        self.assertEqual(blockers, [])
+
     def test_source_correlation_cannot_be_forged(self) -> None:
         bundle = self.bundle()
         result = valid_result(bundle)
         result["support"]["independent_sources"] = 99
         with self.assertRaisesRegex(InvestigationError, "provenance"):
+            validate_investigation_result(result, bundle)
+
+    def test_independent_sources_rejects_boolean_for_single_group_hold(self) -> None:
+        bundle = self.bundle(controls=False, supports=1)
+        result = valid_result(self.bundle())
+        support_id = bundle["selection"]["support_record_ids"][0]
+        result.update(
+            {
+                "bundle_id": bundle["id"],
+                "scope": deepcopy(bundle["scope"]),
+                "record_ids": [support_id],
+                "source_correlation": deepcopy(bundle["source_analysis"]["correlation_groups"]),
+                "boundary_pairs": [],
+                "decision": {"status": "HOLD", "reason": "support不足"},
+            }
+        )
+        result["support"]["examples"] = [support_id]
+        result["support"]["independent_sources"] = True
+        result["counterexamples"]["explained"] = []
+        with self.assertRaisesRegex(InvestigationError, "integer"):
             validate_investigation_result(result, bundle)
 
     def test_proposal_is_unapproved_and_has_not_run_regressions(self) -> None:

@@ -157,8 +157,19 @@ class RecordedFixtureTests(unittest.TestCase):
         self.assertIsNone(candidate["text"]["content"])
         self.assertEqual(candidate["rights"]["status"], "unknown")
         self.assertTrue(candidate["rights"]["local_only"])
+        self.assertIn("GitHub REST API", candidate["rights"]["notes"])
         self.assertEqual(candidate["github_evidence"]["inline_threads"], [])
         self.assertFalse(candidate["review_signal"]["raw_text_included"])
+
+    def test_snapshot_rejects_boolean_schema_version(self) -> None:
+        snapshot = load_recorded_snapshot(
+            FIXTURE_DIR / "pr-138-reference-only.json",
+            repository=REPOSITORY,
+            pr_number=138,
+        )
+        snapshot["schema_version"] = True
+        with self.assertRaisesRegex(GitHubCollectionError, "schema_version"):
+            validate_snapshot(snapshot, repository=REPOSITORY, pr_number=138)
 
     def test_pr_187_aligns_inline_thread_with_follow_up_revision(self) -> None:
         candidate = prepare_candidate_record(

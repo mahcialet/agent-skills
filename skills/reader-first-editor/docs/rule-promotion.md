@@ -1,11 +1,12 @@
 # ルール昇格
 
-状態: implemented（investigation、regression gate、human approval、明示的なapply）
+状態: implemented（investigation、regression gate、caller-supplied approval、明示的なapply）
 
 rule promotionはcorpus promotionとは別のworkflowである。実例を評価に使えるcorpusへ追加しても、
 それだけではSkillの判断規則は変わらない。behavior-changing ruleの既定判断は `HOLD` または
 `NEEDS_MORE_EVIDENCE` とする。structured investigation、human-unapproved proposal draft、
-provider-neutralなregression集約、human approval artifact、rule patchの明示的なapplyは実装済みである。
+provider-neutralなregression集約、caller-supplied approval artifact、rule patchの明示的なapplyは
+実装済みである。人間によるreviewはtool外の運用要件である。
 
 ## Workflow
 
@@ -20,7 +21,7 @@ counterexample / boundary / regression review
   ↓
 rule diff
   ↓
-human approval
+tool外のhuman review / approval artifact
   ↓
 明示的なapply
 ```
@@ -38,38 +39,51 @@ proposalには次が必要である。
 - language、genre、reader、purpose、native・translationのscope
 - 頻度以外のmechanismとsemantic risk
 - 既存ruleとの重複確認
-- positive、negative、boundary eval候補
+- positive、negative、boundary eval候補。最終的にcase IDをcategory間で再利用しない
 - 未説明の反例数とdecision理由
 
 反例が一つでも残る場合は、多数決で無視しない。反例が成立しない範囲までruleを狭められなければ
 `HOLD` とする。証拠自体が不足する場合は `NEEDS_MORE_EVIDENCE` とする。
 
+現行のinvestigation validatorはboundary pairの各fieldが空でないことと、選択済みcontrolの記載漏れを
+確認するが、`fires` がsupport recordか、両record IDが実在するか、意味上のminimal pairかは確認しない。
+また、`rules propose` はcategory間でeval IDが重複したproposalも保存できる。これらはproposal作成時の
+runtime gateではなく、人間reviewと後段のproposal validationで確認する。`regression-plan` と
+`rules apply` はeval IDのcategory間重複を拒否する。
+
 ## Apply gate
 
-`rules apply` の既定動作はpreviewであり、`--apply` と人間の承認がそろうまでfileを変更しない。
+`rules apply` の既定動作はpreviewであり、`--apply` と承認artifactがそろうまでfileを変更しない。
+toolが確認するのは、pass report、exact diff、空でないreviewer・理由を持つcaller-supplied artifactである。
+reviewerが人間かは認証しないため、人間による明示reviewはtool外の運用責任である。
 少なくとも次の場合はapplyを拒否する。
 
-- provenance reviewが完了していない
+- proposalのcaller-suppliedな `provenance_reviewed` flagがtrueではない
 - counterexample fixtureまたはboundary fixtureがない
 - 未説明のcounterexampleが残る
 - languageまたはgenre scopeがない
-- rule diffがない、no-op、既存ruleのduplicate
-- 頻度やhard thresholdだけを根拠にしている
-- human approvalがない
+- rule diffがない、またはno-opである
+- Agent resultが `duplicate_rule`、`frequency_only`、`fixed_threshold_only` を申告している
+- approval artifactがない
 - existing eval、semantic preservation、unnecessary revision、literal、registerにregressionがある
 - positive、negative、boundary evalのいずれかがない
 - candidateまたはcorpus promotionからruleへ直接遷移している
 
-applyの対象はhuman-reviewedなprose diffとeval updateである。初版ではcore referencesを
+運用上、applyの対象は人間がreviewしたprose diffとeval updateに限定する。初版ではcore referencesを
 structured recordから自動生成しない。commitとpushも自動では行わない。
+toolはrule diffの自然言語からduplicate、頻度依存、hard threshold依存を推論しない。Agentの
+structured flagとdiffの整合、既存ruleとの照合はtool外の人間reviewで確認する。
+counterexample gateもstructuredな `unexplained` と、選択済みcontrolの `explained`／boundaryへの
+記載を確認する。説明内容が妥当かはtool外の人間reviewで確認する。
 
 `rules propose --apply` は名前に `apply` を含むが、proposal artifactをlocal dataへ保存するだけで
 ある。core ruleへ適用する `rules apply` とは異なる。作成時のregressionは全て `not-run`、
-human approvalはfalseで固定する。承認はproposal自体を書き換えず、別のimmutable artifactとして
-保存する。
+human approvalはfalseで固定する。承認情報はproposal自体を書き換えず、別のimmutable artifactとして
+保存する。ここでimmutableはtoolが同じlocal pathを上書きしないことを指し、全fieldをartifact IDへ
+含めることや、外部編集を暗号学的に検出することまでは意味しない。
 
 `rule-proposal.schema.json` へ適合しても、それだけではapplyできない。schemaはproposalと検証結果を
-受け渡すための形式である。regression結果、人間の承認、明示的な `--apply` は、別のruntime gateで
+受け渡すための形式である。regression結果、approval artifact、明示的な `--apply` は別のruntime gateで
 再確認する。
 
 ## Regression workflow
@@ -91,10 +105,13 @@ rules approve
 rules apply（既定preview、--applyで変更）
 ```
 
-`regression-plan` はbundled eval全件、promoted local corpus、proposalのpositive／negative／
-boundary evalを含む。provider、model、model version、host version、repeat回数を固定し、Codexと
-GitHub Copilotを必須providerとして記録する。local corpusのraw textはplanへ複製せず、record path、
-content hash、取得要否だけを保持する。
+`regression-plan` は、既定の `--eval-dir` にあるbundled eval全件、callerが `--corpus-record` で
+選んだpromoted record、proposalのpositive／negative／boundary evalを含む。`--eval-dir` を明示すると
+そのdirectoryへ置き換わり、Skillのbundled eval directoryか、全suiteを含むかは検証しない。
+promoted record全件は自動選択しない。provider、model、
+model version、host version、repeat回数を固定し、CodexとGitHub Copilotを必須providerとして記録する。
+local corpusのraw textはplanへ複製せず、record path、content hash、取得要否だけを保持する。
+manual recordのcontent hashはrecordに保存されたcaller-supplied値であり、plan作成時にも再計算しない。
 
 `regression-ingest` はplanと同じcase順、provider metadata、repeat indexを検証してlocal保存する。
 各caseは `pass`、`fail`、`unsupported`、`error` を区別し、semantic preservation、unnecessary
@@ -103,18 +120,30 @@ revision、literal、register、expected behaviorの一致を記録する。`uns
 
 `regression-report` は全provider・repeatの不足と重複を検出し、existing、corpus、positive、
 negative、boundary、no-change accuracyを集約する。`approve` と `apply` は保存済みplanとrunから
-reportを再計算し、改変されたreportを拒否する。人間が承認できるのはpass reportだけである。
-承認artifactにはproposal ID、report ID、exact diff hash、reviewer、理由を固定する。
+reportを再計算し、改変されたreportを拒否する。approval artifactを作成できるのはpass reportだけで
+ある。承認artifactにはproposal ID、report ID、exact diff hash、caller-suppliedなreviewer、理由を
+固定する。
 
-`rules apply` が変更できるのは次だけである。
+`rules apply` が意図して許可するtargetは次だけである。
 
 - `skills/reader-first-editor/SKILL.md`
 - `skills/reader-first-editor/references/**/*.md`
 - `skills/reader-first-editor/evals/*.yaml`
 
-rule targetとeval targetの両方が必要である。binary、削除、rename、path traversal、symlink、no-op、
-proposalにないeval ID、対象fileの未commit変更は拒否する。`git apply --check` 後にpatchを適用し、
-content validatorとSkill validatorが失敗した場合はpatchをrollbackする。commitとpushは行わない。
+rule targetとeval targetの両方が必要である。現行parserは、空白を含まないunquotedな
+`diff --git a/... b/...` headerだけをtarget sectionとして認識する。そのため、quotedまたは空白を含む
+追加sectionはtarget一覧と許可path検査から漏れる一方、patch全体は後段の `git apply` に渡る。
+修正されるまでは、previewの `targets` だけで許可外pathがないとは判断せず、人間が全
+`diff --git` sectionを確認する。
+
+認識したsectionについては、binary、削除、rename、path traversal、symlink、no-op、対象fileの
+未commit変更を拒否する。previewはpatchを一時領域へ適用し、適用後のeval suiteに新規追加された
+`cases` を解析する。proposalのpositive、negative、boundary ID集合との双方向一致に加え、
+regression planへ固定したinput、期待結果、保持事項、禁止claimなどのfixture内容との一致も確認する。
+metadataなど `cases` 外に同じIDがあるだけのpatchは拒否する。`git apply --check` 後にpatchを適用し、
+content validatorとSkill validatorが失敗した場合はreverse patchによるrollbackを試みる。reverse check
+またはrollbackにも失敗した場合は変更がworktreeへ残り、errorは手動確認を求める。commitとpushは
+行わない。
 
 ## Decision
 

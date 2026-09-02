@@ -14,6 +14,7 @@ from urllib.error import HTTPError, URLError
 from urllib.parse import urljoin, urlparse
 from urllib.request import Request, urlopen
 
+from .schema_validation import is_schema_version
 from .state import ID_MATERIAL, StoreError, deterministic_candidate_id
 
 GITHUB_API_VERSION = "2022-11-28"
@@ -314,7 +315,7 @@ def load_recorded_snapshot(path: Path, *, repository: str, pr_number: int) -> di
 def validate_snapshot(snapshot: Any, *, repository: str, pr_number: int) -> dict:
     data = deepcopy(_require_dict(snapshot, "snapshot"))
     _reject_raw_text_fields(data, "snapshot")
-    if data.get("schema_version") != 1:
+    if not is_schema_version(data.get("schema_version")):
         raise GitHubCollectionError("snapshot.schema_versionが未対応です")
     _require_string(data, "retrieved_at", "snapshot")
     repository_data = _require_dict(data.get("repository"), "snapshot.repository")
@@ -526,7 +527,10 @@ def build_reference_only_candidates(
                 "review_comment_redistribution": "unknown",
                 "local_only": True,
                 "redacted": False,
-                "notes": "repository licenseは観測値であり、PR/review textの権利確認ではない",
+                "notes": (
+                    "repository licenseはGitHub REST APIのrepository metadataから観測した値であり、"
+                    "PR/review textの権利確認ではない"
+                ),
             },
             "handling": {
                 "anonymized": False,
