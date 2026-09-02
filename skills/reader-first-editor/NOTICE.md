@@ -2,6 +2,21 @@
 
 Unless noted below, this skill is licensed under the repository MIT License.
 
+## `coji/natural-japanese`（概念上の参照）
+
+- Source: <https://github.com/coji/natural-japanese>
+- Reviewed commit: `0f1cc1c5a4e2aa7590598c88a15c213a60d9545a`
+- Copyright: Copyright (c) 2026 coji
+- License: MIT License
+
+機械的な候補抽出と文脈に基づく最終判断の分離、genre差の考慮、重い解析の
+optional化、コーパスで仮説を反証する考え方を、設計上の先行例として参照した。
+この変更では、upstreamのsource code、文書本文、禁止語一覧、corpus、report、
+数値thresholdをコピーしていない。AIらしさのscoreや作者分類も取り込んでいない。
+`reader-first-editor` は独立した非公式のSkillであり、upstream作者による推奨、提携、
+互換性を示すものではない。採否と変更点は
+[`docs/related-work-natural-japanese.md`](docs/related-work-natural-japanese.md)に記録する。
+
 ## danyuchn/iso-24495-skill
 
 - Source: <https://github.com/danyuchn/iso-24495-skill>

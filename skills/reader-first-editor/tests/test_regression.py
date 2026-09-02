@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import subprocess
 import sys
@@ -33,6 +34,7 @@ from reader_first.regression import (
 )
 from reader_first.state import LocalCorpusStore
 from test_investigation import create_record, valid_result
+from validate_content import validate as validate_eval_content
 
 SKILL_DIR = Path(__file__).resolve().parents[1]
 CLI = SKILL_DIR / "scripts" / "corpus_tool.py"
@@ -120,9 +122,31 @@ def candidate_evals() -> dict:
 
 
 def passing_run(plan: dict, provider: dict, repeat: int) -> dict:
+    def passing_case(case: dict) -> dict:
+        result = {
+            "id": case["id"],
+            "status": "pass",
+            "expected_behavior_match": True,
+            "dimensions": {
+                "semantic_preservation": "pass",
+                "unnecessary_revision": "pass",
+                "literal": "pass",
+                "register": "pass",
+            },
+            "notes": "",
+        }
+        for expected_key, observed_key in (
+            ("expected_risks", "observed_risks"),
+            ("expected_statuses", "observed_statuses"),
+            ("expected_evidence_types", "observed_evidence_types"),
+        ):
+            if expected_key in case:
+                result[observed_key] = deepcopy(case[expected_key])
+        return result
+
     return {
         "id": "draft",
-        "schema_version": 1,
+        "schema_version": plan["schema_version"],
         "plan_id": plan["id"],
         "provider": provider["provider"],
         "model": provider["model"],
@@ -130,21 +154,7 @@ def passing_run(plan: dict, provider: dict, repeat: int) -> dict:
         "host_version": provider["host_version"],
         "repeat_index": repeat,
         "created_at": f"2026-08-30T12:00:0{repeat}Z",
-        "cases": [
-            {
-                "id": case["id"],
-                "status": "pass",
-                "expected_behavior_match": True,
-                "dimensions": {
-                    "semantic_preservation": "pass",
-                    "unnecessary_revision": "pass",
-                    "literal": "pass",
-                    "register": "pass",
-                },
-                "notes": "",
-            }
-            for case in plan["cases"]
-        ],
+        "cases": [passing_case(case) for case in plan["cases"]],
     }
 
 
@@ -222,6 +232,435 @@ class RegressionTests(unittest.TestCase):
         self.assertEqual(corpus_case["input"]["kind"], "record-reference")
         self.assertIsNone(corpus_case["input"]["value"])
 
+    def test_plan_preserves_bundled_structured_oracles(self) -> None:
+        self.assertEqual(self.plan["schema_version"], 2)
+        by_id = {case["id"]: case for case in self.plan["cases"]}
+        ambiguous = by_id[
+            "bundled:prose-pacing:natural-sounding-ambiguous-action-is-finding"
+        ]
+        self.assertEqual(ambiguous["expected_risks"], ["RR-12"])
+
+        contradicted = by_id[
+            "bundled:repository-grounded-review:"
+            "natural-prose-still-contradicts-config-default"
+        ]
+        self.assertEqual(contradicted["expected_statuses"], ["CONTRADICTED"])
+        self.assertEqual(contradicted["expected_evidence_types"], ["DOC↔CONFIG"])
+
+    def test_plan_preserves_repository_review_candidate_oracles(self) -> None:
+        candidates = candidate_evals()
+        candidate = candidates["positive"][0]
+        candidate["mode"] = "repository-review"
+        candidate["expected_statuses"] = ["CONTRADICTED"]
+        candidate["expected_evidence_types"] = ["DOC↔CODE"]
+
+        plan = build_regression_plan(
+            self.proposal,
+            self.store,
+            eval_dir=SKILL_DIR / "evals",
+            provider_matrix=provider_matrix(),
+            candidate_evals=candidates,
+            corpus_record_ids=[self.promoted["id"]],
+        )
+
+        planned = next(
+            case
+            for case in plan["cases"]
+            if case["id"] == "proposal:positive:eval-positive-1"
+        )
+        self.assertEqual(planned["expected_statuses"], ["CONTRADICTED"])
+        self.assertEqual(planned["expected_evidence_types"], ["DOC↔CODE"])
+
+    def test_plan_preserves_explicit_bundled_no_change_behavior(self) -> None:
+        expected_ids = {
+            "bundled:prose-pacing:clear-ai-associated-phrase-is-no-change",
+            "bundled:prose-pacing:repeated-safety-steps-remain-predictable",
+            "bundled:prose-pacing:repeated-technical-literal-is-not-varied",
+        }
+        no_change_ids = {
+            case["id"]
+            for case in self.plan["cases"]
+            if case["expected_behavior"] == "no-change"
+        }
+        self.assertTrue(expected_ids <= no_change_ids)
+
+    def test_plan_rejects_invalid_expected_behavior(self) -> None:
+        plan = deepcopy(self.plan)
+        plan["cases"][0]["expected_behavior"] = "always-change"
+        with self.assertRaisesRegex(RegressionError, "expected_behavior"):
+            validate_regression_plan(plan)
+
+    def test_plan_rejects_non_string_expected_behavior(self) -> None:
+        plan = deepcopy(self.plan)
+        plan["cases"][0]["expected_behavior"] = []
+        with self.assertRaisesRegex(RegressionError, "expected_behavior"):
+            validate_regression_plan(plan)
+
+    def test_content_validation_reports_non_string_expected_behavior(self) -> None:
+        eval_dir = self.root / "invalid-evals"
+        eval_dir.mkdir()
+        (eval_dir / "invalid.yaml").write_text(
+            json.dumps(
+                {
+                    "suite": "invalid-behavior",
+                    "cases": [
+                        {
+                            "id": "list-behavior",
+                            "mode": "review",
+                            "language": "ja",
+                            "input": "入力",
+                            "expected": "期待",
+                            "expected_behavior": [],
+                        }
+                    ],
+                },
+                ensure_ascii=False,
+            ),
+            encoding="utf-8",
+        )
+
+        errors = validate_eval_content(eval_dir)
+        self.assertTrue(any("invalid expected_behavior []" in error for error in errors))
+
+    def test_plan_rejects_invalid_structured_oracle_type(self) -> None:
+        plan = deepcopy(self.plan)
+        bundled = next(case for case in plan["cases"] if case["source"] == "bundled")
+        bundled["expected_risks"] = "RR-12"
+        with self.assertRaisesRegex(RegressionError, "expected_risks"):
+            validate_regression_plan(plan)
+
+    def test_plan_builder_rejects_empty_structured_oracle(self) -> None:
+        eval_dir = self.root / "empty-oracle-evals"
+        eval_dir.mkdir()
+        (eval_dir / "empty-oracle.yaml").write_text(
+            json.dumps(
+                {
+                    "suite": "empty-oracle",
+                    "cases": [
+                        {
+                            "id": "empty-risk-list",
+                            "language": "ja",
+                            "mode": "review",
+                            "expected_behavior": "review-only",
+                            "input": "曖昧さのない入力です。",
+                            "expected_risks": [],
+                            "expected": "riskを期待しない場合はfieldを省略する",
+                        }
+                    ],
+                },
+                ensure_ascii=False,
+            ),
+            encoding="utf-8",
+        )
+
+        with self.assertRaisesRegex(RegressionError, "at least one value"):
+            build_regression_plan(
+                self.proposal,
+                self.store,
+                eval_dir=eval_dir,
+                provider_matrix=provider_matrix(),
+                candidate_evals=candidate_evals(),
+                corpus_record_ids=[self.promoted["id"]],
+            )
+
+    def test_plan_builder_rejects_unpaired_status_or_evidence(self) -> None:
+        invalid_oracles = (
+            (
+                "status-without-evidence",
+                {"expected_statuses": ["VERIFIED"]},
+                "provided together",
+            ),
+            (
+                "multiple-statuses-without-evidence",
+                {"expected_statuses": ["VERIFIED", "UNSUPPORTED"]},
+                "exactly one status per case",
+            ),
+            (
+                "evidence-without-status",
+                {"expected_evidence_types": ["DOC↔CODE"]},
+                "provided together",
+            ),
+        )
+        for case_id, oracle, message in invalid_oracles:
+            with self.subTest(case_id=case_id):
+                eval_dir = self.root / f"invalid-oracle-{case_id}"
+                eval_dir.mkdir()
+                case = {
+                    "id": case_id,
+                    "language": "ja",
+                    "mode": "review",
+                    "input": "入力",
+                    "expected": "期待",
+                    **oracle,
+                }
+                (eval_dir / "invalid-oracle.yaml").write_text(
+                    json.dumps(
+                        {"suite": "invalid-oracle", "cases": [case]},
+                        ensure_ascii=False,
+                    ),
+                    encoding="utf-8",
+                )
+
+                with self.assertRaisesRegex(RegressionError, message):
+                    build_regression_plan(
+                        self.proposal,
+                        self.store,
+                        eval_dir=eval_dir,
+                        provider_matrix=provider_matrix(),
+                        candidate_evals=candidate_evals(),
+                        corpus_record_ids=[self.promoted["id"]],
+                    )
+
+    def test_plan_rejects_repository_review_with_empty_oracles(self) -> None:
+        plan = deepcopy(self.plan)
+        bundled = next(
+            case for case in plan["cases"] if case["mode"] == "repository-review"
+        )
+        bundled["expected_statuses"] = []
+        bundled["expected_evidence_types"] = []
+        with self.assertRaisesRegex(RegressionError, "requires expected_statuses"):
+            validate_regression_plan(plan)
+
+    def test_plan_rejects_unsupported_without_evidence_gap(self) -> None:
+        plan = deepcopy(self.plan)
+        bundled = next(
+            case for case in plan["cases"] if case["mode"] == "repository-review"
+        )
+        bundled["expected_statuses"] = ["UNSUPPORTED"]
+        bundled["expected_evidence_types"] = ["DOC↔CODE"]
+        with self.assertRaisesRegex(RegressionError, "incompatible"):
+            validate_regression_plan(plan)
+
+    def test_plan_rejects_status_without_matching_evidence_kind(self) -> None:
+        invalid_pairs = (
+            ("VERIFIED", "EVIDENCE-GAP"),
+            ("CONTRADICTED", "CITATION"),
+            ("SUPPORTED-BY-CITATION", "DOC↔CODE"),
+        )
+        for status, evidence_type in invalid_pairs:
+            with self.subTest(status=status, evidence_type=evidence_type):
+                plan = deepcopy(self.plan)
+                bundled = next(
+                    case
+                    for case in plan["cases"]
+                    if case["mode"] == "repository-review"
+                )
+                bundled["expected_statuses"] = [status]
+                bundled["expected_evidence_types"] = [evidence_type]
+                with self.assertRaisesRegex(RegressionError, "incompatible"):
+                    validate_regression_plan(plan)
+
+    def test_plan_rejects_compatible_evidence_with_contradictory_extra(self) -> None:
+        invalid_oracles = (
+            ("VERIFIED", ["DOC↔CODE", "EVIDENCE-GAP"]),
+            ("SUPPORTED-BY-CITATION", ["CITATION", "UNVERIFIED"]),
+            ("UNSUPPORTED", ["EVIDENCE-GAP", "DOC↔CODE"]),
+        )
+        for status, evidence_types in invalid_oracles:
+            with self.subTest(status=status, evidence_types=evidence_types):
+                plan = deepcopy(self.plan)
+                bundled = next(
+                    case
+                    for case in plan["cases"]
+                    if case["mode"] == "repository-review"
+                )
+                bundled["expected_statuses"] = [status]
+                bundled["expected_evidence_types"] = evidence_types
+                with self.assertRaisesRegex(RegressionError, "incompatible"):
+                    validate_regression_plan(plan)
+
+    def test_plan_rejects_multiple_statuses_for_one_case(self) -> None:
+        plan = deepcopy(self.plan)
+        bundled = next(
+            case for case in plan["cases"] if case["mode"] == "repository-review"
+        )
+        bundled["expected_statuses"] = ["VERIFIED", "UNSUPPORTED"]
+        bundled["expected_evidence_types"] = ["DOC↔CODE", "EVIDENCE-GAP"]
+        with self.assertRaisesRegex(RegressionError, "exactly one status per case"):
+            validate_regression_plan(plan)
+
+    def test_regression_plan_schema_matches_status_evidence_contract(self) -> None:
+        schema = json.loads(
+            (SKILL_DIR / "schemas" / "regression-plan.schema.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        case_schema = schema["properties"]["cases"]["items"]
+        self.assertEqual(
+            case_schema["properties"]["expected_statuses"]["maxItems"], 1
+        )
+        self.assertEqual(
+            case_schema["dependentRequired"],
+            {
+                "expected_statuses": ["expected_evidence_types"],
+                "expected_evidence_types": ["expected_statuses"],
+            },
+        )
+        status_rules = case_schema["allOf"][1:]
+        expected = {
+            frozenset({"VERIFIED", "CONTRADICTED"}): {
+                "DOC↔CODE",
+                "DOC↔CONFIG",
+                "DOC↔TEST",
+                "DOC↔DOC",
+                "DOC↔HISTORY",
+            },
+            frozenset({"SUPPORTED-BY-CITATION"}): {"CITATION"},
+            frozenset({"UNSUPPORTED"}): {"EVIDENCE-GAP"},
+            frozenset({"UNVERIFIED"}): {"UNVERIFIED"},
+        }
+        actual = {}
+        for rule in status_rules:
+            status_constraint = rule["if"]["properties"]["expected_statuses"][
+                "contains"
+            ]
+            statuses = status_constraint.get("enum", [status_constraint.get("const")])
+            evidence_constraint = rule["then"]["properties"][
+                "expected_evidence_types"
+            ]["items"]
+            evidence_types = evidence_constraint.get(
+                "enum", [evidence_constraint.get("const")]
+            )
+            actual[frozenset(statuses)] = set(evidence_types)
+        self.assertEqual(actual, expected)
+
+    def test_regression_run_schema_matches_observation_contract(self) -> None:
+        schema = json.loads(
+            (SKILL_DIR / "schemas" / "regression-run.schema.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        case_schema = schema["properties"]["cases"]["items"]
+        properties = case_schema["properties"]
+        self.assertEqual(properties["observed_risks"]["minItems"], 1)
+        self.assertEqual(properties["observed_statuses"]["minItems"], 1)
+        self.assertEqual(properties["observed_statuses"]["maxItems"], 1)
+        self.assertEqual(properties["observed_evidence_types"]["minItems"], 1)
+        self.assertEqual(
+            case_schema["allOf"][0]["then"]["dependentRequired"],
+            {
+                "observed_statuses": ["observed_evidence_types"],
+                "observed_evidence_types": ["observed_statuses"],
+            },
+        )
+
+        expected = {
+            frozenset({"VERIFIED", "CONTRADICTED"}): {
+                "DOC↔CODE",
+                "DOC↔CONFIG",
+                "DOC↔TEST",
+                "DOC↔DOC",
+                "DOC↔HISTORY",
+            },
+            frozenset({"SUPPORTED-BY-CITATION"}): {"CITATION"},
+            frozenset({"UNSUPPORTED"}): {"EVIDENCE-GAP"},
+            frozenset({"UNVERIFIED"}): {"UNVERIFIED"},
+        }
+        actual = {}
+        for rule in case_schema["allOf"][1:]:
+            status_constraint = rule["if"]["properties"]["observed_statuses"][
+                "contains"
+            ]
+            statuses = status_constraint.get(
+                "enum", [status_constraint.get("const")]
+            )
+            evidence_constraint = rule["then"]["properties"][
+                "observed_evidence_types"
+            ]["items"]
+            evidence_types = evidence_constraint.get(
+                "enum", [evidence_constraint.get("const")]
+            )
+            actual[frozenset(statuses)] = set(evidence_types)
+        self.assertEqual(actual, expected)
+
+    def test_run_requires_planned_structured_oracles(self) -> None:
+        run = passing_run(self.plan, self.plan["providers"][0], 1)
+        case = next(
+            item
+            for item in run["cases"]
+            if item.get("observed_statuses") == ["CONTRADICTED"]
+        )
+        case["observed_statuses"] = ["VERIFIED"]
+        with self.assertRaisesRegex(RegressionError, "期待値と完全一致"):
+            validate_regression_run(run, self.plan)
+
+    def test_passing_run_rejects_additional_structured_oracles(self) -> None:
+        run = passing_run(self.plan, self.plan["providers"][0], 1)
+        case = next(
+            item
+            for item in run["cases"]
+            if item.get("observed_statuses") == ["CONTRADICTED"]
+        )
+        self.assertEqual(case["observed_statuses"], ["CONTRADICTED"])
+        case["observed_statuses"].append("VERIFIED")
+
+        with self.assertRaisesRegex(RegressionError, "期待値と完全一致"):
+            validate_regression_run(run, self.plan)
+
+    def test_run_rejects_invalid_unplanned_structured_observations(self) -> None:
+        invalid_observations = (
+            ("empty", {"observed_risks": []}, "1件以上"),
+            (
+                "multiple-statuses",
+                {
+                    "observed_statuses": ["VERIFIED", "CONTRADICTED"],
+                    "observed_evidence_types": ["DOC↔CODE"],
+                },
+                "exactly one status",
+            ),
+            (
+                "unpaired-status",
+                {"observed_statuses": ["VERIFIED"]},
+                "provided together",
+            ),
+            (
+                "incompatible-evidence",
+                {
+                    "observed_statuses": ["SUPPORTED-BY-CITATION"],
+                    "observed_evidence_types": ["DOC↔CODE"],
+                },
+                "incompatible",
+            ),
+        )
+        for name, observations, message in invalid_observations:
+            with self.subTest(name=name):
+                run = passing_run(self.plan, self.plan["providers"][0], 1)
+                case = next(
+                    item
+                    for item in run["cases"]
+                    if not any(key.startswith("observed_") for key in item)
+                )
+                case.update(observations)
+
+                with self.assertRaisesRegex(RegressionError, message):
+                    validate_regression_run(run, self.plan)
+
+    def test_failed_run_preserves_actual_structured_oracles(self) -> None:
+        run = passing_run(self.plan, self.plan["providers"][0], 1)
+        case = next(
+            item
+            for item in run["cases"]
+            if item.get("observed_statuses") == ["CONTRADICTED"]
+            and item.get("observed_evidence_types") == ["DOC↔CONFIG"]
+        )
+        case["status"] = "fail"
+        case["observed_statuses"] = ["VERIFIED"]
+
+        validated = validate_regression_run(run, self.plan)
+        self.assertEqual(case["observed_statuses"], ["VERIFIED"])
+        self.assertEqual(validated["cases"], run["cases"])
+
+    def test_unsupported_or_error_run_may_omit_structured_observations(self) -> None:
+        for status in ("unsupported", "error"):
+            with self.subTest(status=status):
+                run = passing_run(self.plan, self.plan["providers"][0], 1)
+                case = next(item for item in run["cases"] if "observed_statuses" in item)
+                case["status"] = status
+                case.pop("observed_statuses")
+
+                validated = validate_regression_run(run, self.plan)
+                self.assertNotIn("observed_statuses", validated["cases"][run["cases"].index(case)])
+
     def test_complete_repeated_runs_pass_all_gates(self) -> None:
         report = build_regression_report(
             self.plan,
@@ -241,6 +680,7 @@ class RegressionTests(unittest.TestCase):
         )
         approval = build_rule_approval(
             self.proposal,
+            self.plan,
             report,
             reviewer="human-reviewer",
             reason="all gates passed",
@@ -263,6 +703,57 @@ class RegressionTests(unittest.TestCase):
         invalid_run["schema_version"] = True
         with self.assertRaisesRegex(RegressionError, "schema"):
             validate_regression_run(invalid_run, self.plan)
+
+    def test_legacy_plan_and_run_without_structured_oracles_remain_readable(self) -> None:
+        plan = deepcopy(self.plan)
+        plan["schema_version"] = 1
+        for case in plan["cases"]:
+            for expected_key in (
+                "expected_risks",
+                "expected_statuses",
+                "expected_evidence_types",
+            ):
+                case.pop(expected_key, None)
+        body = {
+            key: plan[key]
+            for key in (
+                "schema_version",
+                "proposal_id",
+                "diff_hash",
+                "providers",
+                "cases",
+                "requirements",
+            )
+        }
+        plan["id"] = "rfrp-" + hashlib.sha256(
+            json.dumps(
+                body,
+                ensure_ascii=False,
+                sort_keys=True,
+                separators=(",", ":"),
+            ).encode("utf-8")
+        ).hexdigest()[:20]
+
+        validated_plan = validate_regression_plan(plan)
+        run = passing_run(validated_plan, validated_plan["providers"][0], 1)
+        validated_run = validate_regression_run(run, validated_plan)
+        self.assertEqual(validated_run["schema_version"], 1)
+
+        report = build_regression_report(validated_plan, [validated_run])
+        with self.assertRaisesRegex(RegressionError, "legacy planは再生成"):
+            build_rule_approval(
+                self.proposal,
+                validated_plan,
+                report,
+                reviewer="human-reviewer",
+                reason="legacy regression passed",
+            )
+
+    def test_run_schema_version_must_match_plan(self) -> None:
+        run = passing_run(self.plan, self.plan["providers"][0], 1)
+        run["schema_version"] = 1
+        with self.assertRaisesRegex(RegressionError, "schema"):
+            validate_regression_run(run, self.plan)
 
     def test_proposal_rejects_eval_id_reused_across_categories(self) -> None:
         proposal = deepcopy(self.proposal)
@@ -316,6 +807,7 @@ class RegressionTests(unittest.TestCase):
         with self.assertRaisesRegex(RegressionError, "通過"):
             build_rule_approval(
                 self.proposal,
+                self.plan,
                 failed,
                 reviewer="human-reviewer",
                 reason="reviewed",
@@ -323,6 +815,7 @@ class RegressionTests(unittest.TestCase):
         passed = build_regression_report(self.plan, self.runs)
         approval = build_rule_approval(
             self.proposal,
+            self.plan,
             passed,
             reviewer="human-reviewer",
             reason="exact diff and report reviewed",
@@ -335,6 +828,7 @@ class RegressionTests(unittest.TestCase):
         passed = build_regression_report(self.plan, self.runs)
         approval = build_rule_approval(
             self.proposal,
+            self.plan,
             passed,
             reviewer="automation-bot",
             reason="caller supplied attestation",
@@ -368,6 +862,7 @@ class RegressionTests(unittest.TestCase):
         report = build_regression_report(plan, runs)
         approval = build_rule_approval(
             proposal,
+            plan,
             report,
             reviewer="reviewer-attestation",
             reason="exact diff reviewed outside the tool",
@@ -473,6 +968,7 @@ class RegressionTests(unittest.TestCase):
         report = build_regression_report(self.plan, self.runs)
         approval = build_rule_approval(
             self.proposal,
+            self.plan,
             report,
             reviewer="human-reviewer",
             reason="approved",
@@ -512,6 +1008,7 @@ class RegressionTests(unittest.TestCase):
         report = build_regression_report(self.plan, self.runs)
         approval = build_rule_approval(
             self.proposal,
+            self.plan,
             report,
             reviewer="human-reviewer",
             reason="approved",

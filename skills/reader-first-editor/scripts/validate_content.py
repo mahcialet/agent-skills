@@ -11,6 +11,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+from reader_first.eval_validation import validate_eval_oracles
+
 MODES = {
     "review",
     "repository-review",
@@ -20,25 +22,9 @@ MODES = {
     "authoring",
     "jtf-only",
 }
-EVIDENCE_STATUSES = {
-    "VERIFIED",
-    "CONTRADICTED",
-    "SUPPORTED-BY-CITATION",
-    "UNSUPPORTED",
-    "UNVERIFIED",
-}
-EVIDENCE_TYPES = {
-    "DOC↔CODE",
-    "DOC↔CONFIG",
-    "DOC↔TEST",
-    "DOC↔DOC",
-    "DOC↔HISTORY",
-    "CITATION",
-    "EVIDENCE-GAP",
-    "UNVERIFIED",
-}
 COVERAGE_STATUSES = {"checked", "partial", "not-checked"}
 ANOMALY_STATUSES = {"EXPLAINED", "UNEXPLAINED", "CONTRADICTED", "NOT-AN-OUTLIER"}
+EXPECTED_BEHAVIORS = {"change", "no-change", "review-only", "context-dependent"}
 REQUIRED_SUITES = {
     "semantic-preservation",
     "reread-risk-ja",
@@ -72,6 +58,7 @@ REQUIRED_TOOL_FILES = {
     "scripts/scan_relationships.py",
     "scripts/reader_first/__init__.py",
     "scripts/reader_first/db_consistency.py",
+    "scripts/reader_first/eval_validation.py",
     "scripts/reader_first/github.py",
     "scripts/reader_first/investigation.py",
     "scripts/reader_first/japanese_syntax.py",
@@ -137,13 +124,18 @@ def validate(eval_dir: Path) -> list[str]:
                 errors.append(f"{label}: input must be non-empty text")
             if not isinstance(case.get("expected"), str) or not case["expected"].strip():
                 errors.append(f"{label}: expected must be non-empty text")
+            expected_behavior = case.get("expected_behavior")
+            if "expected_behavior" in case and (
+                not isinstance(expected_behavior, str)
+                or expected_behavior not in EXPECTED_BEHAVIORS
+            ):
+                errors.append(
+                    f"{label}: invalid expected_behavior {expected_behavior!r}"
+                )
             for key in (
                 "must_preserve",
                 "must_not_add",
                 "must_not_claim",
-                "expected_risks",
-                "expected_statuses",
-                "expected_evidence_types",
                 "expected_coverage_statuses",
                 "expected_anomaly_statuses",
             ):
@@ -161,26 +153,9 @@ def validate(eval_dir: Path) -> list[str]:
             if isinstance(anomaly_statuses, list):
                 if unknown := set(anomaly_statuses) - ANOMALY_STATUSES:
                     errors.append(f"{label}: invalid anomaly statuses {sorted(unknown)}")
-            if case.get("mode") == "repository-review":
-                statuses = case.get("expected_statuses")
-                evidence_types = case.get("expected_evidence_types")
-                if not isinstance(statuses, list) or not statuses:
-                    errors.append(f"{label}: repository-review requires expected_statuses")
-                elif unknown := set(statuses) - EVIDENCE_STATUSES:
-                    errors.append(f"{label}: invalid evidence statuses {sorted(unknown)}")
-                if not isinstance(evidence_types, list) or not evidence_types:
-                    errors.append(f"{label}: repository-review requires expected_evidence_types")
-                elif unknown := set(evidence_types) - EVIDENCE_TYPES:
-                    errors.append(f"{label}: invalid evidence types {sorted(unknown)}")
-                if isinstance(statuses, list) and isinstance(evidence_types, list):
-                    if "UNSUPPORTED" in statuses and "EVIDENCE-GAP" not in evidence_types:
-                        errors.append(
-                            f"{label}: UNSUPPORTED requires EVIDENCE-GAP evidence type"
-                        )
-                    if "UNVERIFIED" in statuses and "UNVERIFIED" not in evidence_types:
-                        errors.append(
-                            f"{label}: UNVERIFIED requires UNVERIFIED evidence type"
-                        )
+            errors.extend(
+                f"{label}: {message}" for message in validate_eval_oracles(case)
+            )
     missing = REQUIRED_SUITES - found_suites
     if missing:
         errors.append(f"missing required suites: {', '.join(sorted(missing))}")

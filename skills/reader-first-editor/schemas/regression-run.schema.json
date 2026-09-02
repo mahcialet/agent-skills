@@ -7,7 +7,7 @@
   "required": ["id", "schema_version", "plan_id", "provider", "model", "model_version", "host_version", "repeat_index", "created_at", "cases"],
   "properties": {
     "id": {"type": "string", "minLength": 1},
-    "schema_version": {"const": 1},
+    "schema_version": {"const": 2},
     "plan_id": {"type": "string", "pattern": "^rfrp-[0-9a-f]{20}$"},
     "provider": {"type": "string", "minLength": 1},
     "model": {"type": "string", "minLength": 1},
@@ -37,8 +37,38 @@
               "register": {"enum": ["pass", "fail", "not-applicable"]}
             }
           },
-          "notes": {"type": "string"}
-        }
+          "notes": {"type": "string"},
+          "observed_risks": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "pattern": "^RR-(0[1-9]|1[0-6])$"}},
+          "observed_statuses": {"type": "array", "minItems": 1, "maxItems": 1, "uniqueItems": true, "items": {"enum": ["VERIFIED", "CONTRADICTED", "SUPPORTED-BY-CITATION", "UNSUPPORTED", "UNVERIFIED"]}},
+          "observed_evidence_types": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"enum": ["DOC↔CODE", "DOC↔CONFIG", "DOC↔TEST", "DOC↔DOC", "DOC↔HISTORY", "CITATION", "EVIDENCE-GAP", "UNVERIFIED"]}}
+        },
+        "allOf": [
+          {
+            "if": {"properties": {"status": {"enum": ["pass", "fail"]}}, "required": ["status"]},
+            "then": {
+              "dependentRequired": {
+                "observed_statuses": ["observed_evidence_types"],
+                "observed_evidence_types": ["observed_statuses"]
+              }
+            }
+          },
+          {
+            "if": {"properties": {"observed_statuses": {"contains": {"enum": ["VERIFIED", "CONTRADICTED"]}}}, "required": ["observed_statuses"]},
+            "then": {"properties": {"observed_evidence_types": {"items": {"enum": ["DOC↔CODE", "DOC↔CONFIG", "DOC↔TEST", "DOC↔DOC", "DOC↔HISTORY"]}}}}
+          },
+          {
+            "if": {"properties": {"observed_statuses": {"contains": {"const": "SUPPORTED-BY-CITATION"}}}, "required": ["observed_statuses"]},
+            "then": {"properties": {"observed_evidence_types": {"items": {"const": "CITATION"}}}}
+          },
+          {
+            "if": {"properties": {"observed_statuses": {"contains": {"const": "UNSUPPORTED"}}}, "required": ["observed_statuses"]},
+            "then": {"properties": {"observed_evidence_types": {"items": {"const": "EVIDENCE-GAP"}}}}
+          },
+          {
+            "if": {"properties": {"observed_statuses": {"contains": {"const": "UNVERIFIED"}}}, "required": ["observed_statuses"]},
+            "then": {"properties": {"observed_evidence_types": {"items": {"const": "UNVERIFIED"}}}}
+          }
+        ]
       }
     }
   }

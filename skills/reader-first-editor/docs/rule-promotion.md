@@ -108,12 +108,30 @@ rules apply（既定preview、--applyで変更）
 `regression-plan` は、既定の `--eval-dir` にあるbundled eval全件、callerが `--corpus-record` で
 選んだpromoted record、proposalのpositive／negative／boundary evalを含む。`--eval-dir` を明示すると
 そのdirectoryへ置き換わり、Skillのbundled eval directoryか、全suiteを含むかは検証しない。
+bundled evalに `expected_risks`、`expected_statuses`、`expected_evidence_types` がある場合は、
+外部runnerが構造化された期待値を照合できるようplanへ保持する。これらのfieldを指定する場合は
+1件以上の値が必要であり、期待値がないfieldは省略する。`expected_statuses`と
+`expected_evidence_types`はmodeにかかわらず対で指定する。1件のeval caseは1件のclaimを表し、
+`expected_statuses`は1件だけを指定する。`VERIFIED`／`CONTRADICTED`ではリポジトリ内の
+照合関係だけ、`SUPPORTED-BY-CITATION`では`CITATION`だけ、`UNSUPPORTED`では
+`EVIDENCE-GAP`だけ、`UNVERIFIED`では`UNVERIFIED`だけをevidence typeとして許可する。
+bundled evalが `expected_behavior` を明示した場合もその値を保持する。省略時だけ、`review`／
+`repository-review` を `review-only`、その他のmodeを `context-dependent` として補う。
 promoted record全件は自動選択しない。provider、model、
 model version、host version、repeat回数を固定し、CodexとGitHub Copilotを必須providerとして記録する。
 local corpusのraw textはplanへ複製せず、record path、content hash、取得要否だけを保持する。
 manual recordのcontent hashはrecordに保存されたcaller-supplied値であり、plan作成時にも再計算しない。
+structured oracleを追加したplan／runのschema versionは2である。version 1のplan／runは
+structured oracle／observationを持たないlegacy artifactとして、同じversionの組合せに限り読取りを
+継続する。legacy artifactからreportを再表示できるが、approvalとrule applyには使用できない。
+rule promotionを続ける場合はversion 2のplanを再生成し、regressionを再実行する。version 1と2を
+混在させたrunの取込みも拒否する。
 
 `regression-ingest` はplanと同じcase順、provider metadata、repeat indexを検証してlocal保存する。
+planに構造化された期待値がある `pass` caseでは、外部runnerの `observed_risks`、
+`observed_statuses`、`observed_evidence_types` が期待値と完全一致することも検証する。`fail` caseは
+期待値と異なる実測値を保存でき、`unsupported`／`error` caseは取得できなかった観測fieldを
+省略できる。
 各caseは `pass`、`fail`、`unsupported`、`error` を区別し、semantic preservation、unnecessary
 revision、literal、register、expected behaviorの一致を記録する。`unsupported` は通常のfailureと
 件数を分けるが、gateは通さない。

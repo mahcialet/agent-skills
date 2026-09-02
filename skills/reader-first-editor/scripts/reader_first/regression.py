@@ -15,6 +15,11 @@ from copy import deepcopy
 from datetime import datetime, timezone
 from pathlib import Path
 
+from .eval_validation import (
+    STRUCTURED_ORACLE_VALUES,
+    validate_eval_oracles,
+    validate_status_evidence_pair,
+)
 from .schema_validation import is_schema_version
 from .state import STATE_DIRECTORIES, LocalCorpusStore, StoreError
 
@@ -26,6 +31,23 @@ DIMENSIONS = {
     "register",
 }
 CATEGORIES = {"existing", "corpus", "positive", "negative", "boundary"}
+EXPECTED_BEHAVIORS = {"change", "no-change", "review-only", "context-dependent"}
+REGRESSION_SCHEMA_VERSION = 2
+LEGACY_REGRESSION_SCHEMA_VERSION = 1
+STRUCTURED_ORACLES = {
+    "expected_risks": (
+        "observed_risks",
+        STRUCTURED_ORACLE_VALUES["expected_risks"],
+    ),
+    "expected_statuses": (
+        "observed_statuses",
+        STRUCTURED_ORACLE_VALUES["expected_statuses"],
+    ),
+    "expected_evidence_types": (
+        "observed_evidence_types",
+        STRUCTURED_ORACLE_VALUES["expected_evidence_types"],
+    ),
+}
 ALLOWED_RULE_TARGETS = (
     re.compile(r"skills/reader-first-editor/SKILL\.md"),
     re.compile(r"skills/reader-first-editor/references/(?:[^/]+/)*[^/]+\.md"),
@@ -255,6 +277,22 @@ def _bundled_cases(eval_dir: Path) -> list[dict]:
             case = _require_dict(raw, f"{path}: case")
             case_id = _string(case, "id", f"{path}: case")
             mode = _string(case, "mode", f"{path}: {case_id}")
+            expected_behavior = case.get(
+                "expected_behavior",
+                "review-only"
+                if mode in {"review", "repository-review"}
+                else "context-dependent",
+            )
+            if (
+                not isinstance(expected_behavior, str)
+                or expected_behavior not in EXPECTED_BEHAVIORS
+            ):
+                raise RegressionError(f"{path}: {case_id}のexpected_behaviorが不正です")
+            if oracle_errors := validate_eval_oracles(case):
+                raise RegressionError(
+                    f"{path}: {case_id}のstructured oracleが不正です: "
+                    + "; ".join(oracle_errors)
+                )
             must_preserve = case.get("must_preserve", [])
             must_not = [
                 *case.get("must_not_add", []),
@@ -262,6 +300,20 @@ def _bundled_cases(eval_dir: Path) -> list[dict]:
             ]
             if not all(isinstance(item, str) for item in [*must_preserve, *must_not]):
                 raise RegressionError(f"{path}: {case_id}のconstraintが不正です")
+            structured_oracles: dict[str, list[str]] = {}
+            for key, (_, allowed_values) in STRUCTURED_ORACLES.items():
+                if key in case:
+                    value = case[key]
+                    if not isinstance(value, list) or not all(
+                        isinstance(item, str) for item in value
+                    ):
+                        raise RegressionError(f"{path}: {case_id}の{key}が不正です")
+                    if unknown := sorted(set(value) - allowed_values):
+                        raise RegressionError(
+                            f"{path}: {case_id}の{key}に未知の値があります: "
+                            f"{', '.join(unknown)}"
+                        )
+                    structured_oracles[key] = list(value)
             cases.append(
                 {
                     "id": f"bundled:{suite}:{case_id}",
@@ -270,9 +322,7 @@ def _bundled_cases(eval_dir: Path) -> list[dict]:
                     "suite": suite,
                     "mode": mode,
                     "language": case["language"],
-                    "expected_behavior": (
-                        "review-only" if mode in {"review", "repository-review"} else "context-dependent"
-                    ),
+                    "expected_behavior": expected_behavior,
                     "input": {
                         "kind": "embedded",
                         "value": case["input"],
@@ -284,6 +334,7 @@ def _bundled_cases(eval_dir: Path) -> list[dict]:
                     "expected": case["expected"],
                     "must_preserve": list(must_preserve),
                     "must_not": must_not,
+                    **structured_oracles,
                 }
             )
     return cases
@@ -325,7 +376,7 @@ def _proposal_cases(value: object, proposal: dict) -> list[dict]:
     data = _require_dict(value, "candidate evals")
     _exact_keys(data, {"positive", "negative", "boundary"}, "candidate evals")
     cases: list[dict] = []
-    keys = {
+    required_keys = {
         "id",
         "mode",
         "language",
@@ -335,6 +386,7 @@ def _proposal_cases(value: object, proposal: dict) -> list[dict]:
         "must_preserve",
         "must_not",
     }
+    optional_keys = set(STRUCTURED_ORACLES)
     for category in ("positive", "negative", "boundary"):
         entries = data.get(category)
         if not isinstance(entries, list):
@@ -342,7 +394,15 @@ def _proposal_cases(value: object, proposal: dict) -> list[dict]:
         ids: list[str] = []
         for entry in entries:
             item = _require_dict(entry, f"candidate evals.{category}[]")
-            _exact_keys(item, keys, f"candidate evals.{category}[]")
+            context = f"candidate evals.{category}[]"
+            if missing := sorted(required_keys - item.keys()):
+                raise RegressionError(
+                    f"{context}に必須keyがありません: {', '.join(missing)}"
+                )
+            if unknown := sorted(item.keys() - required_keys - optional_keys):
+                raise RegressionError(
+                    f"{context}に未知のkeyがあります: {', '.join(unknown)}"
+                )
             case_id = _string(item, "id", f"candidate evals.{category}[]")
             ids.append(case_id)
             for key in ("mode", "language", "input", "expected", "expected_behavior"):
@@ -358,6 +418,16 @@ def _proposal_cases(value: object, proposal: dict) -> list[dict]:
                 "context-dependent",
             }:
                 raise RegressionError("candidate eval expected_behaviorが不正です")
+            if oracle_errors := validate_eval_oracles(item):
+                raise RegressionError(
+                    f"{context}のstructured oracleが不正です: "
+                    + "; ".join(oracle_errors)
+                )
+            structured_oracles = {
+                key: deepcopy(item[key])
+                for key in STRUCTURED_ORACLES
+                if key in item
+            }
             cases.append(
                 {
                     "id": f"proposal:{category}:{case_id}",
@@ -378,6 +448,7 @@ def _proposal_cases(value: object, proposal: dict) -> list[dict]:
                     "expected": item["expected"],
                     "must_preserve": deepcopy(item["must_preserve"]),
                     "must_not": deepcopy(item["must_not"]),
+                    **structured_oracles,
                 }
             )
         if ids != proposal["evals"][category]:
@@ -410,7 +481,7 @@ def build_regression_plan(
     if len(case_ids) != len(set(case_ids)):
         raise RegressionError("regression case IDが重複しています")
     body = {
-        "schema_version": 1,
+        "schema_version": REGRESSION_SCHEMA_VERSION,
         "proposal_id": proposal["id"],
         "diff_hash": rule_diff_hash(proposal["rule_diff"]),
         "providers": providers,
@@ -439,7 +510,11 @@ def validate_regression_plan(plan: object) -> dict:
         "requirements",
     }
     _exact_keys(data, keys, "regression plan")
-    if not is_schema_version(data.get("schema_version")):
+    schema_version = data.get("schema_version")
+    if not any(
+        is_schema_version(schema_version, expected=expected)
+        for expected in (LEGACY_REGRESSION_SCHEMA_VERSION, REGRESSION_SCHEMA_VERSION)
+    ):
         raise RegressionError("regression plan schema_versionが未対応です")
     _string(data, "created_at", "regression plan")
     providers = _provider_matrix({"providers": data.get("providers")})
@@ -454,6 +529,30 @@ def validate_regression_plan(plan: object) -> dict:
         case_ids.append(_string(item, "id", "regression plan.cases[]"))
         if item.get("category") not in CATEGORIES:
             raise RegressionError("regression case categoryが不正です")
+        expected_behavior = item.get("expected_behavior")
+        if (
+            not isinstance(expected_behavior, str)
+            or expected_behavior not in EXPECTED_BEHAVIORS
+        ):
+            raise RegressionError("regression case expected_behaviorが不正です")
+        if schema_version == LEGACY_REGRESSION_SCHEMA_VERSION:
+            if STRUCTURED_ORACLES.keys() & item.keys():
+                raise RegressionError(
+                    "regression plan schema_version 1はstructured oracleを扱えません"
+                )
+        elif oracle_errors := validate_eval_oracles(item):
+            raise RegressionError(
+                "regression plan.cases[]のstructured oracleが不正です: "
+                + "; ".join(oracle_errors)
+            )
+        for key, (_, allowed_values) in STRUCTURED_ORACLES.items():
+            if key in item:
+                values = _strings(item, key, "regression plan.cases[]", unique=True)
+                if unknown := sorted(set(values) - allowed_values):
+                    raise RegressionError(
+                        f"regression plan.cases[].{key}に未知の値があります: "
+                        f"{', '.join(unknown)}"
+                    )
     if len(case_ids) != len(set(case_ids)):
         raise RegressionError("regression plan case IDが重複しています")
     if {case["category"] for case in cases} != CATEGORIES:
@@ -488,7 +587,12 @@ def validate_regression_run(run: object, plan: dict) -> dict:
         "cases",
     }
     _exact_keys(data, keys, "regression run")
-    if not is_schema_version(data.get("schema_version")) or data.get("plan_id") != plan["id"]:
+    if (
+        not is_schema_version(
+            data.get("schema_version"), expected=plan["schema_version"]
+        )
+        or data.get("plan_id") != plan["id"]
+    ):
         raise RegressionError("regression runのschemaまたはplan IDが不正です")
     for key in ("provider", "model", "model_version", "host_version", "created_at"):
         _string(data, key, "regression run")
@@ -509,12 +613,32 @@ def validate_regression_run(run: object, plan: dict) -> dict:
     if not isinstance(cases, list):
         raise RegressionError("regression run.casesはarrayである必要があります")
     case_ids: list[str] = []
-    case_keys = {"id", "status", "expected_behavior_match", "dimensions", "notes"}
+    required_case_keys = {"id", "status", "expected_behavior_match", "dimensions", "notes"}
+    optional_case_keys = {
+        observed_key for observed_key, _ in STRUCTURED_ORACLES.values()
+    }
+    plan_cases = {case["id"]: case for case in plan["cases"]}
     for case in cases:
         item = _require_dict(case, "regression run.cases[]")
-        _exact_keys(item, case_keys, "regression run.cases[]")
-        case_ids.append(_string(item, "id", "regression run.cases[]"))
-        if item.get("status") not in {"pass", "fail", "unsupported", "error"}:
+        if missing := sorted(required_case_keys - item.keys()):
+            raise RegressionError(
+                "regression run.cases[]に必須keyがありません: " + ", ".join(missing)
+            )
+        if unknown := sorted(item.keys() - required_case_keys - optional_case_keys):
+            raise RegressionError(
+                "regression run.cases[]に未知のkeyがあります: " + ", ".join(unknown)
+            )
+        if (
+            plan["schema_version"] == LEGACY_REGRESSION_SCHEMA_VERSION
+            and optional_case_keys & item.keys()
+        ):
+            raise RegressionError(
+                "regression run schema_version 1はstructured observationを扱えません"
+            )
+        case_id = _string(item, "id", "regression run.cases[]")
+        case_ids.append(case_id)
+        status = item.get("status")
+        if status not in {"pass", "fail", "unsupported", "error"}:
             raise RegressionError("regression case statusが不正です")
         if not isinstance(item.get("expected_behavior_match"), bool):
             raise RegressionError("expected_behavior_matchはbooleanである必要があります")
@@ -523,6 +647,59 @@ def validate_regression_run(run: object, plan: dict) -> dict:
         if any(value not in {"pass", "fail", "not-applicable"} for value in dimensions.values()):
             raise RegressionError("regression dimension statusが不正です")
         _string(item, "notes", "regression case", empty=True)
+        planned_case = plan_cases.get(case_id)
+        if planned_case is None:
+            continue
+        for expected_key, (observed_key, allowed_values) in STRUCTURED_ORACLES.items():
+            if expected_key not in planned_case:
+                if observed_key in item:
+                    observed = _strings(
+                        item,
+                        observed_key,
+                        "regression run.cases[]",
+                        nonempty=True,
+                        unique=True,
+                    )
+                    if unknown := sorted(set(observed) - allowed_values):
+                        raise RegressionError(
+                            f"regression run.cases[].{observed_key}に未知の値があります: "
+                            f"{', '.join(unknown)}"
+                        )
+                continue
+            if status in {"unsupported", "error"} and observed_key not in item:
+                continue
+            observed = _strings(
+                item,
+                observed_key,
+                "regression run.cases[]",
+                nonempty=True,
+                unique=True,
+            )
+            if unknown := sorted(set(observed) - allowed_values):
+                raise RegressionError(
+                    f"regression run.cases[].{observed_key}に未知の値があります: "
+                    f"{', '.join(unknown)}"
+                )
+            expected_values = set(planned_case[expected_key])
+            observed_values = set(observed)
+            if status == "pass" and expected_values != observed_values:
+                raise RegressionError(
+                    f"regression run.cases[].{observed_key}が期待値と完全一致しません: "
+                    f"expected={', '.join(sorted(expected_values))}; "
+                    f"observed={', '.join(sorted(observed_values))}"
+                )
+        observation_errors = validate_status_evidence_pair(
+            item.get("observed_statuses"),
+            item.get("observed_evidence_types"),
+            status_field="observed_statuses",
+            evidence_field="observed_evidence_types",
+            require_pair=status not in {"unsupported", "error"},
+        )
+        if observation_errors:
+            raise RegressionError(
+                "regression run.cases[]のstructured observationが不正です: "
+                + "; ".join(observation_errors)
+            )
     expected_ids = [case["id"] for case in plan["cases"]]
     if case_ids != expected_ids:
         raise RegressionError("regression runはplanの全caseを同じ順序で含める必要があります")
@@ -722,8 +899,19 @@ def validate_report_against_runs(report: object, plan: dict, runs: list[dict]) -
     return data
 
 
+def _require_current_regression_plan(plan: object, action: str) -> dict:
+    data = validate_regression_plan(plan)
+    if data["schema_version"] != REGRESSION_SCHEMA_VERSION:
+        raise RegressionError(
+            f"{action}にはschema version {REGRESSION_SCHEMA_VERSION}のregression planが必要です。"
+            "legacy planは再生成してください"
+        )
+    return data
+
+
 def build_rule_approval(
     proposal: dict,
+    plan: dict,
     report: dict,
     *,
     reviewer: str,
@@ -731,12 +919,17 @@ def build_rule_approval(
     clock: Callable[[], str] = _utc_now,
 ) -> dict:
     proposal = validate_rule_proposal(proposal)
+    plan = _require_current_regression_plan(plan, "rule approval")
     report = validate_regression_report(report)
     if report["status"] != "pass":
         raise RegressionError("全regression gateを通過したreportだけを承認できます")
     diff_hash = rule_diff_hash(proposal["rule_diff"])
-    if report["proposal_id"] != proposal["id"] or report["diff_hash"] != diff_hash:
-        raise RegressionError("reportとproposalのdiff identityが一致しません")
+    if (
+        report["proposal_id"] != proposal["id"]
+        or report["plan_id"] != plan["id"]
+        or report["diff_hash"] != diff_hash
+    ):
+        raise RegressionError("plan、report、proposalのdiff identityが一致しません")
     if not reviewer.strip() or not reason.strip():
         raise RegressionError("reviewer attestationと承認理由が必要です")
     identity = {
@@ -794,7 +987,7 @@ def validate_apply_artifacts(
     approval: dict,
 ) -> tuple[dict, dict, dict, dict]:
     proposal = validate_rule_proposal(proposal)
-    plan = validate_regression_plan(plan)
+    plan = _require_current_regression_plan(plan, "rule apply")
     report = validate_regression_report(report)
     approval = validate_rule_approval(approval)
     diff_hash = rule_diff_hash(proposal["rule_diff"])
@@ -879,6 +1072,11 @@ def _expected_proposal_eval_cases(proposal: dict, plan: dict) -> dict[str, dict]
                 "expected_behavior": case["expected_behavior"],
                 "must_preserve": case["must_preserve"],
                 "must_not_claim": case["must_not"],
+                **{
+                    key: deepcopy(case[key])
+                    for key in STRUCTURED_ORACLES
+                    if key in case
+                },
             }
     return expected
 

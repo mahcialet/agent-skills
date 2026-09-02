@@ -245,6 +245,13 @@ class RecordTests(unittest.TestCase):
         with self.assertRaisesRegex(RecordValidationError, "schema_version"):
             prepare_candidate_record(record)
 
+    def test_record_validation_rejects_non_string_expected_behavior(self) -> None:
+        record = sample_record()
+        record["annotations"]["expected_behavior"] = []
+        record["id"] = deterministic_candidate_id(record)
+        with self.assertRaisesRegex(RecordValidationError, "expected_behavior"):
+            validate_corpus_record(record)
+
     def test_record_validation_recomputes_deterministic_id(self) -> None:
         record = sample_record()
         record["id"] = "rfe-" + "0" * 20
