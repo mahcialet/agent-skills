@@ -41,6 +41,9 @@ def validate_eval_oracles(case: dict) -> list[str]:
         ):
             errors.append(f"{key} must be a string list")
             continue
+        if not value:
+            errors.append(f"{key} must contain at least one value")
+            continue
         if len(value) != len(set(value)):
             errors.append(f"{key} must not contain duplicates")
         if unknown := sorted(set(value) - allowed_values):

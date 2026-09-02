@@ -305,6 +305,40 @@ class RegressionTests(unittest.TestCase):
         with self.assertRaisesRegex(RegressionError, "expected_risks"):
             validate_regression_plan(plan)
 
+    def test_plan_builder_rejects_empty_structured_oracle(self) -> None:
+        eval_dir = self.root / "empty-oracle-evals"
+        eval_dir.mkdir()
+        (eval_dir / "empty-oracle.yaml").write_text(
+            json.dumps(
+                {
+                    "suite": "empty-oracle",
+                    "cases": [
+                        {
+                            "id": "empty-risk-list",
+                            "language": "ja",
+                            "mode": "review",
+                            "expected_behavior": "review-only",
+                            "input": "曖昧さのない入力です。",
+                            "expected_risks": [],
+                            "expected": "riskを期待しない場合はfieldを省略する",
+                        }
+                    ],
+                },
+                ensure_ascii=False,
+            ),
+            encoding="utf-8",
+        )
+
+        with self.assertRaisesRegex(RegressionError, "at least one value"):
+            build_regression_plan(
+                self.proposal,
+                self.store,
+                eval_dir=eval_dir,
+                provider_matrix=provider_matrix(),
+                candidate_evals=candidate_evals(),
+                corpus_record_ids=[self.promoted["id"]],
+            )
+
     def test_plan_rejects_repository_review_with_empty_oracles(self) -> None:
         plan = deepcopy(self.plan)
         bundled = next(
