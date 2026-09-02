@@ -240,6 +240,19 @@ class DatabaseConsistencyTests(unittest.TestCase):
         self.assertEqual(result["row_count"], 0)
         self.assertTrue(result["limitations"])
 
+    def test_fenced_markdown_table_is_not_extracted(self) -> None:
+        live = definition_table(
+            [("events", "created_at", "timestamptz", "NO", "", "")]
+        )
+        fenced = """```markdown
+| table | column | type |
+|---|---|---|
+| example | example_at | timestamp |
+```"""
+        result = extract_markdown_tables(f"{fenced}\n\n{live}", source="examples.md")
+        self.assertEqual(result["row_count"], 1)
+        self.assertEqual(result["rows"][0]["column"], "created_at")
+
     def test_peer_group_is_required_for_analysis(self) -> None:
         extraction = extract_markdown_tables(
             definition_table(

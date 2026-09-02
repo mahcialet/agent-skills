@@ -20,6 +20,7 @@ HEADER_ALIASES = {
     "comment": {"comment", "description", "note", "説明", "備考", "コメント"},
 }
 TABLE_SEPARATOR_CELL_RE = re.compile(r"^:?-{3,}:?$")
+FENCE_RE = re.compile(r"^\s*(`{3,}|~{3,})")
 
 
 @dataclass(frozen=True)
@@ -147,6 +148,10 @@ def _normalize_value(
     return re.sub(r"\s+", " ", value.strip().casefold()) or "<missing>"
 
 
+def _is_fence_close(line: str, marker: str) -> bool:
+    return bool(re.fullmatch(rf"\s*{re.escape(marker[0])}{{{len(marker)},}}\s*", line))
+
+
 def extract_markdown_tables(
     text: str,
     *,
@@ -160,7 +165,18 @@ def extract_markdown_tables(
     limitations: list[str] = []
     parsed_table_count = 0
     index = 0
+    fence_marker: str | None = None
     while index + 1 < len(lines):
+        if fence_marker is not None:
+            if _is_fence_close(lines[index], fence_marker):
+                fence_marker = None
+            index += 1
+            continue
+        fence = FENCE_RE.match(lines[index])
+        if fence:
+            fence_marker = fence.group(1)
+            index += 1
+            continue
         if "|" not in lines[index] or not _is_separator(lines[index + 1]):
             index += 1
             continue
