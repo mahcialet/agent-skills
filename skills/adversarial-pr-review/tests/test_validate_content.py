@@ -30,6 +30,15 @@ class CoverageGapSuiteTestCase(unittest.TestCase):
             validator.validate_suites(skill_dir, errors)
             return errors
 
+    def validate_eval_tree_with_mutation(self, mutate) -> list[str]:
+        with tempfile.TemporaryDirectory() as temporary:
+            skill_dir = Path(temporary) / "adversarial-pr-review"
+            shutil.copytree(SKILL_DIR / "evals", skill_dir / "evals")
+            mutate(skill_dir / "evals")
+            errors: list[str] = []
+            validator.validate_suites(skill_dir, errors)
+            return errors
+
     def test_historical_cases_preserve_frozen_provenance(self) -> None:
         errors = self.validate_with_mutation(lambda data: None)
         self.assertEqual([], errors)
@@ -118,6 +127,35 @@ class CoverageGapSuiteTestCase(unittest.TestCase):
 
         errors = self.validate_with_mutation(remove_case)
         self.assertTrue(any("missing required cases" in error for error in errors))
+
+    def test_coverage_cases_must_remain_in_their_required_suite(self) -> None:
+        case_id = "coverage-finding-count-is-not-completion"
+
+        def relocate_case(evals_dir: Path) -> None:
+            coverage_path = evals_dir / "coverage-gap-audit.yaml"
+            coverage = json.loads(coverage_path.read_text(encoding="utf-8"))
+            case = next(case for case in coverage["cases"] if case["id"] == case_id)
+            coverage["cases"].remove(case)
+            coverage_path.write_text(
+                json.dumps(coverage, ensure_ascii=False, indent=2) + "\n",
+                encoding="utf-8",
+            )
+
+            levels_path = evals_dir / "adversarial-levels.yaml"
+            levels = json.loads(levels_path.read_text(encoding="utf-8"))
+            levels["cases"].append(case)
+            levels_path.write_text(
+                json.dumps(levels, ensure_ascii=False, indent=2) + "\n",
+                encoding="utf-8",
+            )
+
+        errors = self.validate_eval_tree_with_mutation(relocate_case)
+        self.assertTrue(
+            any(
+                "required cases for suite coverage-gap-audit" in error
+                for error in errors
+            )
+        )
 
     def test_docs_only_counterexample_requires_false_positive_control(self) -> None:
         def weaken_expected(data: dict) -> None:

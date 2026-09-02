@@ -101,6 +101,19 @@ REQUIRED_CASE_IDS = {
     "gate-pass-does-not-grant-approval",
     "approval-owner-unresolved-not-invented",
 }
+REQUIRED_CASES_BY_SUITE = {
+    "coverage-gap-audit": {
+        "coverage-pr2-propagation-all-producers",
+        "coverage-pr2-repository-rule-companion-example",
+        "coverage-pr2-relational-oracle-invariants",
+        "coverage-finding-count-is-not-completion",
+        "coverage-verification-does-not-replace-blind-pass",
+        "coverage-doc-only-change-no-companion-finding",
+        "coverage-intentional-single-producer-not-applicable",
+        "coverage-dynamic-route-remains-unverified",
+        "coverage-no-new-finding-still-reports-evidence",
+    },
+}
 CASE_EXPECTED_TOKENS = {
     "coverage-pr2-propagation-all-producers": (
         "13 findings",
@@ -389,6 +402,7 @@ def validate_suites(skill_dir: Path, errors: list[str]) -> int:
 
     seen_suites: set[str] = set()
     seen_cases: set[str] = set()
+    seen_cases_by_suite: dict[str, set[str]] = {}
     count = 0
     for path in sorted(eval_dir.glob("*.yaml")):
         try:
@@ -402,6 +416,7 @@ def validate_suites(skill_dir: Path, errors: list[str]) -> int:
             errors.append(f"{path}: top level must contain a cases list")
             continue
         suite = data.get("suite")
+        suite_cases: set[str] | None = None
         if not isinstance(suite, str) or not suite:
             errors.append(f"{path}: suite must be a non-empty string")
         elif suite in seen_suites:
@@ -410,6 +425,7 @@ def validate_suites(skill_dir: Path, errors: list[str]) -> int:
             seen_suites.add(suite)
             if path.stem != suite:
                 errors.append(f"{path}: suite ID must match filename")
+            suite_cases = seen_cases_by_suite.setdefault(suite, set())
 
         for index, case in enumerate(data["cases"], start=1):
             label = f"{path.name} case {index}"
@@ -423,6 +439,8 @@ def validate_suites(skill_dir: Path, errors: list[str]) -> int:
                 errors.append(f"{label}: duplicate case ID {case_id}")
             else:
                 seen_cases.add(case_id)
+            if suite_cases is not None and isinstance(case_id, str) and case_id:
+                suite_cases.add(case_id)
             for field in ("input", "expected"):
                 if not isinstance(case.get(field), str) or not case[field].strip():
                     errors.append(f"{label}: {field} must be non-empty text")
@@ -484,6 +502,13 @@ def validate_suites(skill_dir: Path, errors: list[str]) -> int:
     missing_cases = REQUIRED_CASE_IDS - seen_cases
     if missing_cases:
         errors.append(f"missing required cases: {', '.join(sorted(missing_cases))}")
+    for suite, required_cases in REQUIRED_CASES_BY_SUITE.items():
+        missing_suite_cases = required_cases - seen_cases_by_suite.get(suite, set())
+        if missing_suite_cases:
+            errors.append(
+                f"missing required cases for suite {suite}: "
+                f"{', '.join(sorted(missing_suite_cases))}"
+            )
     return count
 
 
