@@ -84,7 +84,8 @@ replyより先に並ぶことを前提とする。commentをIDや親子関係で
 拒否するが、replyがparentより先に現れる順序は拒否せず、現行実装ではreply数とhuman／bot comment数を
 過少集計する。
 
-対象は変更済みMarkdownだけで、fileごとにcandidateを作る。PR本文、file content、patch、
+対象は変更fileのうち `.md` または `.markdown` で、statusが `removed` ではないfileだけである。
+fileごとにcandidateを作る。PR本文、file content、patch、
 review/comment本文は保存せず、final head SHA、blob SHA、path、review state、対象SHA、threadの
 位置・reply数を保持する。raw textの有無はbooleanだけで記録する。rightsは次で固定する。
 
@@ -155,6 +156,11 @@ corpus promotionには、schema、provenance、immutable source、rights status�
 expected behavior、duplicate確認、reviewer decisionが必要である。rightsが不明なrecordは
 local-onlyに限る。reviewer decisionはcaller-suppliedなactorとaudit eventで確認し、toolはactorが
 人間かを認証しない。
+
+ここでmanual／local-file sourceのprovenanceとimmutable revisionはcaller-supplied recordを検証した
+結果である。validatorは必須field、形式、deterministic ID、audit chainを確認するが、外部sourceや
+embedded textから `source.immutable_revision` または `text.content_hash` を再計算しない。local
+promotionは、hashとsource実体の一致を独立に証明するgateではない。
 
 public promotionは未実装である。将来publicなbundled corpusへ移す場合は、raw textの再配布権限、
 NOTICE、attribution、third-party contentの分離も確認する方針とする。

@@ -19,7 +19,8 @@ local only: true
 planned public promotion: reject
 ```
 
-URLに加えて、immutable commit SHA、PR番号、file、取得日時、content hashを保存する。
+URLに加えて、immutable commit SHA、PR番号、file、取得日時、GitHub APIのfile metadataで観測した
+blob SHAを `text.content_hash` として保存する。file contentを取得してhashを再計算するわけではない。
 source reputationやmerge済みという事実を、licenseまたはqualityの証明として使わない。
 manual collectionはcaller-supplied recordをこの既定値へ自動変換しない。利用者がstorage、rights、
 privacyの状態を確認して指定する。
@@ -29,6 +30,11 @@ PR本文、patch、review commentの権利を確認済みとは扱わない。li
 破棄する。recorded fixtureにraw text fieldが含まれる場合も拒否する。source repositoryの
 owner/nameはprovenanceとして保存する。一方、PR author、reviewer、commenterのaccount名は保存せず、
 human／bot／unknownの種別だけを残す。
+
+reference-onlyでもmetadataはpathとSHAだけに限定されない。repositoryのvisibility・license、PRの
+state・draft・時刻・base／head／merge SHA、fileのstatus・previous path・change count、review ID・
+時刻・本文有無、inline threadの位置・件数を保存する。raw textを保存しないことと、metadataを最小限に
+限定することは同じではないため、利用者はこのmetadataもlocal dataとして扱う。
 
 ## 必須provenance
 
@@ -42,6 +48,10 @@ human／bot／unknownの種別だけを残す。
 - local-only、public候補、redaction、改変の有無
 - record作成とannotationのactor・理由。専用fieldとしてdetached recordへ埋め込まず、local audit
   logへ記録する
+
+manual／local-file recordでは、immutable revisionとcontent hashはcaller-suppliedであり、toolは
+外部sourceやembedded contentから再計算しない。保存・promotion前に、利用者がsource実体との一致を
+確認する。
 
 review commentの権利をrepository licenseから自動推定しない。licenseやrightsが混在する場合は、
 content単位でstatusを分ける。

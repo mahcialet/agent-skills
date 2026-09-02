@@ -76,8 +76,8 @@ python3 "$tool" --data-dir "$data_dir" rules bundle \
 ```
 
 既定ではpreviewだけを返す。`investigations/<bundle-id>/bundle.json` へ保存するのは、
-`--apply` を付けた場合だけである。bundleはraw textを複製せず、record path、content hash、
-provenance、分類metadataだけを持つ。embeddedなlocal textも別fileへcopyしない。
+`--apply` を付けた場合だけである。bundleはraw textを複製せず、record path、recordに保存された
+content hash、provenance、分類metadataだけを持つ。embeddedなlocal textも別fileへcopyしない。
 
 ### Agent resultを検証する
 
@@ -96,6 +96,9 @@ python3 "$tool" --data-dir "$data_dir" rules validate-investigation \
 toolはsupport数をrecord件数ではなくcorrelation groupから再計算し、bundle外record、改ざんされた
 source correlation、選択済みcontrolの `explained`／boundaryへの記載漏れを独立に検出する。nonemptyな
 `unexplained` も拒否するが、`explained` に列挙されたcontrolの説明が妥当かは自然言語から判定しない。
+boundary pairは各fieldが空でないstringであることを確認し、`does_not_fire` によって選択済みcontrolを
+accountedにできる。一方、`fires` が選択済みsupportか、両IDがbundle内に実在するか、意味上のminimal
+pairかは検証しない。これらはAgent resultと参照recordを後段の人間reviewで照合する。
 provenance未確認、固定閾値・頻度だけの判断、duplicate ruleについては、Agent resultのstructured
 booleanを検証して拒否する。toolは `mechanism` や `existing_rule_analysis` の自然言語からbooleanの
 正しさを推論しないため、Agentの自己申告と本文、counterexample説明の整合は後段の人間reviewで
@@ -115,17 +118,22 @@ python3 "$tool" --data-dir "$data_dir" rules propose \
 保存だけである。proposalの `human_approval.approved` は必ずfalseであり、regression statusは全て
 `not-run` で始まり、`SKILL.md`、references、evalsを変更しない。
 この段階ではpatch構造、許可target、apply可能性を検証せず、human approvalも記録しない。これらは
-regression後の `rules approve` と `rules apply` で検証する。
+regression後の `rules approve` と `rules apply` で検証する。positive／negative／boundary間で同じeval
+IDを指定したresultもproposalとして保存できるが、後段のproposal validationはcategory間の重複を
+拒否する。
 
 ### regressionから明示applyまで進める
 
-proposal後は、bundled eval、`--corpus-record` で選んだpromoted record、positive／negative／
-boundary evalを含むplanを `rules regression-plan` で作る。promoted record全件は自動選択しない。
+proposal後は、既定の `--eval-dir` にあるbundled eval、`--corpus-record` で選んだpromoted record、
+positive／negative／boundary evalを含むplanを `rules regression-plan` で作る。`--eval-dir` を明示すると
+別directoryへ置き換わり、Skillのbundled eval全件を含むかは検証しない。promoted record全件は
+自動選択しない。
 CodexとGitHub Copilotで実行したresultは
 `rules regression-ingest` で取り込み、`rules regression-report` で全provider・repeatを
 集約する。toolはproviderを直接起動せず、planとresultの検証・保存・再集計だけを担う。
 
 全gateがpassしたreportだけを、`rules approve` で別artifactとして承認できる。`rules apply` は
-既定ではpreviewを返す。承認済みのexact diffを、許可されたSkill本文・reference・evalへ適用する
-のは、`--apply` がある場合だけである。詳細なgateとartifactの関係は
+既定ではpreviewを返す。承認済みのexact diffを、意図したSkill本文・reference・evalへ適用する
+のは、`--apply` がある場合だけである。ただし、現行target parserではquotedまたは空白を含む追加sectionが
+許可path検査から漏れ得るため、previewだけをtarget限定の保証にしない。詳細なgateとartifactの関係は
 [ルール昇格](rule-promotion.md)を参照する。

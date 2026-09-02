@@ -78,6 +78,12 @@ uv run --python 3.12 \
 しない。一つのparseが返っただけでは、読者が文を一意に解釈できる証拠にはならない。合成文の
 recorded resultは `tests/fixtures/syntax/ginza-5.2.0-ja-ginza-5.2.0.json` に保存している。
 
+`validate_syntax_signal()` は汎用JSON Schema validatorではなく、top-level key、availability分岐、
+conservative interpretationなど一部のruntime invariantだけを確認する。たとえば、現行custom
+validatorは `available` のboolean型、`text_hash` のpattern、`analysis_ms` の非負値、nested signalsの
+全型制約をschemaと同じ強さでは検証しない。外部入力の完全なschema適合を確認する用途では、schema
+fileによる別検証が必要である。
+
 ## LLM-onlyとのA/B
 
 `schemas/syntax-ab-input.schema.json` に従い、同じcaseを次の2条件で記録する。
@@ -103,9 +109,18 @@ accuracyのspreadと、同じcaseに対するrisk判定のdisagreement rateも�
 paired result不足、unsupported／error、parser unavailable、semantic regression、false positiveや
 unnecessary revisionの増加、provider別accuracy spreadまたはrisk disagreementの増加、改善なしの
 いずれかがあれば `do-not-default` とする。
+ここで改善として数えるのは、RR recallの増加、false positiveまたはunnecessary revisionの減少、
+expected behavior accuracyの増加、risk disagreementの減少である。semantic preservationの増加、
+parse failure・処理時間・accuracy spreadの減少だけでは「改善あり」にしない。
 blockerがなく改善が観測されても `human-review-required` に留め、`default_enabled` は常にfalseで
 ある。実際のCodex／GitHub Copilot resultは未収集である。resultを収集し、人間が確認するまでは
 optional機能を既定化しない。
+
+pairing gateは、入力に現れた各case・provider・repeatについて両conditionがあることと、両providerが
+各conditionのどこかに現れることを確認する。ただし、CodexとGitHub Copilotが同じcase集合を評価した
+ことは確認しない。provider間risk disagreementも両providerに共通するcase・repeatだけで計算する。
+case集合が一致しない入力でもblockerなしになり得るため、人間reviewではprovider間のcase matrixも
+照合する。
 
 高度なcoreference、bridging reference、discourse relationが必要だという実文上の証拠が得られた
 場合だけ、KWJAなどをexperimental backendとして比較する。重い依存をCoreへ追加しない。

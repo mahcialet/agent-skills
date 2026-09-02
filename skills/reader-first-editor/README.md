@@ -144,6 +144,11 @@ schema-backed artifactでは、booleanの `true` をversion 1として受理し�
 CSV、DDL、ORM schemaの構造化parserは未実装です。未対応形式やtool失敗の場合も
 LLM-only確認を続け、coverageを `partial` として未確認範囲を示します。
 
+Markdown inventoryが構造として認識するのは、`#` 形式のH1〜H3、pipe table、fenced code block、list markerと
+indentされた継続行からなるlistです。H4〜H6とindentのないlazy continuationはparagraphとして
+扱われ、現行toolはそれだけを理由に `partial` にしません。これらを含む文書では、inventoryの
+`complete` をCommonMark全構造の認識完了と解釈せず、周辺contextを別途確認します。
+
 出力例:
 
 - [日本語のrepository-review例](examples/repository-review-ja.md)
@@ -188,6 +193,9 @@ manual CLIの例:
 manual collectionはtoken、secret、credential、個人情報を自動検出・redactしません。raw textを
 含むrecordは、保存前に内容を確認してください。`corpus collect --dry-run` はschema・rights制約と
 保存先を確認しますが、redaction previewは生成しません。
+manual／local-file recordの `source.immutable_revision` と `text.content_hash` はcaller-suppliedです。
+validatorは必要な型・形式・record内の関係を確認しますが、外部sourceやembedded contentからhashを
+再計算しないため、利用者が値と実体の一致を確認します。
 
 ```bash
 tool=skills/reader-first-editor/scripts/corpus_tool.py
@@ -223,9 +231,12 @@ python3 "$tool" --data-dir "$data_dir" corpus collect-github \
 ```
 
 `collect-github` は、明示実行時だけnetworkへ接続します。既定ではpublic repositoryだけを
-対象とし、PR本文、patch、review/comment本文は保存しません。
+対象とし、PR本文、patch、review/comment本文は保存しません。変更fileのうち `.md` または
+`.markdown` で、statusが `removed` ではないfileをcandidateにします。
 
-保存するのは、変更済みMarkdownのpath・SHA、review state、inline threadの位置と件数だけです。
+保存するmetadataは、変更済みMarkdownのpath・SHA、review state、inline threadの位置と件数を
+中心に、repositoryのvisibility・license、PRのstate・draft・時刻・base／head／merge SHA、fileの
+status・previous path・change count、review ID・時刻・本文有無なども含みます。
 thread集約はlive responseまたはfixtureの `review_comments` でparent commentがreplyより先に並ぶことを
 前提とし、順序の正規化は行いません。
 これらを `github_evidence` に残し、rightsは `unknown`、textは `reference-only`、recordは
@@ -242,18 +253,28 @@ rule investigationは、support／control recordを明示して `rules bundle` �
 `PROMOTE` を拒否します。toolは自然言語からflagの正しさを推論しないため、自己申告、本文、
 counterexample説明の整合は人間が確認します。`rules propose --apply` もlocal proposalを保存するだけで、
 core rule、references、evalsを変更しません。
+boundary pairではfieldが空でないこととcontrolの記載漏れを確認しますが、`fires` がsupport recordか、
+両IDが実在するか、意味上のminimal pairかは確認しません。また、`rules propose` の作成時には
+positive／negative／boundary間のeval ID重複を拒否せず、後段の `regression-plan` と `rules apply` が
+拒否します。
 詳細は[Agentによる調査](docs/agent-investigation.md)を参照してください。
 
 proposal後は `rules regression-plan`、`rules regression-ingest`、`rules regression-report` を
-使います。bundled eval全件、`--corpus-record` で選んだpromoted record、proposal evalを対象に、
-CodexとGitHub Copilotの結果を集約します。promoted record全件は自動選択しません。Python tool自体は
-providerを起動しません。
+使います。既定の `--eval-dir` ではbundled eval全件、`--corpus-record` で選んだpromoted record、
+proposal evalを対象に、CodexとGitHub Copilotの結果を集約します。`--eval-dir` を明示すると、その
+directoryへ置き換わり、Skillのbundled eval directoryか、全suiteを含むかは検証しません。
+promoted record全件は自動選択しません。Python tool自体はproviderを起動しません。
 
 pass reportでは、`rules approve` がcaller-suppliedなreviewerと理由を別artifactへ記録します。
 toolはreviewerが人間かを認証しないため、人間による明示reviewはtool外で行います。`rules apply` は
 既定でpreviewを返し、`--apply` を付けた場合だけ承認artifactと一致するexact diffを適用します。
-apply対象はSkill本文・references・evalsに限定され、validator失敗時はrollbackします。toolはcommitも
-pushもしません。詳しくは[ルール昇格](docs/rule-promotion.md)を参照してください。
+意図したapply対象はSkill本文・references・evalsです。ただし、現行のtarget parserが認識するのは
+空白を含まないunquotedな `diff --git a/... b/...` headerだけです。quotedまたは空白を含む追加sectionは
+target検査から漏れてもpatch全体として `git apply` へ渡るため、toolのpreviewだけでは許可外pathが
+ないことを保証できません。修正されるまでは、human reviewで全 `diff --git` sectionを確認してください。
+validator失敗時はreverse patchによるrollbackを試みます。reverse checkまたはrollbackも失敗した場合は
+変更が残り、手動確認が必要です。toolはcommitもpushもしません。詳しくは
+[ルール昇格](docs/rule-promotion.md)を参照してください。
 
 ### 日本語構造sensorを評価する
 
@@ -262,10 +283,12 @@ GiNZAを読み込みます。dependency未導入やparse失敗の場合は、非
 返します。通常のreviewからinstall、model download、解析を自動実行しません。出力は
 構造観測値であり、可読性やRR labelのground truthではありません。
 
-`ab-report` は、同じcaseのLLM-onlyとLLM-plus-signalsをCodex／GitHub Copilot間で比較します。
-回帰、provider差拡大、改善なしを `do-not-default` とし、改善が観測されても人間の確認なしに
-既定利用を有効化しません。install pin、schema、CLI例は[日本語構文解析](docs/syntax-analysis.md)を
-参照してください。
+`ab-report` は、各provider・case・repeatでLLM-onlyとLLM-plus-signalsを比較します。両providerが
+入力に現れることは確認しますが、provider間で同じcase集合を使ったことは確認しません。改善として
+数えるのは、RR recall、false positive、unnecessary revision、expected behavior accuracy、provider間の
+risk disagreementに定義した方向の変化です。回帰、provider差拡大、この定義での改善なしを
+`do-not-default` とし、改善が観測されても人間の確認なしに既定利用を有効化しません。install pin、
+schema、CLI例は[日本語構文解析](docs/syntax-analysis.md)を参照してください。
 
 関連文書:
 

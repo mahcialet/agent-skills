@@ -39,11 +39,17 @@ proposalには次が必要である。
 - language、genre、reader、purpose、native・translationのscope
 - 頻度以外のmechanismとsemantic risk
 - 既存ruleとの重複確認
-- positive、negative、boundary eval候補。case IDをcategory間で再利用しない
+- positive、negative、boundary eval候補。最終的にcase IDをcategory間で再利用しない
 - 未説明の反例数とdecision理由
 
 反例が一つでも残る場合は、多数決で無視しない。反例が成立しない範囲までruleを狭められなければ
 `HOLD` とする。証拠自体が不足する場合は `NEEDS_MORE_EVIDENCE` とする。
+
+現行のinvestigation validatorはboundary pairの各fieldが空でないことと、選択済みcontrolの記載漏れを
+確認するが、`fires` がsupport recordか、両record IDが実在するか、意味上のminimal pairかは確認しない。
+また、`rules propose` はcategory間でeval IDが重複したproposalも保存できる。これらはproposal作成時の
+runtime gateではなく、人間reviewと後段のproposal validationで確認する。`regression-plan` と
+`rules apply` はeval IDのcategory間重複を拒否する。
 
 ## Apply gate
 
@@ -52,7 +58,7 @@ toolが確認するのは、pass report、exact diff、空でないreviewer・�
 reviewerが人間かは認証しないため、人間による明示reviewはtool外の運用責任である。
 少なくとも次の場合はapplyを拒否する。
 
-- provenance reviewが完了していない
+- proposalのcaller-suppliedな `provenance_reviewed` flagがtrueではない
 - counterexample fixtureまたはboundary fixtureがない
 - 未説明のcounterexampleが残る
 - languageまたはgenre scopeがない
@@ -99,10 +105,13 @@ rules approve
 rules apply（既定preview、--applyで変更）
 ```
 
-`regression-plan` はbundled eval全件、callerが `--corpus-record` で選んだpromoted record、proposalの
-positive／negative／boundary evalを含む。promoted record全件は自動選択しない。provider、model、
+`regression-plan` は、既定の `--eval-dir` にあるbundled eval全件、callerが `--corpus-record` で
+選んだpromoted record、proposalのpositive／negative／boundary evalを含む。`--eval-dir` を明示すると
+そのdirectoryへ置き換わり、Skillのbundled eval directoryか、全suiteを含むかは検証しない。
+promoted record全件は自動選択しない。provider、model、
 model version、host version、repeat回数を固定し、CodexとGitHub Copilotを必須providerとして記録する。
 local corpusのraw textはplanへ複製せず、record path、content hash、取得要否だけを保持する。
+manual recordのcontent hashはrecordに保存されたcaller-supplied値であり、plan作成時にも再計算しない。
 
 `regression-ingest` はplanと同じcase順、provider metadata、repeat indexを検証してlocal保存する。
 各caseは `pass`、`fail`、`unsupported`、`error` を区別し、semantic preservation、unnecessary
@@ -115,16 +124,24 @@ reportを再計算し、改変されたreportを拒否する。approval artifact
 ある。承認artifactにはproposal ID、report ID、exact diff hash、caller-suppliedなreviewer、理由を
 固定する。
 
-`rules apply` が変更できるのは次だけである。
+`rules apply` が意図して許可するtargetは次だけである。
 
 - `skills/reader-first-editor/SKILL.md`
 - `skills/reader-first-editor/references/**/*.md`
 - `skills/reader-first-editor/evals/*.yaml`
 
-rule targetとeval targetの両方が必要である。binary、削除、rename、path traversal、symlink、no-op、
-対象fileの未commit変更は拒否する。eval targetの追加行からcase IDを抽出し、proposalのpositive、
+rule targetとeval targetの両方が必要である。現行parserは、空白を含まないunquotedな
+`diff --git a/... b/...` headerだけをtarget sectionとして認識する。そのため、quotedまたは空白を含む
+追加sectionはtarget一覧と許可path検査から漏れる一方、patch全体は後段の `git apply` に渡る。
+修正されるまでは、previewの `targets` だけで許可外pathがないとは判断せず、人間が全
+`diff --git` sectionを確認する。
+
+認識したsectionについては、binary、削除、rename、path traversal、symlink、no-op、対象fileの
+未commit変更を拒否する。eval targetの追加行からcase IDを抽出し、proposalのpositive、
 negative、boundary ID集合と双方向で一致しないpatchも拒否する。`git apply --check` 後にpatchを適用し、
-content validatorとSkill validatorが失敗した場合はpatchをrollbackする。commitとpushは行わない。
+content validatorとSkill validatorが失敗した場合はreverse patchによるrollbackを試みる。reverse check
+またはrollbackにも失敗した場合は変更がworktreeへ残り、errorは手動確認を求める。commitとpushは
+行わない。
 
 ## Decision
 

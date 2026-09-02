@@ -50,6 +50,12 @@
 固定文字数を文書品質の規則にはしない。補助ツールの上限を超える保護blockがある場合は、その
 blockを壊さず一つのchunkとして残し、`partial` とlimitationsへ記録する。
 
+現行Markdown parserが見出しとして認識するのは `#` 形式のH1〜H3である。pipe table、fenced code block、
+list markerとindentされた継続行も保護blockとして扱うが、CommonMark全体を実装していない。H4〜H6と
+indentのないlazy list continuationはparagraphになり、それだけではlimitationsも付かない。このため、
+inventoryの `complete` は対応subsetの処理完了を示し、文書の全Markdown構造を正しく認識した保証では
+ない。対象に未対応構造があれば、Agentが周辺contextを確認してcoverageへ反映する。
+
 ## coverageの状態
 
 観点とchunkには次の状態だけを使う。
@@ -116,6 +122,8 @@ findingのseverityは `HIGH`、`MEDIUM`、`LOW` に限定し、欠落やそれ�
 
 候補抽出の閾値やlocal corpusの観察だけをcore ruleへ昇格しない。挙動変更は、positive、negative、
 boundary fixture、既存eval全件、来歴を揃え、人間の明示reviewを受けてからverifiedと記録する。
+regression CLIでは既定の `--eval-dir` がSkillのeval directoryを指す。overrideしたdirectoryの完全性は
+toolが検証しないため、overrideしたplanだけを既存eval全件の実行証拠として扱わない。
 
 ## 制約
 

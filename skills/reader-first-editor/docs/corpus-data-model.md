@@ -7,6 +7,11 @@
 schemaはversionを持ち、unknown fieldを黙って捨てない。recordの形式を定義するschemaは
 `../schemas/corpus-record.schema.json` である。
 
+schemasはartifactの完全な交換形式を定義する。一方、CLI runtimeは汎用JSON Schema validatorを
+起動せず、artifactごとのcustom validatorでgateに必要なfieldと関係を確認する。明示的に同値性を
+記載した制約を除き、custom validatorの受理をschema全制約への適合証明として扱わない。外部systemへ
+渡す前に完全なschema適合が必要なら、schema fileを使って別途検証する。
+
 ## recordの役割
 
 recordは、原文に正解labelを付けるためのものではない。provenance、観察、期待挙動、人間の判断を
@@ -35,9 +40,15 @@ unknownは推測で埋めず、許可されたenumの `unknown` または明示�
 ## deterministic ID
 
 IDは、正規化したsource identity、immutable revision、対象file・span、sample typeから生成する。
-raw textだけを材料にしないため、同じsource recordを重複して収集した場合に検出できる。
+raw textだけを材料にしないため、同じcaller-supplied identityを持つsource recordを重複して収集した
+場合に検出できる。
 hash algorithm、canonicalization version、入力fieldはrecordへ残す。recordの読込み時にもIDを
 再計算し、外部編集によってsource identityとIDがずれたrecordを拒否する。
+
+manual／local-file recordの `source.immutable_revision` と `text.content_hash` はcaller-suppliedである。
+validatorは `immutable_revision` の形式とrecord内のID関係を確認するが、外部sourceまたは
+`text.content` からhashを再計算しない。したがって、`immutable` はsource実体との一致をtoolが確認した
+という意味ではない。
 
 同一PRや同一文書の複数spanを、独立したsource evidenceとして数えない。相関groupを保存し、
 集計ではsource diversityとsample countを分ける。
@@ -101,16 +112,19 @@ proposal IDはresult、rule diff、eval候補から生成し、同じID material
 たとえばproposalのhypothesisだけを変更してもproposal IDは変わらず、同じpathへの保存は拒否される。
 外部編集を暗号学的に防止する契約ではない。
 
-bundleはrecord本文をcopyせず、参照するlocal recordのpathとcontent hashを持つ。読み込むときは、
+bundleはrecord本文をcopyせず、参照するlocal recordのpathとrecordに保存されたcontent hashを持つ。
+manual recordでは、そのhashがcontentから再計算された値とは限らない。読み込むときは、
 record summary、correlation group、source analysis、readinessをlocal store上のrecordと再照合する。
 再照合した値が食い違うartifactは拒否する。ただし、bundleのcustom validatorはnested fieldに対する
 JSON Schemaの全型制約と双方向同値ではない。たとえば、sourceが1件の場合、外部編集された
 `source_analysis.independent_sources: true` はPythonの等値比較で `1` と同値になり、現行の再照合を
 通過する。schema適合性を独立に保証するgateとして扱わない。
 
-regression planはproposal ID、exact diff hash、provider matrix、全caseを固定する。callerが
-`--corpus-record` で選んだpromoted recordは、raw textをplanへ複製せず、record pathとcontent hashで
-参照する。planはpromoted record全件を自動選択しない。runはprovider、model、version、host、
+regression planはproposal ID、exact diff hash、provider matrix、planへ取り込んだ全caseを固定する。
+既定の `--eval-dir` はSkillのbundled eval directoryだが、callerがoverrideした場合はそのdirectoryへ
+置き換わり、bundled eval全件を含むかは検証しない。callerが `--corpus-record` で選んだpromoted
+recordは、raw textをplanへ複製せず、record pathとcontent hashで参照する。planはpromoted record
+全件を自動選択しない。runはprovider、model、version、host、
 repeat indexを固定し、reportはplanと全runから再計算できる集約値を持つ。
 
 approvalには、pass済みreportとexact diffに対するcaller-suppliedなreviewer attestationを保存する。
