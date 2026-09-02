@@ -356,16 +356,16 @@ class RegressionTests(unittest.TestCase):
         )
         bundled["expected_statuses"] = ["UNSUPPORTED"]
         bundled["expected_evidence_types"] = ["DOC↔CODE"]
-        with self.assertRaisesRegex(RegressionError, "UNSUPPORTED requires EVIDENCE-GAP"):
+        with self.assertRaisesRegex(RegressionError, "incompatible"):
             validate_regression_plan(plan)
 
     def test_plan_rejects_status_without_matching_evidence_kind(self) -> None:
         invalid_pairs = (
-            ("VERIFIED", "EVIDENCE-GAP", "repository evidence type"),
-            ("CONTRADICTED", "CITATION", "repository evidence type"),
-            ("SUPPORTED-BY-CITATION", "DOC↔CODE", "CITATION evidence type"),
+            ("VERIFIED", "EVIDENCE-GAP"),
+            ("CONTRADICTED", "CITATION"),
+            ("SUPPORTED-BY-CITATION", "DOC↔CODE"),
         )
-        for status, evidence_type, message in invalid_pairs:
+        for status, evidence_type in invalid_pairs:
             with self.subTest(status=status, evidence_type=evidence_type):
                 plan = deepcopy(self.plan)
                 bundled = next(
@@ -375,8 +375,75 @@ class RegressionTests(unittest.TestCase):
                 )
                 bundled["expected_statuses"] = [status]
                 bundled["expected_evidence_types"] = [evidence_type]
-                with self.assertRaisesRegex(RegressionError, message):
+                with self.assertRaisesRegex(RegressionError, "incompatible"):
                     validate_regression_plan(plan)
+
+    def test_plan_rejects_compatible_evidence_with_contradictory_extra(self) -> None:
+        invalid_oracles = (
+            ("VERIFIED", ["DOC↔CODE", "EVIDENCE-GAP"]),
+            ("SUPPORTED-BY-CITATION", ["CITATION", "UNVERIFIED"]),
+            ("UNSUPPORTED", ["EVIDENCE-GAP", "DOC↔CODE"]),
+        )
+        for status, evidence_types in invalid_oracles:
+            with self.subTest(status=status, evidence_types=evidence_types):
+                plan = deepcopy(self.plan)
+                bundled = next(
+                    case
+                    for case in plan["cases"]
+                    if case["mode"] == "repository-review"
+                )
+                bundled["expected_statuses"] = [status]
+                bundled["expected_evidence_types"] = evidence_types
+                with self.assertRaisesRegex(RegressionError, "incompatible"):
+                    validate_regression_plan(plan)
+
+    def test_plan_rejects_multiple_statuses_for_one_case(self) -> None:
+        plan = deepcopy(self.plan)
+        bundled = next(
+            case for case in plan["cases"] if case["mode"] == "repository-review"
+        )
+        bundled["expected_statuses"] = ["VERIFIED", "UNSUPPORTED"]
+        bundled["expected_evidence_types"] = ["DOC↔CODE", "EVIDENCE-GAP"]
+        with self.assertRaisesRegex(RegressionError, "exactly one status per case"):
+            validate_regression_plan(plan)
+
+    def test_regression_plan_schema_matches_status_evidence_contract(self) -> None:
+        schema = json.loads(
+            (SKILL_DIR / "schemas" / "regression-plan.schema.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        case_schema = schema["properties"]["cases"]["items"]
+        self.assertEqual(
+            case_schema["properties"]["expected_statuses"]["maxItems"], 1
+        )
+        status_rules = case_schema["allOf"][1:]
+        expected = {
+            frozenset({"VERIFIED", "CONTRADICTED"}): {
+                "DOC↔CODE",
+                "DOC↔CONFIG",
+                "DOC↔TEST",
+                "DOC↔DOC",
+                "DOC↔HISTORY",
+            },
+            frozenset({"SUPPORTED-BY-CITATION"}): {"CITATION"},
+            frozenset({"UNSUPPORTED"}): {"EVIDENCE-GAP"},
+            frozenset({"UNVERIFIED"}): {"UNVERIFIED"},
+        }
+        actual = {}
+        for rule in status_rules:
+            status_constraint = rule["if"]["properties"]["expected_statuses"][
+                "contains"
+            ]
+            statuses = status_constraint.get("enum", [status_constraint.get("const")])
+            evidence_constraint = rule["then"]["properties"][
+                "expected_evidence_types"
+            ]["items"]
+            evidence_types = evidence_constraint.get(
+                "enum", [evidence_constraint.get("const")]
+            )
+            actual[frozenset(statuses)] = set(evidence_types)
+        self.assertEqual(actual, expected)
 
     def test_run_requires_planned_structured_oracles(self) -> None:
         run = passing_run(self.plan, self.plan["providers"][0], 1)

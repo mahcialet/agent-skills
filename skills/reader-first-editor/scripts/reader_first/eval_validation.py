@@ -27,6 +27,13 @@ REPOSITORY_EVIDENCE_TYPES = {
     "DOC↔DOC",
     "DOC↔HISTORY",
 }
+EVIDENCE_TYPES_BY_STATUS = {
+    "VERIFIED": REPOSITORY_EVIDENCE_TYPES,
+    "CONTRADICTED": REPOSITORY_EVIDENCE_TYPES,
+    "SUPPORTED-BY-CITATION": {"CITATION"},
+    "UNSUPPORTED": {"EVIDENCE-GAP"},
+    "UNVERIFIED": {"UNVERIFIED"},
+}
 STRUCTURED_ORACLE_VALUES = {
     "expected_risks": EXPECTED_RISKS,
     "expected_statuses": EVIDENCE_STATUSES,
@@ -65,27 +72,24 @@ def validate_eval_oracles(case: dict) -> list[str]:
         if not evidence_types:
             errors.append("repository-review requires expected_evidence_types")
     if statuses is not None and evidence_types is not None:
-        if {"VERIFIED", "CONTRADICTED"} & set(statuses) and not (
-            REPOSITORY_EVIDENCE_TYPES & set(evidence_types)
-        ):
-            errors.append(
-                "VERIFIED or CONTRADICTED requires repository evidence type"
+        if len(statuses) != 1:
+            errors.append("expected_statuses must contain exactly one status per case")
+        elif statuses[0] in EVIDENCE_TYPES_BY_STATUS:
+            status = statuses[0]
+            incompatible = sorted(
+                set(evidence_types) - EVIDENCE_TYPES_BY_STATUS[status]
             )
-        if (
-            "SUPPORTED-BY-CITATION" in statuses
-            and "CITATION" not in evidence_types
-        ):
-            errors.append("SUPPORTED-BY-CITATION requires CITATION evidence type")
-        if "UNSUPPORTED" in statuses and "EVIDENCE-GAP" not in evidence_types:
-            errors.append("UNSUPPORTED requires EVIDENCE-GAP evidence type")
-        if "UNVERIFIED" in statuses and "UNVERIFIED" not in evidence_types:
-            errors.append("UNVERIFIED requires UNVERIFIED evidence type")
+            if incompatible:
+                errors.append(
+                    f"{status} has incompatible evidence types: {incompatible}"
+                )
     return errors
 
 
 __all__ = [
     "EVIDENCE_STATUSES",
     "EVIDENCE_TYPES",
+    "EVIDENCE_TYPES_BY_STATUS",
     "EXPECTED_RISKS",
     "REPOSITORY_EVIDENCE_TYPES",
     "STRUCTURED_ORACLE_VALUES",

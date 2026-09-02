@@ -59,7 +59,7 @@
           "must_preserve": {"type": "array", "items": {"type": "string"}},
           "must_not": {"type": "array", "items": {"type": "string"}},
           "expected_risks": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "pattern": "^RR-(0[1-9]|1[0-6])$"}},
-          "expected_statuses": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"enum": ["VERIFIED", "CONTRADICTED", "SUPPORTED-BY-CITATION", "UNSUPPORTED", "UNVERIFIED"]}},
+          "expected_statuses": {"type": "array", "minItems": 1, "maxItems": 1, "uniqueItems": true, "items": {"enum": ["VERIFIED", "CONTRADICTED", "SUPPORTED-BY-CITATION", "UNSUPPORTED", "UNVERIFIED"]}},
           "expected_evidence_types": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"enum": ["DOC↔CODE", "DOC↔CONFIG", "DOC↔TEST", "DOC↔DOC", "DOC↔HISTORY", "CITATION", "EVIDENCE-GAP", "UNVERIFIED"]}}
         },
         "allOf": [
@@ -69,19 +69,19 @@
           },
           {
             "if": {"properties": {"expected_statuses": {"contains": {"enum": ["VERIFIED", "CONTRADICTED"]}}}, "required": ["expected_statuses"]},
-            "then": {"properties": {"expected_evidence_types": {"contains": {"enum": ["DOC↔CODE", "DOC↔CONFIG", "DOC↔TEST", "DOC↔DOC", "DOC↔HISTORY"]}}}, "required": ["expected_evidence_types"]}
+            "then": {"properties": {"expected_evidence_types": {"items": {"enum": ["DOC↔CODE", "DOC↔CONFIG", "DOC↔TEST", "DOC↔DOC", "DOC↔HISTORY"]}}}, "required": ["expected_evidence_types"]}
           },
           {
             "if": {"properties": {"expected_statuses": {"contains": {"const": "SUPPORTED-BY-CITATION"}}}, "required": ["expected_statuses"]},
-            "then": {"properties": {"expected_evidence_types": {"contains": {"const": "CITATION"}}}, "required": ["expected_evidence_types"]}
+            "then": {"properties": {"expected_evidence_types": {"items": {"const": "CITATION"}}}, "required": ["expected_evidence_types"]}
           },
           {
             "if": {"properties": {"expected_statuses": {"contains": {"const": "UNSUPPORTED"}}}, "required": ["expected_statuses"]},
-            "then": {"properties": {"expected_evidence_types": {"contains": {"const": "EVIDENCE-GAP"}}}, "required": ["expected_evidence_types"]}
+            "then": {"properties": {"expected_evidence_types": {"items": {"const": "EVIDENCE-GAP"}}}, "required": ["expected_evidence_types"]}
           },
           {
             "if": {"properties": {"expected_statuses": {"contains": {"const": "UNVERIFIED"}}}, "required": ["expected_statuses"]},
-            "then": {"properties": {"expected_evidence_types": {"contains": {"const": "UNVERIFIED"}}}, "required": ["expected_evidence_types"]}
+            "then": {"properties": {"expected_evidence_types": {"items": {"const": "UNVERIFIED"}}}, "required": ["expected_evidence_types"]}
           }
         ]
       }
