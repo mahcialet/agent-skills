@@ -340,6 +340,30 @@ class SyntaxAbTests(unittest.TestCase):
         )
         self.assertEqual(report["recommendation"], "do-not-default")
 
+    def test_provider_accuracy_uses_only_matched_case_repeat_sets(self) -> None:
+        data = improving_experiment()
+        data["observations"].extend(
+            [
+                observation(
+                    "codex-only-case",
+                    "codex",
+                    condition,
+                    expected_risk=False,
+                    risk_detected=False,
+                    behavior_match=condition == "llm-only",
+                )
+                for condition in ("llm-only", "llm-plus-signals")
+            ]
+        )
+        report = build_syntax_ab_report(data)
+        signals = report["provider_difference"]["llm-plus-signals"]
+        self.assertEqual(signals["risk_decision_pairs"], 2)
+        self.assertEqual(
+            signals["expected_behavior_accuracy_by_provider"],
+            {"codex": 1.0, "github-copilot": 1.0},
+        )
+        self.assertEqual(signals["expected_behavior_accuracy_spread"], 0.0)
+
     def test_unsupported_result_is_counted_and_blocks_default(self) -> None:
         data = improving_experiment()
         item = next(

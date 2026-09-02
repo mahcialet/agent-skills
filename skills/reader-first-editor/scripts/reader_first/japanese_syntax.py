@@ -466,21 +466,26 @@ def _provider_metrics(observations: list[dict], condition: str) -> dict:
         for item in observations
         if item["condition"] == condition and item["status"] == "completed"
     ]
+    grouped: dict[tuple[str, int], dict[str, dict]] = defaultdict(dict)
+    for item in completed:
+        grouped[(item["case_id"], item["repeat_index"])][item["provider"]] = item
+    comparable = [
+        values
+        for values in grouped.values()
+        if set(values) == set(REQUIRED_PROVIDERS)
+    ]
     accuracy_by_provider: dict[str, float | None] = {}
     for provider in REQUIRED_PROVIDERS:
-        provider_items = [item for item in completed if item["provider"] == provider]
+        provider_items = [values[provider] for values in comparable]
         accuracy_by_provider[provider] = _rate(
             sum(bool(item["expected_behavior_match"]) for item in provider_items),
             len(provider_items),
         )
     available_accuracy = [value for value in accuracy_by_provider.values() if value is not None]
-    grouped: dict[tuple[str, int], dict[str, bool]] = defaultdict(dict)
-    for item in completed:
-        grouped[(item["case_id"], item["repeat_index"])][item["provider"]] = bool(
-            item["risk_detected"]
-        )
-    comparable = [values for values in grouped.values() if set(values) == set(REQUIRED_PROVIDERS)]
-    disagreements = sum(len(set(values.values())) > 1 for values in comparable)
+    disagreements = sum(
+        len({bool(item["risk_detected"]) for item in values.values()}) > 1
+        for values in comparable
+    )
     return {
         "expected_behavior_accuracy_by_provider": accuracy_by_provider,
         "expected_behavior_accuracy_spread": (
