@@ -11,6 +11,7 @@ SCRIPT_DIR = Path(__file__).resolve().parents[1] / "scripts"
 sys.path.insert(0, str(SCRIPT_DIR))
 
 from reader_first.db_consistency import (  # noqa: E402
+    DatabaseConsistencyError,
     PeerGroupSpec,
     analyze_peer_groups,
     extract_markdown_tables,
@@ -174,6 +175,43 @@ class DatabaseConsistencyTests(unittest.TestCase):
         self.assertEqual(result["status"], "partial")
         self.assertEqual(result["row_count"], 0)
         self.assertTrue(result["limitations"])
+
+    def test_peer_group_is_required_for_analysis(self) -> None:
+        extraction = extract_markdown_tables(
+            definition_table(
+                [("events", "created_at", "timestamptz", "NO", "", "")]
+            ),
+            source="database.md",
+        )
+        with self.assertRaisesRegex(DatabaseConsistencyError, "1件以上のpeer group"):
+            analyze_peer_groups(extraction, [])
+
+    def test_unmatched_or_small_peer_group_is_partial(self) -> None:
+        extraction = extract_markdown_tables(
+            definition_table(
+                [("events", "created_at", "timestamptz", "NO", "", "")]
+            ),
+            source="database.md",
+        )
+        for pattern, expected_count in ((r"^missing$", 0), (r"_at$", 1)):
+            with self.subTest(pattern=pattern):
+                report = analyze_peer_groups(
+                    extraction,
+                    [PeerGroupSpec(name="timestamps", column_pattern=pattern)],
+                )
+                self.assertEqual(report["status"], "partial")
+                self.assertEqual(report["peer_groups"][0]["member_count"], expected_count)
+                self.assertTrue(any("必要な4件" in item for item in report["limitations"]))
+
+    def test_cli_requires_peer_group(self) -> None:
+        result = subprocess.run(
+            [sys.executable, str(CLI), "--text", definition_table([])],
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        self.assertEqual(result.returncode, 2)
+        self.assertIn("--peer-group", result.stderr)
 
     def test_cli_emits_candidate_only_report(self) -> None:
         text = definition_table(

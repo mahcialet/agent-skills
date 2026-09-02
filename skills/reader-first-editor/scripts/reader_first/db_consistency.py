@@ -221,6 +221,8 @@ def analyze_peer_groups(
     min_group_size: int = 4,
     dominance_ratio: float = 0.75,
 ) -> dict[str, object]:
+    if not specs:
+        raise DatabaseConsistencyError("1件以上のpeer groupを指定する必要があります")
     if min_group_size < 2:
         raise DatabaseConsistencyError("min_group_sizeは2以上である必要があります")
     if not 0.5 < dominance_ratio < 1:
@@ -231,6 +233,7 @@ def analyze_peer_groups(
     rows = extraction.get("rows")
     if not isinstance(rows, list):
         raise DatabaseConsistencyError("extraction.rowsが必要です")
+    limitations = list(extraction.get("limitations", []))
 
     candidates: list[dict[str, object]] = []
     groups: list[dict[str, object]] = []
@@ -243,6 +246,11 @@ def analyze_peer_groups(
             and column_re.search(str(row.get("column", "")))
             and (table_re is None or table_re.search(str(row.get("table", ""))))
         ]
+        if len(members) < min_group_size:
+            limitations.append(
+                f"peer group {spec.name}はmemberが{len(members)}件で、"
+                f"必要な{min_group_size}件に達していません"
+            )
         distributions: dict[str, list[dict[str, object]]] = {}
         group_candidates: list[str] = []
         for attribute in attributes:
@@ -301,6 +309,8 @@ def analyze_peer_groups(
 
     return {
         **extraction,
+        "status": "partial" if limitations else "checked",
+        "limitations": limitations,
         "analysis": "peer-group-distribution",
         "interpretation": "candidate-only",
         "thresholds": {

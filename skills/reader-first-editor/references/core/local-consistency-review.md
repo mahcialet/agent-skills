@@ -56,7 +56,9 @@ python3 scripts/scan_db_consistency.py \
 ```
 
 出力の `declared_semantic_group` は、groupを呼出側が明示したことを示すだけで、名前のpatternが
-意味上の同一性を証明したことを示さない。全memberを文脈で再確認する。CSV、DDL、ORM schemaの
+意味上の同一性を証明したことを示さない。`--peer-group` は1件以上必要であり、patternに一致する
+memberが候補生成に必要な最小件数へ達しないgroupは `partial` として理由を残す。全memberを文脈で
+再確認する。CSV、DDL、ORM schemaの
 構造化parserは未実装であり、その形式ではLLM-only確認を続けてcoverageを `partial` とする。
 
 ## repository evidence

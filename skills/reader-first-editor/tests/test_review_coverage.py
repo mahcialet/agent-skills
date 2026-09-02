@@ -24,7 +24,7 @@ SCHEMA = SCRIPT_DIR.parent / "schemas" / "review-coverage.schema.json"
 
 
 def finding_report(severity: str = "LOW") -> dict[str, object]:
-    inventory = build_markdown_inventory("# 文書\n\n候補。", source="finding.md")
+    inventory = finding_inventory()
     report = build_report_skeleton(inventory, dimensions=["relationship-clarity"])
     report["candidates"] = [
         {
@@ -37,7 +37,9 @@ def finding_report(severity: str = "LOW") -> dict[str, object]:
     report["chunks"][0].update(
         {"status": "checked", "candidate_ids": ["REL-0001"], "unchecked_scope": []}
     )
-    report["dimensions"][0].update(
+    for dimension in report["dimensions"]:
+        dimension.update({"status": "checked", "unchecked_scope": []})
+    _dimension(report, "relationship-clarity").update(
         {
             "status": "checked",
             "candidate_ids": ["REL-0001"],
@@ -58,6 +60,25 @@ def finding_report(severity: str = "LOW") -> dict[str, object]:
         }
     ]
     return report
+
+
+def finding_inventory() -> dict[str, object]:
+    return build_markdown_inventory("# 文書\n\n候補。", source="finding.md")
+
+
+def _dimension(report: dict[str, object], name: str) -> dict[str, object]:
+    return next(
+        item
+        for item in report["dimensions"]
+        if isinstance(item, dict) and item.get("dimension") == name
+    )
+
+
+def _validate(
+    report: dict[str, object],
+    inventory: dict[str, object] | None = None,
+) -> list[str]:
+    return validate_coverage_report(report, inventory or finding_inventory())
 
 
 class ReviewCoverageTests(unittest.TestCase):
@@ -114,25 +135,27 @@ CREATE TABLE events (
     def test_checked_zero_is_distinct_from_not_checked(self) -> None:
         inventory = build_markdown_inventory("# 文書\n\n問題はありません。", source="clean.md")
         report = build_report_skeleton(inventory, dimensions=["modality-and-scope"])
-        dimension = report["dimensions"][0]
+        dimension = _dimension(report, "modality-and-scope")
         self.assertEqual(dimension["status"], "not-checked")
         self.assertEqual(dimension["finding_count"], 0)
-        self.assertEqual(validate_coverage_report(report), [])
+        self.assertEqual(_validate(report, inventory), [])
 
         dimension["status"] = "checked"
         dimension["unchecked_scope"] = []
         report["chunks"][0]["status"] = "checked"
         report["chunks"][0]["unchecked_scope"] = []
+        for item in report["dimensions"]:
+            item.update({"status": "checked", "unchecked_scope": []})
         report["global_pass"]["status"] = "checked"
         report["global_pass"]["unchecked_scope"] = []
-        self.assertEqual(validate_coverage_report(report), [])
+        self.assertEqual(_validate(report, inventory), [])
 
     def test_partial_requires_unchecked_scope(self) -> None:
         inventory = build_markdown_inventory("# 文書\n\n本文。", source="partial.md")
         report = build_report_skeleton(inventory, dimensions=["repository-consistency"])
-        report["dimensions"][0]["status"] = "partial"
-        report["dimensions"][0]["unchecked_scope"] = []
-        errors = validate_coverage_report(report)
+        _dimension(report, "repository-consistency")["status"] = "partial"
+        _dimension(report, "repository-consistency")["unchecked_scope"] = []
+        errors = _validate(report, inventory)
         self.assertTrue(any("partialには未確認範囲" in error for error in errors))
 
     def test_finding_candidate_cannot_be_omitted_by_consolidator(self) -> None:
@@ -147,7 +170,7 @@ CREATE TABLE events (
             }
         ]
         report["chunks"][0]["candidate_ids"] = ["REL-0001"]
-        dimension = report["dimensions"][0]
+        dimension = _dimension(report, "relationship-clarity")
         dimension.update(
             {
                 "status": "checked",
@@ -157,7 +180,7 @@ CREATE TABLE events (
                 "unchecked_scope": [],
             }
         )
-        errors = validate_coverage_report(report)
+        errors = _validate(report, inventory)
         self.assertTrue(any("保持されていないcandidate" in error for error in errors))
 
         report["findings"] = [
@@ -168,7 +191,7 @@ CREATE TABLE events (
                 "severity": "LOW",
             }
         ]
-        self.assertFalse(any("保持されていないcandidate" in error for error in validate_coverage_report(report)))
+        self.assertFalse(any("保持されていないcandidate" in error for error in _validate(report, inventory)))
 
     def test_all_schema_severities_are_accepted(self) -> None:
         schema = json.loads(SCHEMA.read_text(encoding="utf-8"))
@@ -178,21 +201,21 @@ CREATE TABLE events (
         self.assertEqual(SEVERITIES, schema_severities)
         for severity in schema_severities:
             with self.subTest(severity=severity):
-                self.assertEqual(validate_coverage_report(finding_report(severity)), [])
+                self.assertEqual(_validate(finding_report(severity)), [])
 
     def test_invalid_or_missing_severity_is_rejected(self) -> None:
         invalid = finding_report("CRITICAL")
-        errors = validate_coverage_report(invalid)
+        errors = _validate(invalid)
         self.assertTrue(any("severityが不正" in error for error in errors))
 
         missing = finding_report()
         del missing["findings"][0]["severity"]
-        errors = validate_coverage_report(missing)
+        errors = _validate(missing)
         self.assertTrue(any("severityが不正" in error for error in errors))
 
         non_string = finding_report()
         non_string["findings"][0]["severity"] = ["HIGH"]
-        errors = validate_coverage_report(non_string)
+        errors = _validate(non_string)
         self.assertTrue(any("severityが不正" in error for error in errors))
 
     def test_root_shape_matches_schema_contract(self) -> None:
@@ -202,11 +225,11 @@ CREATE TABLE events (
             with self.subTest(missing=field):
                 report = finding_report()
                 del report[field]
-                self.assertTrue(validate_coverage_report(report))
+                self.assertTrue(_validate(report))
 
         report = finding_report()
         report["unexpected"] = True
-        errors = validate_coverage_report(report)
+        errors = _validate(report)
         self.assertTrue(any("未知のfield" in error for error in errors))
 
     def test_schema_integer_fields_reject_boolean(self) -> None:
@@ -214,8 +237,8 @@ CREATE TABLE events (
         report["schema_version"] = True
         report["candidates"][0]["line"] = True
         report["findings"][0]["locations"][0]["line"] = True
-        report["dimensions"][0]["candidate_count"] = True
-        errors = validate_coverage_report(report)
+        _dimension(report, "relationship-clarity")["candidate_count"] = True
+        errors = _validate(report)
         self.assertTrue(any("schema_versionは1" in error for error in errors))
         self.assertTrue(any("1以上のline" in error for error in errors))
         self.assertTrue(any("candidate_countは0以上の整数" in error for error in errors))
@@ -223,7 +246,7 @@ CREATE TABLE events (
 
         non_integer = finding_report()
         non_integer["candidates"][0]["line"] = "3"
-        errors = validate_coverage_report(non_integer)
+        errors = _validate(non_integer)
         self.assertTrue(any("1以上のline" in error for error in errors))
 
     def test_closed_nested_objects_reject_unknown_fields(self) -> None:
@@ -237,16 +260,115 @@ CREATE TABLE events (
                 report = finding_report()
                 mutate(report)
                 self.assertTrue(
-                    any("未知のfield" in error for error in validate_coverage_report(report))
+                    any("未知のfield" in error for error in _validate(report))
                 )
+
+    def test_report_is_bound_to_inventory_and_required_coverage(self) -> None:
+        inventory = build_markdown_inventory(
+            "# 前半\n\n本文。\n\n# 後半\n\n本文。",
+            source="complete.md",
+        )
+        report = build_report_skeleton(inventory)
+
+        missing_chunk = json.loads(json.dumps(report))
+        missing_chunk["chunks"].pop()
+        self.assertTrue(
+            any("chunk IDと順序" in error for error in _validate(missing_chunk, inventory))
+        )
+
+        substituted_source = json.loads(json.dumps(report))
+        substituted_source["sources"] = ["other.md"]
+        self.assertTrue(
+            any("sourcesが指定inventory" in error for error in _validate(substituted_source, inventory))
+        )
+
+        missing_dimension = json.loads(json.dumps(report))
+        missing_dimension["dimensions"] = [
+            item
+            for item in missing_dimension["dimensions"]
+            if item["dimension"] != "semantic-preservation"
+        ]
+        self.assertTrue(
+            any("必須dimension" in error for error in _validate(missing_dimension, inventory))
+        )
+
+        premature_global = json.loads(json.dumps(report))
+        premature_global["global_pass"].update(
+            {"status": "checked", "unchecked_scope": []}
+        )
+        self.assertTrue(
+            any("全chunkをchecked" in error for error in _validate(premature_global, inventory))
+        )
+
+        wrong_chunk = json.loads(json.dumps(report))
+        wrong_chunk["candidates"] = [
+            {
+                "candidate_id": "REL-0001",
+                "source": "complete.md",
+                "line": 7,
+                "resolution": "excluded",
+                "reason": "fixture",
+            }
+        ]
+        wrong_chunk["chunks"][0]["candidate_ids"] = ["REL-0001"]
+        dimension = _dimension(wrong_chunk, "relationship-clarity")
+        dimension.update(
+            {
+                "candidate_ids": ["REL-0001"],
+                "candidate_count": 1,
+                "excluded_count": 1,
+                "exclusion_reasons": ["fixture"],
+            }
+        )
+        self.assertTrue(
+            any("lineがchunk範囲外" in error for error in _validate(wrong_chunk, inventory))
+        )
+
+        partial_inventory = build_markdown_inventory(
+            "# 文書\n\n```\n未完了",
+            source="partial.md",
+        )
+        dropped_limitation = build_report_skeleton(partial_inventory)
+        dropped_limitation["limitations"] = []
+        self.assertTrue(
+            any(
+                "inventoryのlimitationsを保持" in error
+                for error in _validate(dropped_limitation, partial_inventory)
+            )
+        )
+
+    def test_candidate_must_belong_to_a_dimension(self) -> None:
+        report = finding_report()
+        _dimension(report, "relationship-clarity").update(
+            {
+                "candidate_ids": [],
+                "candidate_count": 0,
+                "finding_count": 0,
+            }
+        )
+        self.assertTrue(
+            any("dimensionへ紐付かないcandidate" in error for error in _validate(report))
+        )
 
     def test_cli_rejects_invalid_severity(self) -> None:
         report = finding_report("CRITICAL")
         with tempfile.TemporaryDirectory() as directory:
             report_path = Path(directory) / "report.json"
+            inventory_path = Path(directory) / "inventory.json"
             report_path.write_text(json.dumps(report, ensure_ascii=False), encoding="utf-8")
+            inventory_path.write_text(
+                json.dumps(finding_inventory(), ensure_ascii=False),
+                encoding="utf-8",
+            )
             validated = subprocess.run(
-                [sys.executable, str(CLI), "validate-report", str(report_path)],
+                [
+                    sys.executable,
+                    str(CLI),
+                    "validate-report",
+                    str(report_path),
+                    "--inventory",
+                    str(inventory_path),
+                ],
                 text=True,
                 capture_output=True,
                 check=False,
@@ -268,9 +390,18 @@ CREATE TABLE events (
         report = build_report_skeleton(inventory)
         with tempfile.TemporaryDirectory() as directory:
             report_path = Path(directory) / "report.json"
+            inventory_path = Path(directory) / "inventory.json"
             report_path.write_text(json.dumps(report, ensure_ascii=False), encoding="utf-8")
+            inventory_path.write_text(json.dumps(inventory, ensure_ascii=False), encoding="utf-8")
             validated = subprocess.run(
-                [sys.executable, str(CLI), "validate-report", str(report_path)],
+                [
+                    sys.executable,
+                    str(CLI),
+                    "validate-report",
+                    str(report_path),
+                    "--inventory",
+                    str(inventory_path),
+                ],
                 text=True,
                 capture_output=True,
                 check=False,

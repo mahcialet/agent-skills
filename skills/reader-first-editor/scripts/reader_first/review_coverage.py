@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import hashlib
+import json
 import re
 from typing import Iterable
 
@@ -225,23 +227,76 @@ def build_markdown_inventory(
     }
 
 
+def inventory_hash(inventory: object) -> str:
+    if not isinstance(inventory, dict):
+        raise CoverageError("inventory rootはobjectである必要があります")
+    payload = json.dumps(
+        inventory,
+        ensure_ascii=False,
+        sort_keys=True,
+        separators=(",", ":"),
+    ).encode("utf-8")
+    return f"sha256:{hashlib.sha256(payload).hexdigest()}"
+
+
+def _inventory_contract(inventory: object) -> tuple[str, list[str], int]:
+    if not isinstance(inventory, dict):
+        raise CoverageError("inventory rootはobjectである必要があります")
+    if not is_schema_version(inventory.get("schema_version")):
+        raise CoverageError("inventory.schema_versionは1である必要があります")
+    if inventory.get("inventory_type") != "markdown-structure":
+        raise CoverageError("inventory.inventory_typeが不正です")
+    source = inventory.get("source")
+    if not isinstance(source, str) or not source:
+        raise CoverageError("inventory.sourceが必要です")
+    line_count = inventory.get("line_count")
+    if not isinstance(line_count, int) or isinstance(line_count, bool) or line_count < 1:
+        raise CoverageError("inventory.line_countは1以上のintegerである必要があります")
+    chunks = inventory.get("chunks")
+    if not isinstance(chunks, list) or not chunks:
+        raise CoverageError("inventory.chunksは空でないlistである必要があります")
+    chunk_ids: list[str] = []
+    for index, chunk in enumerate(chunks, start=1):
+        if not isinstance(chunk, dict):
+            raise CoverageError(f"inventory chunk {index}はobjectである必要があります")
+        chunk_id = chunk.get("chunk_id")
+        if not isinstance(chunk_id, str) or not chunk_id:
+            raise CoverageError(f"inventory chunk {index}にchunk_idが必要です")
+        if chunk.get("source") != source:
+            raise CoverageError(f"inventory chunk {index}のsourceがinventoryと一致しません")
+        chunk_ids.append(chunk_id)
+    if len(chunk_ids) != len(set(chunk_ids)):
+        raise CoverageError("inventory chunk_idが重複しています")
+    if inventory.get("chunk_count") != len(chunk_ids):
+        raise CoverageError("inventory.chunk_countとchunksが一致しません")
+    limitations = inventory.get("limitations")
+    if not isinstance(limitations, list) or not all(
+        isinstance(item, str) for item in limitations
+    ):
+        raise CoverageError("inventory.limitationsは文字列listである必要があります")
+    return source, chunk_ids, line_count
+
+
 def build_report_skeleton(
     inventory: dict[str, object],
     *,
-    dimensions: Iterable[str] = DEFAULT_DIMENSIONS,
+    dimensions: Iterable[str] | None = None,
 ) -> dict[str, object]:
+    source, _, _ = _inventory_contract(inventory)
     chunks = inventory.get("chunks")
-    if not isinstance(chunks, list):
-        raise CoverageError("inventory.chunksが必要です")
-    names = list(dimensions)
-    if not names or any(not isinstance(name, str) or not name for name in names):
+    assert isinstance(chunks, list)
+    extras = list(dimensions or ())
+    if any(not isinstance(name, str) or not name for name in extras):
         raise CoverageError("dimension名が必要です")
-    if len(names) != len(set(names)):
+    if len(extras) != len(set(extras)):
         raise CoverageError("dimension名が重複しています")
+    names = [*DEFAULT_DIMENSIONS]
+    names.extend(name for name in extras if name not in DEFAULT_DIMENSIONS)
     return {
         "schema_version": 1,
         "report_type": "coverage-driven-review",
-        "sources": [inventory.get("source")],
+        "inventory_hash": inventory_hash(inventory),
+        "sources": [source],
         "chunks": [
             {
                 "chunk_id": chunk.get("chunk_id"),
@@ -316,13 +371,19 @@ def _is_string_list(value: object, *, nonempty_items: bool = False) -> bool:
     )
 
 
-def validate_coverage_report(report: object) -> list[str]:
+def validate_coverage_report(report: object, inventory: object) -> list[str]:
     errors: list[str] = []
+    try:
+        inventory_source, inventory_chunk_ids, inventory_line_count = _inventory_contract(inventory)
+        expected_inventory_hash = inventory_hash(inventory)
+    except CoverageError as exc:
+        return [str(exc)]
     if not isinstance(report, dict):
         return ["report rootはobjectである必要があります"]
     root_keys = {
         "schema_version",
         "report_type",
+        "inventory_hash",
         "sources",
         "chunks",
         "dimensions",
@@ -336,12 +397,26 @@ def validate_coverage_report(report: object) -> list[str]:
         errors.append("schema_versionは1である必要があります")
     if report.get("report_type") != "coverage-driven-review":
         errors.append("report_typeが不正です")
+    if report.get("inventory_hash") != expected_inventory_hash:
+        errors.append("inventory_hashが指定inventoryと一致しません")
     sources = report.get("sources")
     if not _is_string_list(sources, nonempty_items=True) or not sources:
         errors.append("sourcesは空でない文字列listである必要があります")
+    elif sources != [inventory_source]:
+        errors.append("sourcesが指定inventoryと一致しません")
     limitations = report.get("limitations")
     if not _is_string_list(limitations):
         errors.append("limitationsは文字列listである必要があります")
+    else:
+        inventory_limitations = inventory.get("limitations", [])
+        assert isinstance(inventory_limitations, list)
+        missing_limitations = [
+            item for item in inventory_limitations if item not in limitations
+        ]
+        if missing_limitations:
+            errors.append(
+                f"inventoryのlimitationsを保持していません: {missing_limitations}"
+            )
 
     candidates = report.get("candidates")
     candidate_map: dict[str, dict[str, object]] = {}
@@ -372,6 +447,10 @@ def validate_coverage_report(report: object) -> list[str]:
             errors.append(f"{label}: sourceが必要です")
         if not _is_integer(candidate.get("line"), minimum=1):
             errors.append(f"{label}: 1以上のlineが必要です")
+        elif candidate.get("line", 0) > inventory_line_count:
+            errors.append(f"{label}: lineがinventoryの範囲外です")
+        if candidate.get("source") != inventory_source:
+            errors.append(f"{label}: sourceが指定inventoryと一致しません")
         if "reason" in candidate and not isinstance(candidate.get("reason"), str):
             errors.append(f"{label}: reasonは文字列である必要があります")
         if candidate.get("resolution") in {"excluded", "unresolved"} and not candidate.get("reason"):
@@ -396,6 +475,7 @@ def validate_coverage_report(report: object) -> list[str]:
         errors.append("chunksは空でないlistである必要があります")
         chunks = []
     chunk_ids: set[str] = set()
+    report_chunk_ids: list[str] = []
     for index, chunk in enumerate(chunks, start=1):
         if not isinstance(chunk, dict):
             errors.append(f"chunk {index}: objectである必要があります")
@@ -413,14 +493,38 @@ def validate_coverage_report(report: object) -> list[str]:
             errors.append(f"chunk {index}: chunk_idが重複しています")
         else:
             chunk_ids.add(chunk_id)
+            report_chunk_ids.append(chunk_id)
         _validate_status(chunk, f"chunk {index}", errors)
         validate_candidate_refs(chunk, f"chunk {index}")
+        inventory_chunk = next(
+            (
+                item
+                for item in inventory.get("chunks", [])
+                if isinstance(item, dict) and item.get("chunk_id") == chunk_id
+            ),
+            None,
+        )
+        if isinstance(inventory_chunk, dict):
+            start_line = inventory_chunk.get("start_line")
+            end_line = inventory_chunk.get("end_line")
+            if _is_integer(start_line, minimum=1) and _is_integer(end_line, minimum=1):
+                for candidate_id in chunk.get("candidate_ids", []):
+                    candidate = candidate_map.get(candidate_id, {})
+                    line = candidate.get("line")
+                    if _is_integer(line, minimum=1) and not start_line <= line <= end_line:
+                        errors.append(
+                            f"chunk {index}: candidate {candidate_id}のlineがchunk範囲外です"
+                        )
+    if report_chunk_ids != inventory_chunk_ids:
+        errors.append("chunk IDと順序が指定inventoryと一致しません")
 
     dimensions = report.get("dimensions")
     if not isinstance(dimensions, list) or not dimensions:
         errors.append("dimensionsは空でないlistである必要があります")
         dimensions = []
     dimension_names: set[str] = set()
+    dimension_candidate_ids: set[str] = set()
+    dimension_statuses: dict[str, object] = {}
     for index, dimension in enumerate(dimensions, start=1):
         label = f"dimension {index}"
         if not isinstance(dimension, dict):
@@ -449,6 +553,7 @@ def validate_coverage_report(report: object) -> list[str]:
             errors.append(f"{label}: dimension名が重複しています")
         else:
             dimension_names.add(name)
+            dimension_statuses[name] = dimension.get("status")
         _validate_status(dimension, label, errors)
         candidate_ids = dimension.get("candidate_ids")
         if not _is_string_list(candidate_ids, nonempty_items=True):
@@ -457,6 +562,7 @@ def validate_coverage_report(report: object) -> list[str]:
         unknown = set(candidate_ids) - candidate_map.keys()
         if unknown:
             errors.append(f"{label}: 未定義candidateがあります: {sorted(unknown)}")
+        dimension_candidate_ids.update(candidate_ids)
         counts: dict[str, int] = {}
         for key in ("candidate_count", "finding_count", "excluded_count", "unresolved_count"):
             value = dimension.get(key)
@@ -486,6 +592,9 @@ def validate_coverage_report(report: object) -> list[str]:
             errors.append(f"{label}: exclusion_reasonsは文字列listである必要があります")
         elif counts["excluded_count"] and not reasons:
             errors.append(f"{label}: excluded candidateには除外理由が必要です")
+    missing_dimensions = set(DEFAULT_DIMENSIONS) - dimension_names
+    if missing_dimensions:
+        errors.append(f"必須dimensionがありません: {sorted(missing_dimensions)}")
 
     global_pass = report.get("global_pass")
     if not isinstance(global_pass, dict):
@@ -499,11 +608,25 @@ def validate_coverage_report(report: object) -> list[str]:
         )
         _validate_status(global_pass, "global_pass", errors)
         validate_candidate_refs(global_pass, "global_pass")
+        if global_pass.get("status") == "checked" and any(
+            isinstance(chunk, dict) and chunk.get("status") != "checked"
+            for chunk in chunks
+        ):
+            errors.append("global_passをcheckedにする前に全chunkをcheckedにする必要があります")
+        if global_pass.get("status") == "checked" and any(
+            dimension_statuses.get(name) != "checked" for name in DEFAULT_DIMENSIONS
+        ):
+            errors.append("global_passをcheckedにする前に全必須dimensionをcheckedにする必要があります")
 
     untracked_candidates = candidate_map.keys() - covered_candidate_ids
     if untracked_candidates:
         errors.append(
             f"chunkまたはglobal passへ紐付かないcandidateがあります: {sorted(untracked_candidates)}"
+        )
+    missing_dimension_candidates = candidate_map.keys() - dimension_candidate_ids
+    if missing_dimension_candidates:
+        errors.append(
+            f"dimensionへ紐付かないcandidateがあります: {sorted(missing_dimension_candidates)}"
         )
 
     findings = report.get("findings")

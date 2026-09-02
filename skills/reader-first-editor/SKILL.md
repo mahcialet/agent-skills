@@ -96,7 +96,8 @@ repository-reviewの判定前に、次の順でgateを通す。
 `references/core/coverage-driven-review.md` を読む。構造単位のchunkごとに候補を確認した後、
 文書全体のglobal passを行う。前半で複数件を見つけても探索を止めず、severityは候補収集後に
 付ける。`checked / 0 findings`、`partial`、`not-checked` を区別し、未確認範囲を問題なしと
-表現しない。
+表現しない。補助reportを検証するときは作成元inventoryも渡し、source、全chunk、必須観点、
+candidate所属、局所passとglobal passの順序を照合する。
 
 同じ役割を持つ要素群の型、nullable、default、constraint、命名、表記に強い局所規則が見える
 場合は、`references/core/local-consistency-review.md` を読む。全体頻度ではなくsemantic peer

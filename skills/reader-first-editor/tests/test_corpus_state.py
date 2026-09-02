@@ -222,6 +222,16 @@ class RecordTests(unittest.TestCase):
         record["id"] = deterministic_candidate_id(record)
         validate_corpus_record(record)
 
+    def test_legacy_v1_license_without_notes_is_read_compatible(self) -> None:
+        record = sample_record()
+        record["rights"]["repository_license"] = "MIT"
+        record["rights"]["notes"] = None
+        record["id"] = deterministic_candidate_id(record)
+
+        with self.assertRaises(RecordValidationError):
+            validate_corpus_record(record)
+        validate_corpus_record(record, require_license_evidence=False)
+
     def test_record_validation_rejects_unknown_fields(self) -> None:
         record = sample_record()
         record["id"] = deterministic_candidate_id(record)
@@ -312,6 +322,18 @@ class StoreTests(unittest.TestCase):
         events = [json.loads(line) for line in self.store.audit_path.read_text(encoding="utf-8").splitlines()]
         self.assertEqual(len(events), 1)
         self.assertEqual(events[0]["new_state"], "candidate")
+
+    def test_store_reads_legacy_v1_license_without_notes(self) -> None:
+        record = sample_record()
+        record["rights"]["repository_license"] = "MIT"
+        record["rights"]["notes"] = None
+        record["id"] = deterministic_candidate_id(record)
+        self.store.initialize()
+        path = self.store.root / "candidates" / f"{record['id']}.json"
+        path.write_text(json.dumps(record, ensure_ascii=False), encoding="utf-8")
+
+        self.assertEqual(self.store.load_record(record["id"]), record)
+        self.assertEqual(self.store.list_records()[0]["id"], record["id"])
 
     def test_batch_duplicate_preflight_prevents_partial_creation(self) -> None:
         existing = self.store.create_candidate(sample_record(), actor="tester", reason="fixture")

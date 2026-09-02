@@ -31,6 +31,8 @@ python3 scripts/scan_relationships.py --file <target.md>
 
 両ツールのJSONは候補収集を支援するだけで、文脈passとglobal passを省略しない。ツールがない、
 未対応形式、読み込み失敗の場合はreviewを継続し、該当coverageを `partial` として理由を残す。
+reportを検証するときは作成元のinventoryも渡す。validatorはinventory内容のhash、source、全chunk、
+既定の必須観点、candidate所属、局所passとglobal passの順序を照合する。
 
 ## coverage記録
 

@@ -139,7 +139,9 @@ constraintなどの分布から、少数値をcandidateとして確認できま�
 
 補助ツールとして、次の処理を実装しています。Markdownの構造inventory、coverage reportの
 schema・整合性検証、
-関係候補語の全出現scan、Markdown DB定義表の構造化、明示peer group内の少数値scanです。
+関係候補語の全出現scan、Markdown DB定義表の構造化、明示peer group内の少数値scanです。coverage
+reportの検証には作成元inventoryを渡し、内容hash、source、全chunk、必須観点、pass順序を照合します。
+DB scannerは1件以上のpeer groupを要求し、member不足を `partial` として返します。
 schema-backed artifactでは、booleanの `true` をversion 1として受理しません。
 CSV、DDL、ORM schemaの構造化parserは未実装です。未対応形式やtool失敗の場合も
 LLM-only確認を続け、coverageを `partial` として未確認範囲を示します。

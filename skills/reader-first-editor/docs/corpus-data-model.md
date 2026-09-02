@@ -29,8 +29,8 @@ recordは、原文に正解labelを付けるためのものではない。proven
 - authorshipとAI assistanceの既知・不明
 - review signalと、その根拠
 - rights status、raw text再配布可否、local-only、匿名化・redaction・変更の有無。repository
-  licenseの値がある場合は、取得・確認方法を空でない `rights.notes` に記録する。schemaとcustom
-  validatorの両方がこの条件を検証する
+  licenseの値がある新規recordでは、取得・確認方法を空でない `rights.notes` に記録する。新規write
+  のcustom validatorがこの条件を検証する
 - raw text、reference-only、hashのどれで保存したか
 - expected behavior、annotation rationale、semantic invariants、do-not-change constraints
 - decision state、reviewer、日時、理由
@@ -89,7 +89,9 @@ process間lockにより、duplicate判定、state変更、auditのread-modify-re
 
 schema migrationのCLI、preview、backupは未実装である。将来実装するmigrationでは明示的なpreviewと
 backupを要求し、新しいvalidatorが古いrecordを黙って書き換えない方針とする。現行validatorは、
-未対応version、破損record、unknown fieldを区別して報告する。
+未対応version、破損record、unknown fieldを区別して報告する。schema v1の保存済みrecordとのread
+compatibilityを保つため、schemaは `repository_license` に対応する `rights.notes: null` を許容する。
+新規collectionのwrite gateだけが、licenseの値に対して空でない取得・確認方法を要求する。
 
 ## 調査artifact
 

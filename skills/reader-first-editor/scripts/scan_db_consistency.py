@@ -47,7 +47,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--peer-group",
         action="append",
         type=_parse_group,
-        default=[],
+        required=True,
         help="NAME=COLUMN_REGEX[=TABLE_REGEX]。意味上のgroupを先に明示する",
     )
     parser.add_argument(

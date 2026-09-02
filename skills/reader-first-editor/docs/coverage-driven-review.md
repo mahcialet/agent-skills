@@ -106,8 +106,12 @@ consolidatorは、同じ原因を指すcandidateを統合できる。ただし�
 `scripts/scan_relationships.py` は候補語の全出現位置をcandidate-only JSONで返す。
 `scripts/scan_db_consistency.py` は対応するDB定義表を構造化し、明示されたpeer group内の分布と
 少数値candidateを返す。
-`scripts/review_coverage.py validate-report` はrootとclosed objectの必須・未知field、文字列list、
-integer field、coverage固有の件数・参照整合性を検証する。JSONのbooleanをintegerとして受理しない。
+`scripts/review_coverage.py validate-report <report.json> --inventory <inventory.json>` は、report作成時の
+inventoryを必須入力とし、全inventory内容のSHA-256、source、chunk IDと順序を照合する。既定の必須観点、
+candidateの観点所属、全chunk・全必須観点の局所確認後にglobal passが実施されたことも検証する。
+`new-report --dimension` は既定の必須観点を置換せず、追加観点として扱う。
+このほかrootとclosed objectの必須・未知field、文字列list、integer field、coverage固有の件数・
+参照整合性を検証する。JSONのbooleanをintegerとして受理しない。
 `schema_version` もintegerとして検証し、`true` をversion 1として受理しない。
 findingのseverityは `HIGH`、`MEDIUM`、`LOW` に限定し、欠落やそれ以外の値を拒否する。
 

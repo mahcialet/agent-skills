@@ -180,7 +180,11 @@ def _require_optional_sha(container: dict, key: str, context: str) -> str | None
     return value
 
 
-def validate_corpus_record(record: dict) -> None:
+def validate_corpus_record(
+    record: dict,
+    *,
+    require_license_evidence: bool = True,
+) -> None:
     """依存libraryなしでcorpus recordの主要invariantを検証する。"""
 
     if not isinstance(record, dict):
@@ -317,7 +321,7 @@ def validate_corpus_record(record: dict) -> None:
     for key in ("repository_license", "notes"):
         if rights[key] is not None and not isinstance(rights[key], str):
             raise RecordValidationError(f"rights.{key}はstringまたはnullである必要があります")
-    if rights["repository_license"] is not None:
+    if require_license_evidence and rights["repository_license"] is not None:
         if not rights["repository_license"].strip():
             raise RecordValidationError("rights.repository_licenseは空でないstringまたはnullである必要があります")
         if not isinstance(rights["notes"], str) or not rights["notes"].strip():
@@ -968,7 +972,7 @@ class LocalCorpusStore:
         except (OSError, json.JSONDecodeError) as exc:
             raise StoreError(f"recordを読み込めません: {path}: {exc}") from exc
         try:
-            validate_corpus_record(data)
+            validate_corpus_record(data, require_license_evidence=False)
         except RecordValidationError as exc:
             raise StoreError(f"破損したrecordです: {path}: {exc}") from exc
         if data["decision"]["state"] != state:
@@ -1102,7 +1106,7 @@ class LocalCorpusStore:
                 for path in sorted(directory.glob("*.json")):
                     try:
                         record = json.loads(path.read_text(encoding="utf-8"))
-                        validate_corpus_record(record)
+                        validate_corpus_record(record, require_license_evidence=False)
                         if record["decision"]["state"] != state:
                             errors.append(f"{path}: directoryとdecision.stateが一致しません")
                         if record["id"] in records:
@@ -1151,7 +1155,7 @@ class LocalCorpusStore:
                 "decided_at": self.clock(),
                 "reason": reason,
             }
-            validate_corpus_record(record)
+            validate_corpus_record(record, require_license_evidence=False)
             if not record["annotations"]["rationale"].strip():
                 raise RecordValidationError("annotation rationaleが必要です")
             event = self._make_event(
@@ -1207,7 +1211,7 @@ class LocalCorpusStore:
                 "decided_at": self.clock(),
                 "reason": reason,
             }
-            validate_corpus_record(record)
+            validate_corpus_record(record, require_license_evidence=False)
             event = self._make_event(
                 action="promote-local",
                 record_id=record_id,
@@ -1245,7 +1249,7 @@ class LocalCorpusStore:
                 "decided_at": now,
                 "reason": reason,
             }
-            validate_corpus_record(record)
+            validate_corpus_record(record, require_license_evidence=False)
             event = self._make_event(
                 action=AUDIT_ACTION_BY_TRANSITION[(old_state, target_state)],
                 record_id=record_id,

@@ -42,8 +42,9 @@ state・draft・時刻・base／head／merge SHA、fileのstatus・previous path
 - immutable revisionと取得日時
 - authorship、AI assistance、review signal
 - repository licenseとして観測した値と確認方法。確認方法は `rights.notes` に記録し、GitHub
-  collectorはGitHub REST APIのrepository metadataから取得したことを明記する。schemaとcustom
-  validatorは、`repository_license` が非nullの場合に空でない `rights.notes` を要求する
+  collectorはGitHub REST APIのrepository metadataから取得したことを明記する。新規recordのwrite
+  gateは、`repository_license` が非nullの場合に空でない `rights.notes` を要求する。schema v1は
+  過去に保存されたrecordを読めるよう、この条件を必須にしない
 - raw text、PR本文、review commentそれぞれのredistribution status
 - local-only、public候補、redaction、改変の有無
 - record作成とannotationのactor・理由。専用fieldとしてdetached recordへ埋め込まず、local audit

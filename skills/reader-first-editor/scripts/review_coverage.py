@@ -51,10 +51,16 @@ def build_parser() -> argparse.ArgumentParser:
 
     skeleton = subparsers.add_parser("new-report", help="未確認状態のcoverage reportを作る")
     skeleton.add_argument("--inventory", type=Path, required=True)
-    skeleton.add_argument("--dimension", action="append", dest="dimensions")
+    skeleton.add_argument(
+        "--dimension",
+        action="append",
+        dest="dimensions",
+        help="既定の必須観点へ追加する観点名。複数指定可",
+    )
 
     validate = subparsers.add_parser("validate-report", help="coverage reportの整合を検証する")
     validate.add_argument("report", type=Path)
+    validate.add_argument("--inventory", type=Path, required=True)
     return parser
 
 
@@ -72,7 +78,8 @@ def main() -> int:
             result = build_report_skeleton(inventory, **keyword)
         else:
             report = _read_json(args.report)
-            errors = validate_coverage_report(report)
+            inventory = _read_json(args.inventory)
+            errors = validate_coverage_report(report, inventory)
             if errors:
                 print(json.dumps({"valid": False, "errors": errors}, ensure_ascii=False, indent=2))
                 return 1
