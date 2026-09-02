@@ -116,6 +116,9 @@ promoted record全件は自動選択しない。provider、model、
 model version、host version、repeat回数を固定し、CodexとGitHub Copilotを必須providerとして記録する。
 local corpusのraw textはplanへ複製せず、record path、content hash、取得要否だけを保持する。
 manual recordのcontent hashはrecordに保存されたcaller-supplied値であり、plan作成時にも再計算しない。
+structured oracleを追加したplan／runのschema versionは2である。version 1のplan／runは
+structured oracle／observationを持たないlegacy artifactとして、同じversionの組合せに限り読取りを
+継続する。version 1と2を混在させたrunの取込みは拒否する。
 
 `regression-ingest` はplanと同じcase順、provider metadata、repeat indexを検証してlocal保存する。
 planに構造化された期待値がある `pass` caseでは、外部runnerの `observed_risks`、

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import subprocess
 import sys
@@ -144,7 +145,7 @@ def passing_run(plan: dict, provider: dict, repeat: int) -> dict:
 
     return {
         "id": "draft",
-        "schema_version": 1,
+        "schema_version": plan["schema_version"],
         "plan_id": plan["id"],
         "provider": provider["provider"],
         "model": provider["model"],
@@ -231,6 +232,7 @@ class RegressionTests(unittest.TestCase):
         self.assertIsNone(corpus_case["input"]["value"])
 
     def test_plan_preserves_bundled_structured_oracles(self) -> None:
+        self.assertEqual(self.plan["schema_version"], 2)
         by_id = {case["id"]: case for case in self.plan["cases"]}
         ambiguous = by_id[
             "bundled:prose-pacing:natural-sounding-ambiguous-action-is-finding"
@@ -376,6 +378,47 @@ class RegressionTests(unittest.TestCase):
         invalid_run["schema_version"] = True
         with self.assertRaisesRegex(RegressionError, "schema"):
             validate_regression_run(invalid_run, self.plan)
+
+    def test_legacy_plan_and_run_without_structured_oracles_remain_readable(self) -> None:
+        plan = deepcopy(self.plan)
+        plan["schema_version"] = 1
+        for case in plan["cases"]:
+            for expected_key in (
+                "expected_risks",
+                "expected_statuses",
+                "expected_evidence_types",
+            ):
+                case.pop(expected_key, None)
+        body = {
+            key: plan[key]
+            for key in (
+                "schema_version",
+                "proposal_id",
+                "diff_hash",
+                "providers",
+                "cases",
+                "requirements",
+            )
+        }
+        plan["id"] = "rfrp-" + hashlib.sha256(
+            json.dumps(
+                body,
+                ensure_ascii=False,
+                sort_keys=True,
+                separators=(",", ":"),
+            ).encode("utf-8")
+        ).hexdigest()[:20]
+
+        validated_plan = validate_regression_plan(plan)
+        run = passing_run(validated_plan, validated_plan["providers"][0], 1)
+        validated_run = validate_regression_run(run, validated_plan)
+        self.assertEqual(validated_run["schema_version"], 1)
+
+    def test_run_schema_version_must_match_plan(self) -> None:
+        run = passing_run(self.plan, self.plan["providers"][0], 1)
+        run["schema_version"] = 1
+        with self.assertRaisesRegex(RegressionError, "schema"):
+            validate_regression_run(run, self.plan)
 
     def test_proposal_rejects_eval_id_reused_across_categories(self) -> None:
         proposal = deepcopy(self.proposal)

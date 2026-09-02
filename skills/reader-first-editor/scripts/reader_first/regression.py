@@ -28,6 +28,8 @@ DIMENSIONS = {
 }
 CATEGORIES = {"existing", "corpus", "positive", "negative", "boundary"}
 EXPECTED_BEHAVIORS = {"change", "no-change", "review-only", "context-dependent"}
+REGRESSION_SCHEMA_VERSION = 2
+LEGACY_REGRESSION_SCHEMA_VERSION = 1
 STRUCTURED_ORACLES = {
     "expected_risks": (
         "observed_risks",
@@ -452,7 +454,7 @@ def build_regression_plan(
     if len(case_ids) != len(set(case_ids)):
         raise RegressionError("regression case IDが重複しています")
     body = {
-        "schema_version": 1,
+        "schema_version": REGRESSION_SCHEMA_VERSION,
         "proposal_id": proposal["id"],
         "diff_hash": rule_diff_hash(proposal["rule_diff"]),
         "providers": providers,
@@ -481,7 +483,11 @@ def validate_regression_plan(plan: object) -> dict:
         "requirements",
     }
     _exact_keys(data, keys, "regression plan")
-    if not is_schema_version(data.get("schema_version")):
+    schema_version = data.get("schema_version")
+    if not any(
+        is_schema_version(schema_version, expected=expected)
+        for expected in (LEGACY_REGRESSION_SCHEMA_VERSION, REGRESSION_SCHEMA_VERSION)
+    ):
         raise RegressionError("regression plan schema_versionが未対応です")
     _string(data, "created_at", "regression plan")
     providers = _provider_matrix({"providers": data.get("providers")})
@@ -498,7 +504,12 @@ def validate_regression_plan(plan: object) -> dict:
             raise RegressionError("regression case categoryが不正です")
         if item.get("expected_behavior") not in EXPECTED_BEHAVIORS:
             raise RegressionError("regression case expected_behaviorが不正です")
-        if oracle_errors := validate_eval_oracles(item):
+        if schema_version == LEGACY_REGRESSION_SCHEMA_VERSION:
+            if STRUCTURED_ORACLES.keys() & item.keys():
+                raise RegressionError(
+                    "regression plan schema_version 1はstructured oracleを扱えません"
+                )
+        elif oracle_errors := validate_eval_oracles(item):
             raise RegressionError(
                 "regression plan.cases[]のstructured oracleが不正です: "
                 + "; ".join(oracle_errors)
@@ -545,7 +556,12 @@ def validate_regression_run(run: object, plan: dict) -> dict:
         "cases",
     }
     _exact_keys(data, keys, "regression run")
-    if not is_schema_version(data.get("schema_version")) or data.get("plan_id") != plan["id"]:
+    if (
+        not is_schema_version(
+            data.get("schema_version"), expected=plan["schema_version"]
+        )
+        or data.get("plan_id") != plan["id"]
+    ):
         raise RegressionError("regression runのschemaまたはplan IDが不正です")
     for key in ("provider", "model", "model_version", "host_version", "created_at"):
         _string(data, key, "regression run")
@@ -580,6 +596,13 @@ def validate_regression_run(run: object, plan: dict) -> dict:
         if unknown := sorted(item.keys() - required_case_keys - optional_case_keys):
             raise RegressionError(
                 "regression run.cases[]に未知のkeyがあります: " + ", ".join(unknown)
+            )
+        if (
+            plan["schema_version"] == LEGACY_REGRESSION_SCHEMA_VERSION
+            and optional_case_keys & item.keys()
+        ):
+            raise RegressionError(
+                "regression run schema_version 1はstructured observationを扱えません"
             )
         case_id = _string(item, "id", "regression run.cases[]")
         case_ids.append(case_id)

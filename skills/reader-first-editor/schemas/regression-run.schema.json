@@ -7,7 +7,7 @@
   "required": ["id", "schema_version", "plan_id", "provider", "model", "model_version", "host_version", "repeat_index", "created_at", "cases"],
   "properties": {
     "id": {"type": "string", "minLength": 1},
-    "schema_version": {"const": 1},
+    "schema_version": {"const": 2},
     "plan_id": {"type": "string", "pattern": "^rfrp-[0-9a-f]{20}$"},
     "provider": {"type": "string", "minLength": 1},
     "model": {"type": "string", "minLength": 1},

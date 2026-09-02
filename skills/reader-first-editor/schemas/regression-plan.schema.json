@@ -7,7 +7,7 @@
   "required": ["id", "schema_version", "proposal_id", "diff_hash", "created_at", "providers", "cases", "requirements"],
   "properties": {
     "id": {"type": "string", "pattern": "^rfrp-[0-9a-f]{20}$"},
-    "schema_version": {"const": 1},
+    "schema_version": {"const": 2},
     "proposal_id": {"type": "string", "pattern": "^rfp-[0-9a-f]{20}$"},
     "diff_hash": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
     "created_at": {"type": "string", "minLength": 1},
