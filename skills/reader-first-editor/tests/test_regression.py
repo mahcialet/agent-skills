@@ -359,6 +359,25 @@ class RegressionTests(unittest.TestCase):
         with self.assertRaisesRegex(RegressionError, "UNSUPPORTED requires EVIDENCE-GAP"):
             validate_regression_plan(plan)
 
+    def test_plan_rejects_status_without_matching_evidence_kind(self) -> None:
+        invalid_pairs = (
+            ("VERIFIED", "EVIDENCE-GAP", "repository evidence type"),
+            ("CONTRADICTED", "CITATION", "repository evidence type"),
+            ("SUPPORTED-BY-CITATION", "DOC↔CODE", "CITATION evidence type"),
+        )
+        for status, evidence_type, message in invalid_pairs:
+            with self.subTest(status=status, evidence_type=evidence_type):
+                plan = deepcopy(self.plan)
+                bundled = next(
+                    case
+                    for case in plan["cases"]
+                    if case["mode"] == "repository-review"
+                )
+                bundled["expected_statuses"] = [status]
+                bundled["expected_evidence_types"] = [evidence_type]
+                with self.assertRaisesRegex(RegressionError, message):
+                    validate_regression_plan(plan)
+
     def test_run_requires_planned_structured_oracles(self) -> None:
         run = passing_run(self.plan, self.plan["providers"][0], 1)
         case = next(

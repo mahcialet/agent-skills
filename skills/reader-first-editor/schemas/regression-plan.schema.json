@@ -68,6 +68,14 @@
             "then": {"required": ["expected_statuses", "expected_evidence_types"]}
           },
           {
+            "if": {"properties": {"expected_statuses": {"contains": {"enum": ["VERIFIED", "CONTRADICTED"]}}}, "required": ["expected_statuses"]},
+            "then": {"properties": {"expected_evidence_types": {"contains": {"enum": ["DOC↔CODE", "DOC↔CONFIG", "DOC↔TEST", "DOC↔DOC", "DOC↔HISTORY"]}}}, "required": ["expected_evidence_types"]}
+          },
+          {
+            "if": {"properties": {"expected_statuses": {"contains": {"const": "SUPPORTED-BY-CITATION"}}}, "required": ["expected_statuses"]},
+            "then": {"properties": {"expected_evidence_types": {"contains": {"const": "CITATION"}}}, "required": ["expected_evidence_types"]}
+          },
+          {
             "if": {"properties": {"expected_statuses": {"contains": {"const": "UNSUPPORTED"}}}, "required": ["expected_statuses"]},
             "then": {"properties": {"expected_evidence_types": {"contains": {"const": "EVIDENCE-GAP"}}}, "required": ["expected_evidence_types"]}
           },

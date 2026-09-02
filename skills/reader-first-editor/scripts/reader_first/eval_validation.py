@@ -20,6 +20,13 @@ EVIDENCE_TYPES = {
     "EVIDENCE-GAP",
     "UNVERIFIED",
 }
+REPOSITORY_EVIDENCE_TYPES = {
+    "DOC↔CODE",
+    "DOC↔CONFIG",
+    "DOC↔TEST",
+    "DOC↔DOC",
+    "DOC↔HISTORY",
+}
 STRUCTURED_ORACLE_VALUES = {
     "expected_risks": EXPECTED_RISKS,
     "expected_statuses": EVIDENCE_STATUSES,
@@ -58,6 +65,17 @@ def validate_eval_oracles(case: dict) -> list[str]:
         if not evidence_types:
             errors.append("repository-review requires expected_evidence_types")
     if statuses is not None and evidence_types is not None:
+        if {"VERIFIED", "CONTRADICTED"} & set(statuses) and not (
+            REPOSITORY_EVIDENCE_TYPES & set(evidence_types)
+        ):
+            errors.append(
+                "VERIFIED or CONTRADICTED requires repository evidence type"
+            )
+        if (
+            "SUPPORTED-BY-CITATION" in statuses
+            and "CITATION" not in evidence_types
+        ):
+            errors.append("SUPPORTED-BY-CITATION requires CITATION evidence type")
         if "UNSUPPORTED" in statuses and "EVIDENCE-GAP" not in evidence_types:
             errors.append("UNSUPPORTED requires EVIDENCE-GAP evidence type")
         if "UNVERIFIED" in statuses and "UNVERIFIED" not in evidence_types:
@@ -69,6 +87,7 @@ __all__ = [
     "EVIDENCE_STATUSES",
     "EVIDENCE_TYPES",
     "EXPECTED_RISKS",
+    "REPOSITORY_EVIDENCE_TYPES",
     "STRUCTURED_ORACLE_VALUES",
     "validate_eval_oracles",
 ]
