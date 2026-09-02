@@ -7,6 +7,7 @@
 - Level / minimum / depth / mode: `A1` / `A1` / `focused` / `gate`
 - Selection rationale: executable code with timeout behavior, limited to the direct caller and contract
 - Excluded scope: transitive consumers, production configuration, dependency internals, and A2-A4 threats
+- Identifier scope: new report
 
 ## Review contract
 

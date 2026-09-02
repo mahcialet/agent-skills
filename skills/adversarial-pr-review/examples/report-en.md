@@ -9,6 +9,7 @@
 - Selection rationale: the endpoint accepts a tenant identifier from the request even though access must remain
   within the authenticated tenant
 - Excluded scope: the identity provider's internal token-validation implementation
+- Identifier scope: new report
 
 ## Review contract
 

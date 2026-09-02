@@ -9,6 +9,7 @@
 - Level / minimum / depth / mode:
 - Selection rationale:
 - Excluded scope:
+- Identifier scope: new report | continuation of `<prior report reference>`
 
 ## Review contract
 
@@ -68,6 +69,7 @@ does not mean correct or complete. Keep `Unverified` routes separate from findin
 ## Findings
 
 ### F-001: Title
+<!-- Findings use report-local F-* IDs. A declared follow-up continues the prior sequence; do not reuse resolved IDs. -->
 
 - Priority:
 - Adversarial level:
@@ -91,10 +93,14 @@ Confirmed symbolも追加する。line確認済みの場合は、どちらも追
 
 ## Hypotheses
 
+<!-- Use H-001, H-002, ... for report-local hypotheses. Keep source-preserved HYP-* IDs in the source pointer. -->
+
 List concerns that are not yet supported by enough evidence to be reported as
 findings. Keep them separate from findings.
 
 ## Evidence ledger
+
+<!-- Use E-01, E-02, ... for rows in this report. A follow-up preserves existing E-* IDs and appends new evidence. -->
 
 | ID | Source | Checked | Result / limitation |
 |---|---|---|---|

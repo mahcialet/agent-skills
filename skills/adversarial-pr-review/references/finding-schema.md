@@ -81,6 +81,10 @@ PriorityをA-levelから導かない。たとえばA1のdata lossはP1になり�
 
 ## Evidence ledger
 
+finding、hypothesis、evidence ledgerのIDとfollow-upでの継続方法は、
+[identifier and numbering](identifier-and-numbering.md) に従う。外部のfinding IDやsourceの要件IDを
+このreportの連番として作り直してはならない。
+
 各主張について、source、調べた内容、結果、制約を記録する。diff以外を少なくとも1つ調べる
 という件数だけの条件にはせず、その主張を支えるために必要な証拠を追う。
 

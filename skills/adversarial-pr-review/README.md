@@ -67,6 +67,11 @@ Repository labelを確認できない場合は `Repository label: unverified` �
 `Location line status: unverified` を記録します。確認済みsymbolがある場合だけ
 `Confirmed symbol` も記録します。API routeや説明は別fieldへ分けます。
 
+Finding、hypothesis、Evidence ledgerのIDはreport内のsequenceです。新規reportでは
+`F-001`／`H-001`／`E-01`から始め、同じreview seriesのfollow-upだけ既存番号の次へ続けます。
+外部reviewの `APR-*` やsourceの要件・PR番号は採番せず、元のIDを保持します。詳しい対象範囲と
+coverage rowの扱いは [identifier and numbering](references/identifier-and-numbering.md) に従います。
+
 `mode=gate` の `BLOCK` / `CONDITIONAL` / `PASS` は、確認できた範囲に基づくAIのrecommendationです。
 人間によるapprovalではなく、`PASS` もmerge許可や安全保証を意味しません。最終判断者を確認できない
 場合は、もっともらしい担当者を補わず `unresolved` とします。gateの出力では

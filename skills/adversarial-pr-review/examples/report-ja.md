@@ -9,6 +9,7 @@
 - Selection rationale: 正規権限を持つclientが同じrequestを並行・再送でき、idempotencyと
   金額反映を扱うためA2
 - Excluded scope: 外部決済事業者の本番挙動
+- Identifier scope: new report
 
 ## Review contract
 

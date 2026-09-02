@@ -80,6 +80,9 @@ reviewを始める前に、[review contract](references/review-contract.md)、
 分類・出力前に [finding schema](references/finding-schema.md) を読む。referenceを読まずに
 一般的なsecurity reviewの分類や独自schemaで代用しない。
 
+[identifier and numbering](references/identifier-and-numbering.md) を読み、report内のfinding、hypothesis、
+evidence ledgerの採番規則に従う。
+
 [checklist candidates](references/checklist-candidates.md) はchecklist変換を明示された場合だけ
 読む。`assets/` のtemplateは出力fileの保存を依頼された場合だけ参照し、read-only reviewで
 copyしない。

@@ -11,6 +11,7 @@ review commentを示すだけであり、runtimeでlive PRを取得する必要�
 - Level / minimum / depth / mode: `A1` / `A1` / `deep` / `review`
 - Selection rationale: normal producer、alternate mode、validator、consumer、repository companionを追う
 - Excluded scope: production service、external API、A2〜A4
+- Identifier scope: new report
 
 ## Review contract
 
