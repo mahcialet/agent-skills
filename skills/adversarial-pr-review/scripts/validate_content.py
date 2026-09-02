@@ -495,101 +495,134 @@ def require_text_tokens(
             errors.append(f"{path}: missing required token {token!r}")
 
 
-def validate_example_location(path: Path, text: str, errors: list[str]) -> None:
-    lines = text.splitlines()
+def _repository_label(
+    path: Path, lines: list[str], errors: list[str]
+) -> tuple[bool, str | None]:
     label_lines = [line for line in lines if line.startswith("- Repository label:")]
     if len(label_lines) != 1:
         errors.append(f"{path}: must contain exactly one repository label")
-        return
+        return False, None
 
     label_line = label_lines[0]
     if label_line == "- Repository label: unverified":
-        repository_label: str | None = None
-    else:
-        label_match = re.fullmatch(r"- Repository label:\s+`([^`]+)`", label_line)
-        if not label_match:
-            errors.append(f"{path}: repository label must be verified or unverified")
-            return
-        repository_label = label_match.group(1)
-        if (
-            repository_label in {".", ".."}
-            or repository_label.startswith("~")
-            or any(separator in repository_label for separator in ("/", "\\", ":"))
-            or any(ord(character) < 32 for character in repository_label)
-        ):
-            errors.append(f"{path}: repository label must be a portable path component")
-            return
+        return True, None
+
+    label_match = re.fullmatch(r"- Repository label:\s+`([^`]+)`", label_line)
+    if not label_match:
+        errors.append(f"{path}: repository label must be verified or unverified")
+        return False, None
+    repository_label = label_match.group(1)
+    if (
+        repository_label in {".", ".."}
+        or repository_label.startswith("~")
+        or any(separator in repository_label for separator in ("/", "\\", ":"))
+        or any(ord(character) < 32 for character in repository_label)
+    ):
+        errors.append(f"{path}: repository label must be a portable path component")
+        return False, None
+    return True, repository_label
+
+
+def _validate_location_entries(
+    path: Path, text: str, errors: list[str], *, require_single: bool
+) -> None:
+    lines = text.splitlines()
+    valid_label, repository_label = _repository_label(path, lines, errors)
+    if not valid_label:
+        return
 
     location_indexes = [
         index for index, line in enumerate(lines) if line.startswith("- Location:")
     ]
-    if len(location_indexes) != 1:
+    if require_single and len(location_indexes) != 1:
         errors.append(f"{path}: must contain exactly one Location line")
         return
-    location_index = location_indexes[0]
-    location_line = lines[location_index]
-    if (
-        location_index + 1 < len(lines)
-        and lines[location_index + 1].startswith((" ", "\t"))
-    ):
-        errors.append(f"{path}: Location must be a single-line field")
-    if MARKDOWN_LINK_RE.search(location_line):
-        errors.append(f"{path}: Location must not contain a Markdown link")
-
-    location_match = re.fullmatch(r"- Location:\s+`([^`]+)`", location_line)
-    if not location_match:
-        errors.append(f"{path}: Location must contain only one inline locator")
-        return
-    locator = location_match.group(1)
-
-    path_text, separator, line_text = locator.rpartition(":")
-    line_match = re.fullmatch(r"([1-9]\d*)(?:-([1-9]\d*))?", line_text)
-    has_verified_line = bool(separator and line_match)
-    if has_verified_line:
-        if line_match and line_match.group(2) and int(line_match.group(2)) < int(
-            line_match.group(1)
-        ):
-            errors.append(f"{path}: Location line range must not be reversed")
-    else:
-        path_text = locator
-        symbol_lines = [line for line in lines if line.startswith("- Confirmed symbol:")]
-        status_lines = [
-            line for line in lines if line.startswith("- Location line status:")
-        ]
-        if len(symbol_lines) > 1 or (
-            symbol_lines
-            and not re.fullmatch(r"- Confirmed symbol:\s+`[^`]+`", symbol_lines[0])
-        ):
-            errors.append(
-                f"{path}: line-unverified Location has an invalid confirmed symbol"
-            )
-        if status_lines != ["- Location line status: unverified"]:
-            errors.append(
-                f"{path}: line-unverified Location must include unverified line status"
-            )
-
-    if has_verified_line and any(
-        line.startswith(("- Confirmed symbol:", "- Location line status:"))
-        for line in lines
-    ):
-        errors.append(f"{path}: verified line must not include fallback location fields")
-
-    if (
-        not path_text
-        or path_text.startswith(("/", "\\", "~"))
-        or "\\" in path_text
-        or ":" in path_text
-        or any(part in {"", ".", ".."} for part in path_text.split("/"))
-        or any(ord(character) < 32 for character in path_text)
-    ):
-        errors.append(f"{path}: Location path must be a portable relative locator")
+    if not require_single and not location_indexes:
+        errors.append(f"{path}: must contain at least one Location line")
         return
 
-    if repository_label is not None:
-        if not path_text.startswith(f"{repository_label}/"):
-            errors.append(f"{path}: Location must start with verified repository label")
-    elif path_text.startswith("unverified/"):
-        errors.append(f"{path}: Location must not invent an unverified label prefix")
+    for position, location_index in enumerate(location_indexes):
+        next_location = (
+            location_indexes[position + 1]
+            if position + 1 < len(location_indexes)
+            else len(lines)
+        )
+        location_block = lines[location_index:next_location]
+        location_line = lines[location_index]
+        if (
+            location_index + 1 < len(lines)
+            and lines[location_index + 1].startswith((" ", "\t"))
+        ):
+            errors.append(f"{path}: Location must be a single-line field")
+        if MARKDOWN_LINK_RE.search(location_line):
+            errors.append(f"{path}: Location must not contain a Markdown link")
+
+        location_match = re.fullmatch(r"- Location:\s+`([^`]+)`", location_line)
+        if not location_match:
+            errors.append(f"{path}: Location must contain only one inline locator")
+            continue
+        locator = location_match.group(1)
+
+        path_text, separator, line_text = locator.rpartition(":")
+        line_match = re.fullmatch(r"([1-9]\d*)(?:-([1-9]\d*))?", line_text)
+        has_verified_line = bool(separator and line_match)
+        if has_verified_line:
+            if line_match and line_match.group(2) and int(line_match.group(2)) < int(
+                line_match.group(1)
+            ):
+                errors.append(f"{path}: Location line range must not be reversed")
+        else:
+            path_text = locator
+            symbol_lines = [
+                line for line in location_block if line.startswith("- Confirmed symbol:")
+            ]
+            status_lines = [
+                line
+                for line in location_block
+                if line.startswith("- Location line status:")
+            ]
+            if len(symbol_lines) > 1 or (
+                symbol_lines
+                and not re.fullmatch(r"- Confirmed symbol:\s+`[^`]+`", symbol_lines[0])
+            ):
+                errors.append(
+                    f"{path}: line-unverified Location has an invalid confirmed symbol"
+                )
+            if status_lines != ["- Location line status: unverified"]:
+                errors.append(
+                    f"{path}: line-unverified Location must include unverified line status"
+                )
+
+        if has_verified_line and any(
+            line.startswith(("- Confirmed symbol:", "- Location line status:"))
+            for line in location_block
+        ):
+            errors.append(f"{path}: verified line must not include fallback location fields")
+
+        if (
+            not path_text
+            or path_text.startswith(("/", "\\", "~"))
+            or "\\" in path_text
+            or ":" in path_text
+            or any(part in {"", ".", ".."} for part in path_text.split("/"))
+            or any(ord(character) < 32 for character in path_text)
+        ):
+            errors.append(f"{path}: Location path must be a portable relative locator")
+            continue
+
+        if repository_label is not None:
+            if not path_text.startswith(f"{repository_label}/"):
+                errors.append(f"{path}: Location must start with verified repository label")
+        elif path_text.startswith("unverified/"):
+            errors.append(f"{path}: Location must not invent an unverified label prefix")
+
+
+def validate_example_location(path: Path, text: str, errors: list[str]) -> None:
+    _validate_location_entries(path, text, errors, require_single=True)
+
+
+def validate_coverage_example_locations(path: Path, text: str, errors: list[str]) -> None:
+    _validate_location_entries(path, text, errors, require_single=False)
 
 
 def validate_examples(skill_dir: Path, errors: list[str]) -> None:
@@ -691,6 +724,7 @@ def validate_examples(skill_dir: Path, errors: list[str]) -> None:
         ],
         errors,
     )
+    validate_coverage_example_locations(coverage_path, coverage, errors)
 
 
 def validate_policy_and_assets(skill_dir: Path, errors: list[str]) -> None:

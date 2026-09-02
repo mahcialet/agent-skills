@@ -198,6 +198,22 @@ class PortableLocationTestCase(unittest.TestCase):
         )
         self.assertTrue(self.errors_for(unverified_prefix))
 
+    def test_coverage_example_validates_each_location(self) -> None:
+        coverage_path = SKILL_DIR / "examples" / "coverage-gap-audit.md"
+        text = coverage_path.read_text(encoding="utf-8")
+        errors: list[str] = []
+        validator.validate_coverage_example_locations(coverage_path, text, errors)
+        self.assertEqual([], errors)
+
+        invalid = text.replace(
+            "sample-repo/src/repository_review.py:84",
+            "/srv/work/sample-repo/src/repository_review.py:84",
+            1,
+        )
+        errors = []
+        validator.validate_coverage_example_locations(coverage_path, invalid, errors)
+        self.assertTrue(any("portable relative locator" in error for error in errors))
+
     def test_location_rejects_trailing_text_links_and_continuations(self) -> None:
         for suffix in (
             ", confirmed source location",
