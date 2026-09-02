@@ -117,6 +117,45 @@ class CoverageGapSuiteTestCase(unittest.TestCase):
                     )
                 )
 
+    def test_canonical_case_outcome_metadata_is_frozen(self) -> None:
+        replacements = {
+            "gate": {
+                "N/A": "PASS",
+                "BLOCK": "PASS",
+                "CONDITIONAL": "PASS",
+                "PASS": "BLOCK",
+            },
+            "confidence": {
+                "Confirmed": "Hypothesis",
+                "Strongly supported": "Confirmed",
+                "Hypothesis": "Confirmed",
+                "Not applicable": "Confirmed",
+            },
+        }
+        for case_id in sorted(validator.CANONICAL_FIXTURE_DIGESTS):
+            for field, values in replacements.items():
+
+                def replace_metadata(
+                    data: dict,
+                    case_id: str = case_id,
+                    field: str = field,
+                    values: dict[str, str] = values,
+                ) -> None:
+                    case = next(
+                        case for case in data["cases"] if case["id"] == case_id
+                    )
+                    case[field] = values[case[field]]
+
+                with self.subTest(case_id=case_id, field=field):
+                    errors = self.validate_with_mutation(replace_metadata)
+                    self.assertTrue(
+                        any(
+                            case_id in error
+                            and f"canonical {field} mismatch" in error
+                            for error in errors
+                        )
+                    )
+
     def test_required_coverage_case_cannot_be_removed(self) -> None:
         def remove_case(data: dict) -> None:
             data["cases"] = [
