@@ -257,7 +257,8 @@ checklistへの転記を明示された場合だけ [checklist candidates](refer
 - sourceにないrequirement、business rule、owner、runbook、test resultを創作していないか
 - declared requirementと `inferred invariant` を混同していないか
 - `declared_impact` を探索境界にせず、undeclared impactだけをfindingにしていないか
-- changed conceptごとにproducerからconsumerまでのcoverageまたは根拠付きN/Aを記録したか
+- changed conceptごとにproducerからconsumerまでのcoverage、根拠付きN/A、または不足しているevidence、
+  制約、follow-upへ接続した `Unverified` を記録したか
 - grouped fieldのrelational invariantと、base-side ruleが要求するcompanion artifactを確認したか
 - 初回finding数を終了理由にせず、追加candidateが0件でもcoverage-gap evidenceを記録したか
 - independent inspectionを確保できなかった制約を隠していないか

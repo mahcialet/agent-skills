@@ -130,7 +130,8 @@ hostが独立したread-only reviewerまたはfresh contextを提供できる場
 
 次を満たして初めてreviewを完了できる。
 
-- changed conceptごとにproducerからconsumerまでのcoverage、または根拠付きN/Aがある
+- changed conceptごとにproducerからconsumerまでのcoverage、根拠付きN/A、または不足しているevidence、
+  制約、follow-upへ接続した `Unverified` がある
 - grouped fieldsのrelational invariantを確認した
 - base-side repository ruleから必要なcompanion artifactを確認した
 - 初回finding数を終了理由にしていない
