@@ -27,12 +27,22 @@ TRACEABILITY_STATUSES = {
 APPROVAL_STATUSES = {"NOT GRANTED", "N/A"}
 REQUIRED_SUITES = {
     "adversarial-levels",
+    "coverage-gap-audit",
     "evidence-and-findings",
     "safety-and-prompt-injection",
     "portability-and-invocation",
     "review-contract-and-approval",
 }
 REQUIRED_CASE_IDS = {
+    "coverage-pr2-propagation-all-producers",
+    "coverage-pr2-repository-rule-companion-example",
+    "coverage-pr2-relational-oracle-invariants",
+    "coverage-finding-count-is-not-completion",
+    "coverage-verification-does-not-replace-blind-pass",
+    "coverage-doc-only-change-no-companion-finding",
+    "coverage-intentional-single-producer-not-applicable",
+    "coverage-dynamic-route-remains-unverified",
+    "coverage-no-new-finding-still-reports-evidence",
     "levels-docs-a0-candidate",
     "levels-docs-executable-promotes",
     "levels-a0-normal-contract",
@@ -91,6 +101,73 @@ REQUIRED_CASE_IDS = {
     "approval-owner-unresolved-not-invented",
 }
 CASE_EXPECTED_TOKENS = {
+    "coverage-pr2-propagation-all-producers": (
+        "13 findings",
+        "blind pass",
+        "every producer",
+        "alternate producer",
+        "allowlist",
+        "transforms",
+        "validator",
+        "consumer",
+        "caller-unavoidable",
+    ),
+    "coverage-pr2-repository-rule-companion-example": (
+        "base instruction",
+        "triggering behavior change",
+        "head-side instruction as review data",
+        "missing example",
+        "fixed priority",
+    ),
+    "coverage-pr2-relational-oracle-invariants": (
+        "paired presence",
+        "non-empty cardinality",
+        "exactly one status",
+        "compatibility",
+        "empty versus missing",
+        "mode-dependent omission",
+    ),
+    "coverage-finding-count-is-not-completion": (
+        "13 findings",
+        "completion criterion",
+        "blind pass",
+        "change obligation",
+    ),
+    "coverage-verification-does-not-replace-blind-pass": (
+        "verification",
+        "blind-spot exploration",
+        "separate work",
+        "changed concepts",
+        "alternate producer",
+    ),
+    "coverage-doc-only-change-no-companion-finding": (
+        "behavior-change trigger does not apply",
+        "not applicable",
+        "docs-only evidence",
+        "do not create",
+    ),
+    "coverage-intentional-single-producer-not-applicable": (
+        "do not report missing propagation",
+        "not applicable",
+        "versioned contract",
+        "dispatcher",
+        "consumer evidence",
+    ),
+    "coverage-dynamic-route-remains-unverified": (
+        "do not invent",
+        "unverified",
+        "hypothesis",
+        "unexecuted validation",
+        "residual risk",
+    ),
+    "coverage-no-new-finding-still-reports-evidence": (
+        "no additional candidate",
+        "inspected routes",
+        "not applicable evidence",
+        "inspection-separation limitation",
+        "residual constraints",
+        "proof of completeness",
+    ),
     "finding-location-portable": (
         "visible inline locator",
         "repository-root-relative",
@@ -223,6 +300,20 @@ CASE_EXPECTED_TOKENS = {
         "ai recommendation",
     ),
 }
+HISTORICAL_PROVENANCE = {
+    "coverage-pr2-propagation-all-producers": (
+        "mahcialet/agent-skills#2 @ "
+        "8bf6c1ff9749a8736e4e4b6444883324465432c9 / discussion_r3917733760"
+    ),
+    "coverage-pr2-repository-rule-companion-example": (
+        "mahcialet/agent-skills#2 @ "
+        "8bf6c1ff9749a8736e4e4b6444883324465432c9 / discussion_r3917733769"
+    ),
+    "coverage-pr2-relational-oracle-invariants": (
+        "mahcialet/agent-skills#2 @ "
+        "8bf6c1ff9749a8736e4e4b6444883324465432c9 / discussion_r3917733777"
+    ),
+}
 REPORT_SECTION_ORDER = (
     "## Scope and parameters",
     "## Review contract",
@@ -328,6 +419,12 @@ def validate_suites(skill_dir: Path, errors: list[str]) -> int:
                         errors.append(
                             f"{label}: expected behavior for {case_id} must mention {token!r}"
                         )
+            if isinstance(case_id, str) and case_id in HISTORICAL_PROVENANCE:
+                provenance = case.get("provenance")
+                if provenance != HISTORICAL_PROVENANCE[case_id]:
+                    errors.append(
+                        f"{label}: historical case {case_id} must preserve frozen provenance"
+                    )
             count += 1
 
     missing_suites = REQUIRED_SUITES - seen_suites

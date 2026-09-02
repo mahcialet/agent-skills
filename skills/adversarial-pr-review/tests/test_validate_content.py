@@ -1,6 +1,9 @@
 from __future__ import annotations
 
+import json
+import shutil
 import sys
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -9,6 +12,68 @@ SKILL_DIR = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(SKILL_DIR / "scripts"))
 
 import validate_content as validator  # noqa: E402
+
+
+class CoverageGapSuiteTestCase(unittest.TestCase):
+    def validate_with_mutation(self, mutate) -> list[str]:
+        with tempfile.TemporaryDirectory() as temporary:
+            skill_dir = Path(temporary) / "adversarial-pr-review"
+            shutil.copytree(SKILL_DIR / "evals", skill_dir / "evals")
+            coverage_path = skill_dir / "evals" / "coverage-gap-audit.yaml"
+            data = json.loads(coverage_path.read_text(encoding="utf-8"))
+            mutate(data)
+            coverage_path.write_text(
+                json.dumps(data, ensure_ascii=False, indent=2) + "\n",
+                encoding="utf-8",
+            )
+            errors: list[str] = []
+            validator.validate_suites(skill_dir, errors)
+            return errors
+
+    def test_historical_cases_preserve_frozen_provenance(self) -> None:
+        errors = self.validate_with_mutation(lambda data: None)
+        self.assertEqual([], errors)
+
+    def test_historical_case_without_provenance_is_rejected(self) -> None:
+        def remove_provenance(data: dict) -> None:
+            data["cases"][0].pop("provenance")
+
+        errors = self.validate_with_mutation(remove_provenance)
+        self.assertTrue(any("frozen provenance" in error for error in errors))
+
+    def test_historical_case_with_different_comment_is_rejected(self) -> None:
+        def replace_comment(data: dict) -> None:
+            data["cases"][0]["provenance"] = data["cases"][0][
+                "provenance"
+            ].replace("discussion_r3917733760", "discussion_r0000000000")
+
+        errors = self.validate_with_mutation(replace_comment)
+        self.assertTrue(any("frozen provenance" in error for error in errors))
+
+    def test_required_coverage_case_cannot_be_removed(self) -> None:
+        def remove_case(data: dict) -> None:
+            data["cases"] = [
+                case
+                for case in data["cases"]
+                if case["id"] != "coverage-verification-does-not-replace-blind-pass"
+            ]
+
+        errors = self.validate_with_mutation(remove_case)
+        self.assertTrue(any("missing required cases" in error for error in errors))
+
+    def test_docs_only_counterexample_requires_false_positive_control(self) -> None:
+        def weaken_expected(data: dict) -> None:
+            case = next(
+                case
+                for case in data["cases"]
+                if case["id"] == "coverage-doc-only-change-no-companion-finding"
+            )
+            case["expected"] = "Inspect the documentation change."
+
+        errors = self.validate_with_mutation(weaken_expected)
+        self.assertTrue(
+            any("behavior-change trigger does not apply" in error for error in errors)
+        )
 
 
 class PortableLocationTestCase(unittest.TestCase):
