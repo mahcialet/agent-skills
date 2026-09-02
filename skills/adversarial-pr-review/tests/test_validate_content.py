@@ -243,6 +243,19 @@ class CoverageGapReportOrderTestCase(unittest.TestCase):
         errors = self.errors_for_sections(sections)
         self.assertTrue(any("out of order" in error for error in errors))
 
+    def test_heading_after_html_comment_terminator_is_not_counted(self) -> None:
+        sections = list(validator.REPORT_SECTION_ORDER)
+        sections[sections.index("## Review contract")] = (
+            "<!-- hidden --> ## Review contract"
+        )
+        errors = self.errors_for_sections(sections)
+        self.assertTrue(
+            any(
+                "missing required token '## Review contract'" in error
+                for error in errors
+            )
+        )
+
     def test_longer_fence_requires_matching_length(self) -> None:
         text = """## Scope and parameters
 ````text

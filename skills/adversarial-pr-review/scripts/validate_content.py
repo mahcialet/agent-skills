@@ -611,7 +611,14 @@ def _visible_markdown_lines(text: str) -> list[str]:
                 html_block_end = None
             continue
 
+        # A CommonMark HTML comment block consumes its complete closing line.
+        # Text after ``-->`` on that line is not a Markdown heading.
+        html_comment_block_line = in_html_comment or bool(
+            re.match(r"^[ ]{0,3}<!--", raw_line)
+        )
         line, in_html_comment = _strip_html_comments(raw_line, in_html_comment)
+        if html_comment_block_line:
+            continue
         if not line and in_html_comment:
             continue
 
