@@ -115,6 +115,22 @@ class CoverageGapReportOrderTestCase(unittest.TestCase):
         errors = self.errors_for_sections(sections)
         self.assertTrue(any("out of order" in error for error in errors))
 
+    def test_heading_inside_fenced_code_is_not_counted(self) -> None:
+        sections = list(validator.REPORT_SECTION_ORDER)
+        sections.remove("## Coverage gap audit")
+        sections.insert(
+            sections.index("## Findings"), "```text\n## Coverage gap audit\n```"
+        )
+        sections.insert(sections.index("## Findings") + 1, "## Coverage gap audit")
+        errors = self.errors_for_sections(sections)
+        self.assertTrue(any("out of order" in error for error in errors))
+
+    def test_duplicate_required_heading_is_rejected(self) -> None:
+        sections = list(validator.REPORT_SECTION_ORDER)
+        sections.insert(sections.index("## Coverage gap audit") + 1, "## Coverage gap audit")
+        errors = self.errors_for_sections(sections)
+        self.assertTrue(any("exactly once" in error for error in errors))
+
 
 class PortableLocationTestCase(unittest.TestCase):
     def errors_for(self, text: str) -> list[str]:

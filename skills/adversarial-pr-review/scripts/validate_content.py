@@ -475,15 +475,32 @@ def require_ordered_tokens(
     path: Path, tokens: tuple[str, ...], errors: list[str]
 ) -> str:
     text = read(path, errors)
+    heading_positions: dict[str, list[int]] = {}
+    fence: str | None = None
+    for line_number, line in enumerate(text.splitlines()):
+        stripped = line.strip()
+        if stripped.startswith(("```", "~~~")):
+            marker = stripped[:3]
+            if fence is None:
+                fence = marker
+            elif marker == fence:
+                fence = None
+            continue
+        if fence is None and stripped.startswith("#"):
+            heading_positions.setdefault(stripped, []).append(line_number)
+
     last_position = -1
     for token in tokens:
-        position = text.find(token)
-        if position < 0:
+        positions = heading_positions.get(token, [])
+        if not positions:
             errors.append(f"{path}: missing required token {token!r}")
-        elif position < last_position:
+            continue
+        if len(positions) > 1:
+            errors.append(f"{path}: heading {token!r} must occur exactly once")
+        position = positions[0]
+        if position < last_position:
             errors.append(f"{path}: required token {token!r} is out of order")
-        else:
-            last_position = position
+        last_position = position
     return text
 
 
