@@ -436,6 +436,26 @@ outside
             any("全chunkをchecked" in error for error in _validate(premature_global, inventory, text))
         )
 
+        custom_dimension = _report(
+            inventory,
+            text,
+            dimensions=["security"],
+        )
+        for chunk in custom_dimension["chunks"]:
+            chunk.update({"status": "checked", "unchecked_scope": []})
+        for dimension in custom_dimension["dimensions"]:
+            if dimension["dimension"] != "security":
+                dimension.update({"status": "checked", "unchecked_scope": []})
+        custom_dimension["global_pass"].update(
+            {"status": "checked", "unchecked_scope": []}
+        )
+        self.assertTrue(
+            any(
+                "全dimensionをchecked" in error
+                for error in _validate(custom_dimension, inventory, text)
+            )
+        )
+
         wrong_chunk = json.loads(json.dumps(report))
         wrong_chunk["candidates"] = [
             {

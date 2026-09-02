@@ -747,9 +747,9 @@ def validate_coverage_report(
         ):
             errors.append("global_passをcheckedにする前に全chunkをcheckedにする必要があります")
         if global_pass.get("status") == "checked" and any(
-            dimension_statuses.get(name) != "checked" for name in required_dimensions
+            dimension_statuses.get(name) != "checked" for name in dimension_names
         ):
-            errors.append("global_passをcheckedにする前に全必須dimensionをcheckedにする必要があります")
+            errors.append("global_passをcheckedにする前に全dimensionをcheckedにする必要があります")
 
     untracked_candidates = candidate_map.keys() - covered_candidate_ids
     if untracked_candidates:
