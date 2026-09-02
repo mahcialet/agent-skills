@@ -2,10 +2,11 @@
 name: reader-first-editor
 description: >-
   Review or revise Japanese and English reader-facing prose for first-pass
-  comprehension, reread-risk reduction, semantic fidelity, and consistency
-  with evidence in the same repository. Use for prose that is difficult to
-  absorb, structurally flat, ambiguous, overly dense, mechanically repetitive,
-  or potentially inconsistent with repository code, config, tests, or docs.
+  comprehension, discourse continuity, reread-risk reduction, semantic
+  fidelity, and consistency with evidence in the same repository. Use for
+  prose that is difficult to absorb, structurally flat, abruptly connected,
+  ambiguous, overly dense, mechanically repetitive, or potentially
+  inconsistent with repository code, config, tests, or docs.
   Default to review unless the user explicitly requests revision. Do not use
   for open-world fact checking, creative writing, controlled-language
   compliance, or rewriting code and identifiers.
@@ -28,7 +29,7 @@ Plain Languageやstyleの原則より先に意味保存契約を適用する。
 2. `references/core/semantic-preservation.md` で意味を棚卸しする。
 3. 読者、目的、ジャンル、既有知識を推定する。専門家向けの根拠がある文章を
    無条件に非専門家向けへ変えない。
-4. 情報構造と読み返しリスクを診断する。
+4. 情報構造、話題のつながり、読み返しリスクを診断する。
 5. 該当する言語・ジャンル技法だけを適用する。
 6. 表記規則を最後に適用する。
 7. 返却・保存前に、結果と元の意味台帳を比較する。
@@ -102,6 +103,13 @@ repository-reviewの判定前に、次の順でgateを通す。
 `repository-consistency` を必須にする。source、全chunk、必須観点、candidate所属、局所passと
 global passの順序を照合する。空または空白のみのMarkdownはinventory化しない。
 
+複数段落・複数sectionで、導入から後続の話題、各段落を置く理由、新しい概念の初出、または改稿後の
+流れを確認する場合は `references/core/discourse-continuity.md` を読む。各段落を直前段落へ機械的に
+接続せず、見出し、数段落前の主張、文書目的もanchorとして確認する。接続詞の有無だけで判定せず、
+関係を確認できない段落を不要と決めつけない。安全に修正できなければ、原文にない因果や目的を作らず、
+不足情報、修正しない理由、可能な次の対応を利用者へ示す。利用者向けには原則として「話題のつながり」
+と表現する。
+
 同じ役割を持つ要素群の型、nullable、default、constraint、命名、表記に強い局所規則が見える
 場合は、`references/core/local-consistency-review.md` を読む。全体頻度ではなくsemantic peer
 groupを先に定義し、少数例をcandidateとして記録する。通常の `review` では、与えられた本文と
@@ -140,6 +148,10 @@ contextの範囲で再確認し、repository探索へ無条件に広げない。
 長文、複数file、網羅性を求められたreviewでは読む。
 
 - `references/core/coverage-driven-review.md`
+
+複数段落・複数sectionの話題のつながり、配置理由、新しい概念の初出、改稿後の流れを扱う場合は読む。
+
+- `references/core/discourse-continuity.md`
 
 同じ役割を持つ要素群の局所規則や少数例を確認する場合は読む。
 
