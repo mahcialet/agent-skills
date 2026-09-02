@@ -7,6 +7,7 @@
   "required": [
     "schema_version",
     "report_type",
+    "mode",
     "inventory_hash",
     "sources",
     "chunks",
@@ -17,8 +18,9 @@
     "limitations"
   ],
   "properties": {
-    "schema_version": {"const": 1},
+    "schema_version": {"const": 2},
     "report_type": {"const": "coverage-driven-review"},
+    "mode": {"enum": ["review", "repository-review"]},
     "inventory_hash": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
     "sources": {
       "type": "array",

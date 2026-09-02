@@ -20,6 +20,11 @@ DEFAULT_DIMENSIONS = (
     "modality-and-scope",
     "local-consistency",
 )
+REVIEW_MODES = {"review", "repository-review"}
+REPOSITORY_DIMENSION = "repository-consistency"
+INVENTORY_STATUSES = {"complete", "partial"}
+BLOCK_KINDS = {"heading", "paragraph", "table", "list", "code-fence"}
+COVERAGE_SCHEMA_VERSION = 2
 
 HEADING_RE = re.compile(r"^(#{1,3})\s+(.*?)\s*$")
 LIST_RE = re.compile(r"^\s*(?:[-+*]|\d+[.)])\s+")
@@ -166,8 +171,14 @@ def build_markdown_inventory(
     source: str,
     max_chars: int = 12_000,
 ) -> dict[str, object]:
-    if max_chars <= 0:
+    if not isinstance(text, str):
+        raise CoverageError("Markdown textは文字列である必要があります")
+    if not isinstance(source, str) or not source:
+        raise CoverageError("sourceは空でない文字列である必要があります")
+    if not isinstance(max_chars, int) or isinstance(max_chars, bool) or max_chars <= 0:
         raise CoverageError("max_charsは正の整数である必要があります")
+    if not text.strip():
+        raise CoverageError("空または空白のみのMarkdownはinventory化できません")
     blocks, limitations = parse_markdown_blocks(text)
     chains = _heading_chain(blocks)
     chunks: list[dict[str, object]] = []
@@ -215,9 +226,10 @@ def build_markdown_inventory(
 
     status = "partial" if limitations else "complete"
     return {
-        "schema_version": 1,
+        "schema_version": COVERAGE_SCHEMA_VERSION,
         "inventory_type": "markdown-structure",
         "source": source,
+        "source_hash": _text_hash(text),
         "status": status,
         "max_chars": max_chars,
         "line_count": len(text.splitlines()),
@@ -225,6 +237,10 @@ def build_markdown_inventory(
         "limitations": limitations,
         "chunks": chunks,
     }
+
+
+def _text_hash(text: str) -> str:
+    return f"sha256:{hashlib.sha256(text.encode('utf-8')).hexdigest()}"
 
 
 def inventory_hash(inventory: object) -> str:
@@ -239,16 +255,49 @@ def inventory_hash(inventory: object) -> str:
     return f"sha256:{hashlib.sha256(payload).hexdigest()}"
 
 
-def _inventory_contract(inventory: object) -> tuple[str, list[str], int]:
+def _inventory_contract(
+    inventory: object,
+    *,
+    source_text: str,
+    source: str,
+) -> tuple[str, list[str], int]:
     if not isinstance(inventory, dict):
         raise CoverageError("inventory rootはobjectである必要があります")
-    if not is_schema_version(inventory.get("schema_version")):
-        raise CoverageError("inventory.schema_versionは1である必要があります")
+    root_keys = {
+        "schema_version",
+        "inventory_type",
+        "source",
+        "source_hash",
+        "status",
+        "max_chars",
+        "line_count",
+        "chunk_count",
+        "limitations",
+        "chunks",
+    }
+    missing = sorted(root_keys - inventory.keys())
+    unknown = sorted(inventory.keys() - root_keys)
+    if missing:
+        raise CoverageError(f"inventoryに必須fieldがありません: {', '.join(missing)}")
+    if unknown:
+        raise CoverageError(f"inventoryに未知のfieldがあります: {', '.join(unknown)}")
+    if not is_schema_version(inventory.get("schema_version"), COVERAGE_SCHEMA_VERSION):
+        raise CoverageError("inventory.schema_versionは2である必要があります")
     if inventory.get("inventory_type") != "markdown-structure":
         raise CoverageError("inventory.inventory_typeが不正です")
-    source = inventory.get("source")
-    if not isinstance(source, str) or not source:
+    inventory_source = inventory.get("source")
+    if not isinstance(inventory_source, str) or not inventory_source:
         raise CoverageError("inventory.sourceが必要です")
+    if inventory_source != source:
+        raise CoverageError("inventory.sourceが指定Markdown sourceと一致しません")
+    source_hash = inventory.get("source_hash")
+    if source_hash != _text_hash(source_text):
+        raise CoverageError("inventory.source_hashが指定Markdown本文と一致しません")
+    if inventory.get("status") not in INVENTORY_STATUSES:
+        raise CoverageError("inventory.statusが不正です")
+    max_chars = inventory.get("max_chars")
+    if not _is_integer(max_chars, minimum=1):
+        raise CoverageError("inventory.max_charsは1以上のintegerである必要があります")
     line_count = inventory.get("line_count")
     if not isinstance(line_count, int) or isinstance(line_count, bool) or line_count < 1:
         raise CoverageError("inventory.line_countは1以上のintegerである必要があります")
@@ -256,14 +305,60 @@ def _inventory_contract(inventory: object) -> tuple[str, list[str], int]:
     if not isinstance(chunks, list) or not chunks:
         raise CoverageError("inventory.chunksは空でないlistである必要があります")
     chunk_ids: list[str] = []
+    previous_end = 0
     for index, chunk in enumerate(chunks, start=1):
         if not isinstance(chunk, dict):
             raise CoverageError(f"inventory chunk {index}はobjectである必要があります")
+        chunk_keys = {
+            "chunk_id",
+            "source",
+            "start_line",
+            "end_line",
+            "headings",
+            "block_kinds",
+            "protected_block",
+            "oversized",
+            "text",
+        }
+        missing_chunk = sorted(chunk_keys - chunk.keys())
+        unknown_chunk = sorted(chunk.keys() - chunk_keys)
+        if missing_chunk:
+            raise CoverageError(
+                f"inventory chunk {index}に必須fieldがありません: {', '.join(missing_chunk)}"
+            )
+        if unknown_chunk:
+            raise CoverageError(
+                f"inventory chunk {index}に未知のfieldがあります: {', '.join(unknown_chunk)}"
+            )
         chunk_id = chunk.get("chunk_id")
-        if not isinstance(chunk_id, str) or not chunk_id:
-            raise CoverageError(f"inventory chunk {index}にchunk_idが必要です")
-        if chunk.get("source") != source:
+        expected_chunk_id = f"CHUNK-{index:04d}"
+        if chunk_id != expected_chunk_id:
+            raise CoverageError(
+                f"inventory chunk {index}のchunk_idは{expected_chunk_id}である必要があります"
+            )
+        if chunk.get("source") != inventory_source:
             raise CoverageError(f"inventory chunk {index}のsourceがinventoryと一致しません")
+        start_line = chunk.get("start_line")
+        end_line = chunk.get("end_line")
+        if not _is_integer(start_line, minimum=1) or not _is_integer(end_line, minimum=1):
+            raise CoverageError(f"inventory chunk {index}の行範囲が不正です")
+        if start_line > end_line or end_line > line_count or start_line <= previous_end:
+            raise CoverageError(f"inventory chunk {index}の行範囲が重複または逆転しています")
+        previous_end = end_line
+        if not _is_string_list(chunk.get("headings")):
+            raise CoverageError(f"inventory chunk {index}のheadingsが不正です")
+        block_kinds = chunk.get("block_kinds")
+        if (
+            not _is_string_list(block_kinds, nonempty_items=True)
+            or not block_kinds
+            or set(block_kinds) - BLOCK_KINDS
+        ):
+            raise CoverageError(f"inventory chunk {index}のblock_kindsが不正です")
+        for key in ("protected_block", "oversized"):
+            if not isinstance(chunk.get(key), bool):
+                raise CoverageError(f"inventory chunk {index}の{key}はbooleanである必要があります")
+        if not isinstance(chunk.get("text"), str) or not chunk.get("text"):
+            raise CoverageError(f"inventory chunk {index}のtextが必要です")
         chunk_ids.append(chunk_id)
     if len(chunk_ids) != len(set(chunk_ids)):
         raise CoverageError("inventory chunk_idが重複しています")
@@ -274,15 +369,31 @@ def _inventory_contract(inventory: object) -> tuple[str, list[str], int]:
         isinstance(item, str) for item in limitations
     ):
         raise CoverageError("inventory.limitationsは文字列listである必要があります")
-    return source, chunk_ids, line_count
+    regenerated = build_markdown_inventory(
+        source_text,
+        source=inventory_source,
+        max_chars=max_chars,
+    )
+    if inventory != regenerated:
+        raise CoverageError("inventoryが指定Markdownから再生成した正規inventoryと一致しません")
+    return inventory_source, chunk_ids, line_count
 
 
 def build_report_skeleton(
     inventory: dict[str, object],
     *,
+    source_text: str,
+    source: str,
+    mode: str,
     dimensions: Iterable[str] | None = None,
 ) -> dict[str, object]:
-    source, _, _ = _inventory_contract(inventory)
+    inventory_source, _, _ = _inventory_contract(
+        inventory,
+        source_text=source_text,
+        source=source,
+    )
+    if mode not in REVIEW_MODES:
+        raise CoverageError(f"modeが不正です: {mode!r}")
     chunks = inventory.get("chunks")
     assert isinstance(chunks, list)
     extras = list(dimensions or ())
@@ -291,12 +402,15 @@ def build_report_skeleton(
     if len(extras) != len(set(extras)):
         raise CoverageError("dimension名が重複しています")
     names = [*DEFAULT_DIMENSIONS]
-    names.extend(name for name in extras if name not in DEFAULT_DIMENSIONS)
+    if mode == "repository-review":
+        names.append(REPOSITORY_DIMENSION)
+    names.extend(name for name in extras if name not in names)
     return {
-        "schema_version": 1,
+        "schema_version": COVERAGE_SCHEMA_VERSION,
         "report_type": "coverage-driven-review",
+        "mode": mode,
         "inventory_hash": inventory_hash(inventory),
-        "sources": [source],
+        "sources": [inventory_source],
         "chunks": [
             {
                 "chunk_id": chunk.get("chunk_id"),
@@ -371,10 +485,23 @@ def _is_string_list(value: object, *, nonempty_items: bool = False) -> bool:
     )
 
 
-def validate_coverage_report(report: object, inventory: object) -> list[str]:
+def validate_coverage_report(
+    report: object,
+    inventory: object,
+    *,
+    source_text: str,
+    source: str,
+    expected_mode: str,
+) -> list[str]:
     errors: list[str] = []
+    if expected_mode not in REVIEW_MODES:
+        return [f"expected_modeが不正です: {expected_mode!r}"]
     try:
-        inventory_source, inventory_chunk_ids, inventory_line_count = _inventory_contract(inventory)
+        inventory_source, inventory_chunk_ids, inventory_line_count = _inventory_contract(
+            inventory,
+            source_text=source_text,
+            source=source,
+        )
         expected_inventory_hash = inventory_hash(inventory)
     except CoverageError as exc:
         return [str(exc)]
@@ -383,6 +510,7 @@ def validate_coverage_report(report: object, inventory: object) -> list[str]:
     root_keys = {
         "schema_version",
         "report_type",
+        "mode",
         "inventory_hash",
         "sources",
         "chunks",
@@ -393,10 +521,15 @@ def validate_coverage_report(report: object, inventory: object) -> list[str]:
         "limitations",
     }
     _validate_exact_keys(report, root_keys, "report", errors)
-    if not is_schema_version(report.get("schema_version")):
-        errors.append("schema_versionは1である必要があります")
+    if not is_schema_version(report.get("schema_version"), COVERAGE_SCHEMA_VERSION):
+        errors.append("schema_versionは2である必要があります")
     if report.get("report_type") != "coverage-driven-review":
         errors.append("report_typeが不正です")
+    mode = report.get("mode")
+    if mode not in REVIEW_MODES:
+        errors.append(f"modeが不正です: {mode!r}")
+    elif mode != expected_mode:
+        errors.append("modeが指定coverage profileと一致しません")
     if report.get("inventory_hash") != expected_inventory_hash:
         errors.append("inventory_hashが指定inventoryと一致しません")
     sources = report.get("sources")
@@ -592,7 +725,10 @@ def validate_coverage_report(report: object, inventory: object) -> list[str]:
             errors.append(f"{label}: exclusion_reasonsは文字列listである必要があります")
         elif counts["excluded_count"] and not reasons:
             errors.append(f"{label}: excluded candidateには除外理由が必要です")
-    missing_dimensions = set(DEFAULT_DIMENSIONS) - dimension_names
+    required_dimensions = set(DEFAULT_DIMENSIONS)
+    if expected_mode == "repository-review":
+        required_dimensions.add(REPOSITORY_DIMENSION)
+    missing_dimensions = required_dimensions - dimension_names
     if missing_dimensions:
         errors.append(f"必須dimensionがありません: {sorted(missing_dimensions)}")
 
@@ -614,7 +750,7 @@ def validate_coverage_report(report: object, inventory: object) -> list[str]:
         ):
             errors.append("global_passをcheckedにする前に全chunkをcheckedにする必要があります")
         if global_pass.get("status") == "checked" and any(
-            dimension_statuses.get(name) != "checked" for name in DEFAULT_DIMENSIONS
+            dimension_statuses.get(name) != "checked" for name in required_dimensions
         ):
             errors.append("global_passをcheckedにする前に全必須dimensionをcheckedにする必要があります")
 

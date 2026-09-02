@@ -51,6 +51,7 @@ REQUIRED_SUITES = {
 }
 REQUIRED_SCHEMAS = {
     "corpus-record.schema.json",
+    "markdown-inventory.schema.json",
     "investigation-bundle.schema.json",
     "investigation.schema.json",
     "regression-plan.schema.json",

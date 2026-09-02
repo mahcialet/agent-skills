@@ -29,8 +29,8 @@ def _read_source(text: str | None, file: Path | None) -> tuple[str, str]:
         return "<text>", text
     assert file is not None
     try:
-        return str(file), file.read_text(encoding="utf-8")
-    except OSError as exc:
+        return str(file), file.read_bytes().decode("utf-8")
+    except (OSError, UnicodeDecodeError) as exc:
         raise CoverageError(f"入力fileを読み込めません: {file}: {exc}") from exc
 
 
@@ -51,6 +51,13 @@ def build_parser() -> argparse.ArgumentParser:
 
     skeleton = subparsers.add_parser("new-report", help="未確認状態のcoverage reportを作る")
     skeleton.add_argument("--inventory", type=Path, required=True)
+    _source_group(skeleton)
+    skeleton.add_argument(
+        "--mode",
+        choices=("review", "repository-review"),
+        required=True,
+        help="coverage profileを選ぶreview mode",
+    )
     skeleton.add_argument(
         "--dimension",
         action="append",
@@ -61,6 +68,13 @@ def build_parser() -> argparse.ArgumentParser:
     validate = subparsers.add_parser("validate-report", help="coverage reportの整合を検証する")
     validate.add_argument("report", type=Path)
     validate.add_argument("--inventory", type=Path, required=True)
+    _source_group(validate)
+    validate.add_argument(
+        "--mode",
+        choices=("review", "repository-review"),
+        required=True,
+        help="検証対象として期待するreview mode",
+    )
     return parser
 
 
@@ -74,12 +88,26 @@ def main() -> int:
             inventory = _read_json(args.inventory)
             if not isinstance(inventory, dict):
                 raise CoverageError("inventory rootはobjectである必要があります")
+            label, text = _read_source(args.text, args.file)
             keyword = {"dimensions": args.dimensions} if args.dimensions else {}
-            result = build_report_skeleton(inventory, **keyword)
+            result = build_report_skeleton(
+                inventory,
+                source_text=text,
+                source=label,
+                mode=args.mode,
+                **keyword,
+            )
         else:
             report = _read_json(args.report)
             inventory = _read_json(args.inventory)
-            errors = validate_coverage_report(report, inventory)
+            label, text = _read_source(args.text, args.file)
+            errors = validate_coverage_report(
+                report,
+                inventory,
+                source_text=text,
+                source=label,
+                expected_mode=args.mode,
+            )
             if errors:
                 print(json.dumps({"valid": False, "errors": errors}, ensure_ascii=False, indent=2))
                 return 1

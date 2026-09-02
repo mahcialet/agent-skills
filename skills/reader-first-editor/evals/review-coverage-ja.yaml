@@ -1,6 +1,6 @@
 {
   "suite": "review-coverage-ja",
-  "provenance": "2026-09-02に利用者から提示された長文見落とし事例、設計要件、severityおよびschema制約とcustom validatorの差に関するrepository-review",
+  "provenance": "2026-09-02に利用者から提示された長文見落とし事例と設計要件、および2026-09-03のinventory真正性・review mode・空文書境界に関するadversarial PR review",
   "cases": [
     {
       "id": "continue-after-early-findings-to-late-ambiguous-seihon",
@@ -130,6 +130,36 @@
       "must_preserve": ["schema_version", "candidate.line", "candidate_count", "true"],
       "must_not_claim": ["trueを1として受理する", "valid: true"],
       "expected": "JSON Schemaのinteger制約に合わせ、schema_versionを含むinteger fieldでbooleanを数値として扱わず、不正なreportとして拒否する"
+    },
+    {
+      "id": "coverage-validator-rejects-forged-inventory",
+      "language": "ja",
+      "mode": "repository-review",
+      "input": "元Markdownは100行あるが、手製inventoryには本文、行範囲、見出し、block種別がなく、CHUNK-0001だけがある。new-reportとvalidate-reportへ元Markdownとともに渡す。",
+      "must_preserve": ["CHUNK-0001", "元Markdown"],
+      "must_not_claim": ["valid: true", "inventory hashが一致するため十分"],
+      "expected_statuses": ["UNSUPPORTED"],
+      "expected_evidence_types": ["EVIDENCE-GAP"],
+      "expected": "inventory schemaの必須fieldを検査し、さらに元Markdownから正規inventoryを再生成して完全一致を確認する。不完全または置換済みinventoryをcoverage入力として拒否する"
+    },
+    {
+      "id": "repository-review-profile-requires-repository-consistency",
+      "language": "ja",
+      "mode": "repository-review",
+      "input": "coverage reportは通常reviewの6観点だけをcheckedにし、repository-consistencyを含まない。期待modeをrepository-reviewとしてvalidate-reportを実行する。",
+      "must_preserve": ["repository-consistency", "repository-review"],
+      "must_not_claim": ["6観点でrepository-review完了", "valid: true"],
+      "expected_statuses": ["CONTRADICTED"],
+      "expected_evidence_types": ["DOC↔CODE"],
+      "expected": "report modeとcallerが指定したcoverage profileを照合し、repository-reviewではrepository-consistencyの欠落または未確認を拒否する"
+    },
+    {
+      "id": "empty-markdown-stops-at-inventory-boundary",
+      "language": "ja",
+      "mode": "review",
+      "input": "空文字または空白行だけのMarkdownをinventory commandへ渡す。",
+      "must_not_claim": ["status: complete", "後段のnew-reportまで成功する"],
+      "expected": "空または空白のみのMarkdownは対象外であることをinventory生成時点の明示的なerrorとして返し、後段が受理できないcomplete artifactを生成しない"
     },
     {
       "id": "relationship-scanner-unavailable-continues-review",

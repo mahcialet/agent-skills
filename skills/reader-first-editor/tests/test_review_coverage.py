@@ -12,20 +12,24 @@ SCRIPT_DIR = Path(__file__).resolve().parents[1] / "scripts"
 sys.path.insert(0, str(SCRIPT_DIR))
 
 from reader_first.review_coverage import (  # noqa: E402
+    CoverageError,
     SEVERITIES,
     build_markdown_inventory,
     build_report_skeleton,
+    inventory_hash,
     validate_coverage_report,
 )
 
 
 CLI = SCRIPT_DIR / "review_coverage.py"
 SCHEMA = SCRIPT_DIR.parent / "schemas" / "review-coverage.schema.json"
+INVENTORY_SCHEMA = SCRIPT_DIR.parent / "schemas" / "markdown-inventory.schema.json"
+FINDING_TEXT = "# 文書\n\n候補。"
 
 
 def finding_report(severity: str = "LOW") -> dict[str, object]:
     inventory = finding_inventory()
-    report = build_report_skeleton(inventory, dimensions=["relationship-clarity"])
+    report = _report(inventory, FINDING_TEXT, dimensions=["relationship-clarity"])
     report["candidates"] = [
         {
             "candidate_id": "REL-0001",
@@ -63,7 +67,23 @@ def finding_report(severity: str = "LOW") -> dict[str, object]:
 
 
 def finding_inventory() -> dict[str, object]:
-    return build_markdown_inventory("# 文書\n\n候補。", source="finding.md")
+    return build_markdown_inventory(FINDING_TEXT, source="finding.md")
+
+
+def _report(
+    inventory: dict[str, object],
+    source_text: str,
+    *,
+    mode: str = "review",
+    dimensions: list[str] | None = None,
+) -> dict[str, object]:
+    return build_report_skeleton(
+        inventory,
+        source_text=source_text,
+        source=str(inventory["source"]),
+        mode=mode,
+        dimensions=dimensions,
+    )
 
 
 def _dimension(report: dict[str, object], name: str) -> dict[str, object]:
@@ -77,11 +97,40 @@ def _dimension(report: dict[str, object], name: str) -> dict[str, object]:
 def _validate(
     report: dict[str, object],
     inventory: dict[str, object] | None = None,
+    source_text: str = FINDING_TEXT,
+    expected_mode: str | None = None,
 ) -> list[str]:
-    return validate_coverage_report(report, inventory or finding_inventory())
+    bound_inventory = inventory or finding_inventory()
+    return validate_coverage_report(
+        report,
+        bound_inventory,
+        source_text=source_text,
+        source=str(bound_inventory["source"]),
+        expected_mode=expected_mode or str(report.get("mode")),
+    )
 
 
 class ReviewCoverageTests(unittest.TestCase):
+    def test_empty_or_whitespace_markdown_is_rejected_at_inventory(self) -> None:
+        for text in ("", " \n\t\n"):
+            with self.subTest(text=repr(text)):
+                with self.assertRaisesRegex(CoverageError, "空または空白のみ"):
+                    build_markdown_inventory(text, source="empty.md")
+
+        result = subprocess.run(
+            [sys.executable, str(CLI), "inventory", "--text", " \n\t"],
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        self.assertEqual(result.returncode, 2)
+        self.assertIn("空または空白のみ", result.stderr)
+
+        for source, max_chars in (("", 100), ("empty.md", True)):
+            with self.subTest(source=source, max_chars=max_chars):
+                with self.assertRaises(CoverageError):
+                    build_markdown_inventory("本文。", source=source, max_chars=max_chars)
+
     def test_inventory_uses_heading_sections_and_reaches_late_section(self) -> None:
         text = """# 手順
 
@@ -133,12 +182,13 @@ CREATE TABLE events (
         self.assertTrue(inventory["limitations"])
 
     def test_checked_zero_is_distinct_from_not_checked(self) -> None:
-        inventory = build_markdown_inventory("# 文書\n\n問題はありません。", source="clean.md")
-        report = build_report_skeleton(inventory, dimensions=["modality-and-scope"])
+        text = "# 文書\n\n問題はありません。"
+        inventory = build_markdown_inventory(text, source="clean.md")
+        report = _report(inventory, text, dimensions=["modality-and-scope"])
         dimension = _dimension(report, "modality-and-scope")
         self.assertEqual(dimension["status"], "not-checked")
         self.assertEqual(dimension["finding_count"], 0)
-        self.assertEqual(_validate(report, inventory), [])
+        self.assertEqual(_validate(report, inventory, text), [])
 
         dimension["status"] = "checked"
         dimension["unchecked_scope"] = []
@@ -148,19 +198,21 @@ CREATE TABLE events (
             item.update({"status": "checked", "unchecked_scope": []})
         report["global_pass"]["status"] = "checked"
         report["global_pass"]["unchecked_scope"] = []
-        self.assertEqual(_validate(report, inventory), [])
+        self.assertEqual(_validate(report, inventory, text), [])
 
     def test_partial_requires_unchecked_scope(self) -> None:
-        inventory = build_markdown_inventory("# 文書\n\n本文。", source="partial.md")
-        report = build_report_skeleton(inventory, dimensions=["repository-consistency"])
+        text = "# 文書\n\n本文。"
+        inventory = build_markdown_inventory(text, source="partial.md")
+        report = _report(inventory, text, dimensions=["repository-consistency"])
         _dimension(report, "repository-consistency")["status"] = "partial"
         _dimension(report, "repository-consistency")["unchecked_scope"] = []
-        errors = _validate(report, inventory)
+        errors = _validate(report, inventory, text)
         self.assertTrue(any("partialには未確認範囲" in error for error in errors))
 
     def test_finding_candidate_cannot_be_omitted_by_consolidator(self) -> None:
-        inventory = build_markdown_inventory("# 文書\n\n後半に候補。", source="finding.md")
-        report = build_report_skeleton(inventory, dimensions=["relationship-clarity"])
+        text = "# 文書\n\n後半に候補。"
+        inventory = build_markdown_inventory(text, source="finding.md")
+        report = _report(inventory, text, dimensions=["relationship-clarity"])
         report["candidates"] = [
             {
                 "candidate_id": "REL-0001",
@@ -180,7 +232,7 @@ CREATE TABLE events (
                 "unchecked_scope": [],
             }
         )
-        errors = _validate(report, inventory)
+        errors = _validate(report, inventory, text)
         self.assertTrue(any("保持されていないcandidate" in error for error in errors))
 
         report["findings"] = [
@@ -191,7 +243,12 @@ CREATE TABLE events (
                 "severity": "LOW",
             }
         ]
-        self.assertFalse(any("保持されていないcandidate" in error for error in _validate(report, inventory)))
+        self.assertFalse(
+            any(
+                "保持されていないcandidate" in error
+                for error in _validate(report, inventory, text)
+            )
+        )
 
     def test_all_schema_severities_are_accepted(self) -> None:
         schema = json.loads(SCHEMA.read_text(encoding="utf-8"))
@@ -232,6 +289,64 @@ CREATE TABLE events (
         errors = _validate(report)
         self.assertTrue(any("未知のfield" in error for error in errors))
 
+    def test_inventory_shape_matches_schema_contract_and_source(self) -> None:
+        schema = json.loads(INVENTORY_SCHEMA.read_text(encoding="utf-8"))
+        inventory = finding_inventory()
+        self.assertEqual(set(schema["required"]), set(inventory))
+        self.assertEqual(set(schema["$defs"]["chunk"]["required"]), set(inventory["chunks"][0]))
+
+        forged = json.loads(json.dumps(inventory))
+        del forged["chunks"][0]["text"]
+        report = finding_report()
+        errors = _validate(report, forged)
+        self.assertTrue(any("必須field" in error for error in errors))
+
+        old_inventory = finding_inventory()
+        old_inventory["schema_version"] = 1
+        errors = _validate(finding_report(), old_inventory)
+        self.assertTrue(any("schema_versionは2" in error for error in errors))
+
+        replaced_source = _validate(
+            finding_report(),
+            finding_inventory(),
+            "# 文書\n\n置換された本文。",
+        )
+        self.assertTrue(any("source_hash" in error for error in replaced_source))
+
+        tampered = finding_inventory()
+        tampered["chunks"][0]["text"] = "# 文書\n\n省略済み。"
+        errors = _validate(finding_report(), tampered)
+        self.assertTrue(any("正規inventory" in error for error in errors))
+
+    def test_repository_review_requires_repository_dimension(self) -> None:
+        inventory = finding_inventory()
+        report = _report(
+            inventory,
+            FINDING_TEXT,
+            mode="repository-review",
+            dimensions=["repository-consistency"],
+        )
+        self.assertIsNotNone(_dimension(report, "repository-consistency"))
+        self.assertEqual(
+            sum(
+                item["dimension"] == "repository-consistency"
+                for item in report["dimensions"]
+            ),
+            1,
+        )
+
+        report["dimensions"] = [
+            item
+            for item in report["dimensions"]
+            if item["dimension"] != "repository-consistency"
+        ]
+        errors = _validate(report, inventory)
+        self.assertTrue(any("repository-consistency" in error for error in errors))
+
+        report["mode"] = "review"
+        errors = _validate(report, inventory, expected_mode="repository-review")
+        self.assertTrue(any("coverage profile" in error for error in errors))
+
     def test_schema_integer_fields_reject_boolean(self) -> None:
         report = finding_report()
         report["schema_version"] = True
@@ -239,10 +354,14 @@ CREATE TABLE events (
         report["findings"][0]["locations"][0]["line"] = True
         _dimension(report, "relationship-clarity")["candidate_count"] = True
         errors = _validate(report)
-        self.assertTrue(any("schema_versionは1" in error for error in errors))
+        self.assertTrue(any("schema_versionは2" in error for error in errors))
         self.assertTrue(any("1以上のline" in error for error in errors))
         self.assertTrue(any("candidate_countは0以上の整数" in error for error in errors))
         self.assertTrue(any("locationにはsourceと1以上のline" in error for error in errors))
+
+        old_report = finding_report()
+        old_report["schema_version"] = 1
+        self.assertTrue(any("schema_versionは2" in error for error in _validate(old_report)))
 
         non_integer = finding_report()
         non_integer["candidates"][0]["line"] = "3"
@@ -264,22 +383,23 @@ CREATE TABLE events (
                 )
 
     def test_report_is_bound_to_inventory_and_required_coverage(self) -> None:
+        text = "# 前半\n\n本文。\n\n# 後半\n\n本文。"
         inventory = build_markdown_inventory(
-            "# 前半\n\n本文。\n\n# 後半\n\n本文。",
+            text,
             source="complete.md",
         )
-        report = build_report_skeleton(inventory)
+        report = _report(inventory, text)
 
         missing_chunk = json.loads(json.dumps(report))
         missing_chunk["chunks"].pop()
         self.assertTrue(
-            any("chunk IDと順序" in error for error in _validate(missing_chunk, inventory))
+            any("chunk IDと順序" in error for error in _validate(missing_chunk, inventory, text))
         )
 
         substituted_source = json.loads(json.dumps(report))
         substituted_source["sources"] = ["other.md"]
         self.assertTrue(
-            any("sourcesが指定inventory" in error for error in _validate(substituted_source, inventory))
+            any("sourcesが指定inventory" in error for error in _validate(substituted_source, inventory, text))
         )
 
         missing_dimension = json.loads(json.dumps(report))
@@ -289,7 +409,7 @@ CREATE TABLE events (
             if item["dimension"] != "semantic-preservation"
         ]
         self.assertTrue(
-            any("必須dimension" in error for error in _validate(missing_dimension, inventory))
+            any("必須dimension" in error for error in _validate(missing_dimension, inventory, text))
         )
 
         premature_global = json.loads(json.dumps(report))
@@ -297,7 +417,7 @@ CREATE TABLE events (
             {"status": "checked", "unchecked_scope": []}
         )
         self.assertTrue(
-            any("全chunkをchecked" in error for error in _validate(premature_global, inventory))
+            any("全chunkをchecked" in error for error in _validate(premature_global, inventory, text))
         )
 
         wrong_chunk = json.loads(json.dumps(report))
@@ -321,19 +441,20 @@ CREATE TABLE events (
             }
         )
         self.assertTrue(
-            any("lineがchunk範囲外" in error for error in _validate(wrong_chunk, inventory))
+            any("lineがchunk範囲外" in error for error in _validate(wrong_chunk, inventory, text))
         )
 
+        partial_text = "# 文書\n\n```\n未完了"
         partial_inventory = build_markdown_inventory(
-            "# 文書\n\n```\n未完了",
+            partial_text,
             source="partial.md",
         )
-        dropped_limitation = build_report_skeleton(partial_inventory)
+        dropped_limitation = _report(partial_inventory, partial_text)
         dropped_limitation["limitations"] = []
         self.assertTrue(
             any(
                 "inventoryのlimitationsを保持" in error
-                for error in _validate(dropped_limitation, partial_inventory)
+                for error in _validate(dropped_limitation, partial_inventory, partial_text)
             )
         )
 
@@ -352,12 +473,17 @@ CREATE TABLE events (
 
     def test_cli_rejects_invalid_severity(self) -> None:
         report = finding_report("CRITICAL")
+        inventory = build_markdown_inventory(FINDING_TEXT, source="<text>")
+        report["inventory_hash"] = inventory_hash(inventory)
+        report["sources"] = ["<text>"]
+        report["candidates"][0]["source"] = "<text>"
+        report["findings"][0]["locations"][0]["source"] = "<text>"
         with tempfile.TemporaryDirectory() as directory:
             report_path = Path(directory) / "report.json"
             inventory_path = Path(directory) / "inventory.json"
             report_path.write_text(json.dumps(report, ensure_ascii=False), encoding="utf-8")
             inventory_path.write_text(
-                json.dumps(finding_inventory(), ensure_ascii=False),
+                json.dumps(inventory, ensure_ascii=False),
                 encoding="utf-8",
             )
             validated = subprocess.run(
@@ -368,6 +494,10 @@ CREATE TABLE events (
                     str(report_path),
                     "--inventory",
                     str(inventory_path),
+                    "--text",
+                    FINDING_TEXT,
+                    "--mode",
+                    "review",
                 ],
                 text=True,
                 capture_output=True,
@@ -379,20 +509,40 @@ CREATE TABLE events (
         self.assertTrue(any("severityが不正" in error for error in result["errors"]))
 
     def test_cli_inventory_and_report_validation(self) -> None:
+        source_text = "# 文書\n\n本文。"
         result = subprocess.run(
-            [sys.executable, str(CLI), "inventory", "--text", "# 文書\n\n本文。"],
+            [sys.executable, str(CLI), "inventory", "--text", source_text],
             text=True,
             capture_output=True,
             check=False,
         )
         self.assertEqual(result.returncode, 0, result.stderr)
         inventory = json.loads(result.stdout)
-        report = build_report_skeleton(inventory)
         with tempfile.TemporaryDirectory() as directory:
             report_path = Path(directory) / "report.json"
             inventory_path = Path(directory) / "inventory.json"
-            report_path.write_text(json.dumps(report, ensure_ascii=False), encoding="utf-8")
             inventory_path.write_text(json.dumps(inventory, ensure_ascii=False), encoding="utf-8")
+            created = subprocess.run(
+                [
+                    sys.executable,
+                    str(CLI),
+                    "new-report",
+                    "--inventory",
+                    str(inventory_path),
+                    "--text",
+                    source_text,
+                    "--mode",
+                    "repository-review",
+                ],
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+            self.assertEqual(created.returncode, 0, created.stdout + created.stderr)
+            report = json.loads(created.stdout)
+            self.assertEqual(report["mode"], "repository-review")
+            self.assertIsNotNone(_dimension(report, "repository-consistency"))
+            report_path.write_text(json.dumps(report, ensure_ascii=False), encoding="utf-8")
             validated = subprocess.run(
                 [
                     sys.executable,
@@ -401,6 +551,10 @@ CREATE TABLE events (
                     str(report_path),
                     "--inventory",
                     str(inventory_path),
+                    "--text",
+                    source_text,
+                    "--mode",
+                    "repository-review",
                 ],
                 text=True,
                 capture_output=True,

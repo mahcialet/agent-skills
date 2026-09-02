@@ -23,6 +23,14 @@ Markdown fileを確認できる環境では、次のinventoryを補助に使え�
 python3 scripts/review_coverage.py inventory --file <target.md>
 ```
 
+空または空白のみのMarkdownはinventory段階で拒否する。report skeletonの作成と検証では、手製・
+置換済みinventoryをcoverage根拠にしないため、inventoryと同じ元Markdownを再度渡す。
+
+```bash
+python3 scripts/review_coverage.py new-report --inventory <inventory.json> --file <target.md> --mode <review|repository-review>
+python3 scripts/review_coverage.py validate-report <report.json> --inventory <inventory.json> --file <target.md> --mode <review|repository-review>
+```
+
 日本語の関係表現は、次のscannerで候補語の全出現位置を列挙できる。
 
 ```bash
@@ -31,8 +39,10 @@ python3 scripts/scan_relationships.py --file <target.md>
 
 両ツールのJSONは候補収集を支援するだけで、文脈passとglobal passを省略しない。ツールがない、
 未対応形式、読み込み失敗の場合はreviewを継続し、該当coverageを `partial` として理由を残す。
-reportを検証するときは作成元のinventoryも渡す。validatorはinventory内容のhash、source、全chunk、
-既定の必須観点、candidate所属、局所passとglobal passの順序を照合する。
+reportを検証するときは作成元のinventoryと元Markdownを渡す。validatorはMarkdownからinventoryを
+再生成し、本文hash、全field、source、全chunk、既定の必須観点、candidate所属、局所passとglobal
+passの順序を照合する。`repository-review` modeでは `repository-consistency` も必須観点にする。
+coverage workflow artifactはschema v2を使い、旧v1は元Markdownから再生成する。
 
 ## coverage記録
 

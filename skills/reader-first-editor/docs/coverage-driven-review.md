@@ -102,12 +102,25 @@ consolidatorは、同じ原因を指すcandidateを統合できる。ただし�
 
 ## 補助ツールと障害時の扱い
 
-`scripts/review_coverage.py inventory` はMarkdownの構造とchunkをJSONで返す。
+`scripts/review_coverage.py inventory` はMarkdownの構造とchunkをJSONで返す。空または空白のみの
+Markdownは対象外として、この段階で明示的に拒否する。生成物は
+`schemas/markdown-inventory.schema.json` のfield構成に従い、元Markdown全文の `source_hash`、
+全chunkの行範囲、見出しchain、block種別、本文を保持する。
 `scripts/scan_relationships.py` は候補語の全出現位置をcandidate-only JSONで返す。
 `scripts/scan_db_consistency.py` は対応するDB定義表を構造化し、明示されたpeer group内の分布と
 少数値candidateを返す。
-`scripts/review_coverage.py validate-report <report.json> --inventory <inventory.json>` は、report作成時の
-inventoryを必須入力とし、全inventory内容のSHA-256、source、chunk IDと順序を照合する。既定の必須観点、
+`scripts/review_coverage.py new-report --inventory <inventory.json> --file <target.md> --mode <mode>` と
+`validate-report <report.json> --inventory <inventory.json> --file <target.md> --mode <mode>` は、report作成時の
+inventoryだけでなく元Markdownも必須入力とする。inventoryの全fieldを検証し、元Markdownから同じ
+`max_chars` で再生成した正規inventoryとの完全一致、全文のSHA-256、source、chunk IDと順序を照合する。
+`--text` でinventoryを作った場合は、後段でも同じ `--text` を渡す。
+この契約追加はcoverage workflow artifactのschema v2である。旧v1のinventory/reportは自動変換せず、
+元Markdownからinventoryとreport skeletonを再生成する。
+
+reportは `mode` に `review` または `repository-review` を保持し、検証時にcallerが指定した期待modeとの
+一致も確認する。`repository-review` では
+`repository-consistency` を自動的に必須観点へ加え、そのpassが `checked` になる前にglobal passを
+`checked` にできない。既定の必須観点、
 candidateの観点所属、全chunk・全必須観点の局所確認後にglobal passが実施されたことも検証する。
 `new-report --dimension` は既定の必須観点を置換せず、追加観点として扱う。
 このほかrootとclosed objectの必須・未知field、文字列list、integer field、coverage固有の件数・

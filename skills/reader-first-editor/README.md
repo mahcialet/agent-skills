@@ -140,7 +140,11 @@ constraintなどの分布から、少数値をcandidateとして確認できま�
 補助ツールとして、次の処理を実装しています。Markdownの構造inventory、coverage reportの
 schema・整合性検証、
 関係候補語の全出現scan、Markdown DB定義表の構造化、明示peer group内の少数値scanです。coverage
-reportの検証には作成元inventoryを渡し、内容hash、source、全chunk、必須観点、pass順序を照合します。
+reportの作成・検証には作成元inventoryと元Markdownを渡します。toolは元Markdownから正規inventoryを
+再生成し、本文hash、全inventory field、source、全chunk、必須観点、pass順序を照合します。
+reportは `review`／`repository-review` のmodeを保持し、後者では `repository-consistency` を必須にします。
+空または空白のみのMarkdownはinventory段階で拒否します。
+coverage workflow artifactはschema v2です。旧v1は元Markdownから再生成します。
 DB scannerは1件以上のpeer groupを要求し、member不足を `partial` として返します。
 schema-backed artifactでは、booleanの `true` をversion 1として受理しません。
 CSV、DDL、ORM schemaの構造化parserは未実装です。未対応形式やtool失敗の場合も
