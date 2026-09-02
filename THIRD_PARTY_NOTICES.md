@@ -26,6 +26,10 @@ for complete attribution and modification notes.
 
 - `danyuchn/iso-24495-skill`, copyright 2026 Dustin Yuchen Teng, MIT License,
   reviewed at commit `113656b0a6a6cbeb3b3c2bb7cf3bc29349cb05cf`.
+- `coji/natural-japanese`, copyright 2026 coji, MIT License, reviewed at commit
+  `0f1cc1c5a4e2aa7590598c88a15c213a60d9545a`。機械的な候補抽出と文脈判断の
+  分離などを概念上の先行例として参照し、code・文書・corpus・数値thresholdは
+  コピーしていない。
 - JTF Japanese Standard Style Guide 4.0, Japan Translation Federation,
   licensed under CC BY 4.0. The skill summarizes and adapts selected guidance;
   it does not reproduce the guide in bulk.
