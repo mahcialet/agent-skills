@@ -235,7 +235,7 @@ class RegressionTests(unittest.TestCase):
         ambiguous = by_id[
             "bundled:prose-pacing:natural-sounding-ambiguous-action-is-finding"
         ]
-        self.assertEqual(ambiguous["expected_risks"], ["RR-01", "RR-06"])
+        self.assertEqual(ambiguous["expected_risks"], ["RR-12"])
 
         contradicted = by_id[
             "bundled:repository-grounded-review:"
