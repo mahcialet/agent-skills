@@ -95,6 +95,12 @@ def _require_exact_keys(container: dict, keys: set[str], context: str) -> None:
         raise InvestigationError(f"{context}に未知のkeyがあります: {', '.join(unknown)}")
 
 
+def _require_nonnegative_int(value: object, context: str) -> int:
+    if not isinstance(value, int) or isinstance(value, bool) or value < 0:
+        raise InvestigationError(f"{context}は0以上のintegerである必要があります")
+    return value
+
+
 def _record_summary(store: LocalCorpusStore, record: dict, role: str) -> dict:
     source = record["source"]
     state = record["decision"]["state"]
@@ -496,7 +502,11 @@ def validate_investigation_result(result: object, bundle: dict) -> tuple[dict, l
     example_groups = {
         records_by_id[record_id]["source"]["correlation_group"] for record_id in examples
     }
-    if support.get("independent_sources") != len(example_groups):
+    independent_sources = _require_nonnegative_int(
+        support.get("independent_sources"),
+        "investigation.support.independent_sources",
+    )
+    if independent_sources != len(example_groups):
         raise InvestigationError("support.independent_sourcesがprovenanceからの集計と一致しません")
     if not isinstance(support.get("mechanism"), str):
         raise InvestigationError("support.mechanismはstringである必要があります")

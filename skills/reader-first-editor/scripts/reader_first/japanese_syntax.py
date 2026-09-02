@@ -603,6 +603,9 @@ def build_syntax_ab_report(
     disagreement_delta = provider_difference["risk_decision_disagreement_rate_delta"]
     if disagreement_delta is not None and disagreement_delta > 0:
         blockers.append("provider間のrisk判定差が増加しました")
+    accuracy_spread_delta = provider_difference["expected_behavior_accuracy_spread_delta"]
+    if accuracy_spread_delta is not None and accuracy_spread_delta > 0:
+        blockers.append("provider間のexpected behavior accuracy差が増加しました")
 
     improvements: list[str] = []
     improvement_rules = {

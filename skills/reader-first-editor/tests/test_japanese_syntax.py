@@ -322,6 +322,24 @@ class SyntaxAbTests(unittest.TestCase):
         self.assertIn("provider間のrisk判定差が増加しました", report["automatic_blockers"])
         self.assertEqual(report["recommendation"], "do-not-default")
 
+    def test_provider_accuracy_spread_increase_blocks_default(self) -> None:
+        data = improving_experiment()
+        for item in data["observations"]:
+            if item["condition"] == "llm-only":
+                item["expected_behavior_match"] = item["case_id"] == "risk-case"
+            else:
+                item["expected_behavior_match"] = item["provider"] == "codex"
+        report = build_syntax_ab_report(data)
+        self.assertEqual(
+            report["provider_difference"]["expected_behavior_accuracy_spread_delta"],
+            1.0,
+        )
+        self.assertIn(
+            "provider間のexpected behavior accuracy差が増加しました",
+            report["automatic_blockers"],
+        )
+        self.assertEqual(report["recommendation"], "do-not-default")
+
     def test_unsupported_result_is_counted_and_blocks_default(self) -> None:
         data = improving_experiment()
         item = next(

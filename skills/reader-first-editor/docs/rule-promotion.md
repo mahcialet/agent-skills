@@ -56,8 +56,8 @@ reviewerが人間かは認証しないため、人間による明示reviewはtoo
 - counterexample fixtureまたはboundary fixtureがない
 - 未説明のcounterexampleが残る
 - languageまたはgenre scopeがない
-- rule diffがない、no-op、既存ruleのduplicate
-- 頻度やhard thresholdだけを根拠にしている
+- rule diffがない、またはno-opである
+- Agent resultが `duplicate_rule`、`frequency_only`、`fixed_threshold_only` を申告している
 - approval artifactがない
 - existing eval、semantic preservation、unnecessary revision、literal、registerにregressionがある
 - positive、negative、boundary evalのいずれかがない
@@ -65,6 +65,8 @@ reviewerが人間かは認証しないため、人間による明示reviewはtoo
 
 運用上、applyの対象は人間がreviewしたprose diffとeval updateに限定する。初版ではcore referencesを
 structured recordから自動生成しない。commitとpushも自動では行わない。
+toolはrule diffの自然言語からduplicate、頻度依存、hard threshold依存を推論しない。Agentの
+structured flagとdiffの整合、既存ruleとの照合はtool外の人間reviewで確認する。
 
 `rules propose --apply` は名前に `apply` を含むが、proposal artifactをlocal dataへ保存するだけで
 ある。core ruleへ適用する `rules apply` とは異なる。作成時のregressionは全て `not-run`、

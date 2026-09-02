@@ -155,8 +155,30 @@ def validate_rule_proposal(proposal: object) -> dict:
     if not isinstance(rule_diff, str) or not rule_diff.strip():
         raise RegressionError("proposalにrule diffがありません")
     evals = _require_dict(data.get("evals"), "proposal.evals")
+    categorized_eval_ids: dict[str, list[str]] = {}
     for key in ("positive", "negative", "boundary"):
-        _strings(evals, key, "proposal.evals", nonempty=True, unique=True)
+        categorized_eval_ids[key] = _strings(
+            evals,
+            key,
+            "proposal.evals",
+            nonempty=True,
+            unique=True,
+        )
+    eval_categories_by_id: dict[str, list[str]] = {}
+    for category, eval_ids in categorized_eval_ids.items():
+        for eval_id in eval_ids:
+            eval_categories_by_id.setdefault(eval_id, []).append(category)
+    cross_category_duplicates = {
+        eval_id: categories
+        for eval_id, categories in eval_categories_by_id.items()
+        if len(categories) > 1
+    }
+    if cross_category_duplicates:
+        details = ", ".join(
+            f"{eval_id} ({'/'.join(categories)})"
+            for eval_id, categories in sorted(cross_category_duplicates.items())
+        )
+        raise RegressionError(f"proposal eval IDをcategory間で重複指定できません: {details}")
     regressions = _require_dict(data.get("regressions"), "proposal.regressions")
     if set(regressions) != {
         "existing_evals",

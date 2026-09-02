@@ -249,6 +249,12 @@ class RegressionTests(unittest.TestCase):
         with self.assertRaisesRegex(RegressionError, "schema"):
             validate_regression_run(invalid_run, self.plan)
 
+    def test_proposal_rejects_eval_id_reused_across_categories(self) -> None:
+        proposal = deepcopy(self.proposal)
+        proposal["evals"]["negative"] = deepcopy(proposal["evals"]["positive"])
+        with self.assertRaisesRegex(RegressionError, "category間で重複"):
+            validate_rule_proposal(proposal)
+
     def test_missing_repeat_fails_report(self) -> None:
         report = build_regression_report(self.plan, self.runs[:-1])
         self.assertEqual(report["status"], "fail")

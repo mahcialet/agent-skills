@@ -44,9 +44,12 @@ proposal作成時とは別のfresh contextを使うことが望ましい。
 
 ## Bundle
 
-bundleには、仮説、対象scope、record ID、source correlation、支持例、反例、known exception、
-semantic invariants、既存rule、提案eval、未確認事項を含める。rightsを確認していないraw
-third-party textはbundleへ複製しない。reference-only recordでは、参照とhashだけを渡す。
+bundleには、仮説、対象scope、support／control record ID、source correlation、分類metadata、
+expected behavior、source・rights summary、textの参照とhash、Agentの役割、readiness blocker、
+output contractを含める。rightsを確認していないraw third-party textはbundleへ複製しない。
+semantic invariantsはbundleが参照するlocal recordに保持する。Agentは参照先recordと既存ruleを
+確認し、known exception、既存rule分析、提案eval、未確認事項をinvestigation resultの
+counterexamples、`existing_rule_analysis`、`proposed_evals`、decisionへ記録する。
 
 Agentの出力はproposal recordのdraftにすぎず、toolのstate transitionや人間の承認を代行しない。
 未説明の反例があればdecisionを `HOLD` にし、情報が足りなければ
@@ -77,7 +80,8 @@ provenance、分類metadataだけを持つ。embeddedなlocal textも別fileへc
 
 ### Agent resultを検証する
 
-Agentにはbundleと `../references/core/rule-investigation.md` を明示して調査を依頼し、
+Agentにはbundle、bundle内の `text_reference.record_path` が指すlocal record、
+`../references/core/rule-investigation.md` を明示して調査を依頼し、
 `investigation.schema.json` に適合するJSONを作らせる。resultは次で検証する。
 
 ```bash

@@ -263,6 +263,26 @@ class InvestigationTests(unittest.TestCase):
         with self.assertRaisesRegex(InvestigationError, "provenance"):
             validate_investigation_result(result, bundle)
 
+    def test_independent_sources_rejects_boolean_for_single_group_hold(self) -> None:
+        bundle = self.bundle(controls=False, supports=1)
+        result = valid_result(self.bundle())
+        support_id = bundle["selection"]["support_record_ids"][0]
+        result.update(
+            {
+                "bundle_id": bundle["id"],
+                "scope": deepcopy(bundle["scope"]),
+                "record_ids": [support_id],
+                "source_correlation": deepcopy(bundle["source_analysis"]["correlation_groups"]),
+                "boundary_pairs": [],
+                "decision": {"status": "HOLD", "reason": "support不足"},
+            }
+        )
+        result["support"]["examples"] = [support_id]
+        result["support"]["independent_sources"] = True
+        result["counterexamples"]["explained"] = []
+        with self.assertRaisesRegex(InvestigationError, "integer"):
+            validate_investigation_result(result, bundle)
+
     def test_proposal_is_unapproved_and_has_not_run_regressions(self) -> None:
         bundle = self.bundle()
         result, _ = validate_investigation_result(valid_result(bundle), bundle)
