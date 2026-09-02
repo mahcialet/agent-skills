@@ -507,6 +507,22 @@ outside
             any("dimensionへ紐付かないcandidate" in error for error in _validate(report))
         )
 
+    def test_whitespace_only_candidate_and_exclusion_reasons_are_rejected(self) -> None:
+        report = finding_report()
+        report["candidates"][0].update({"resolution": "excluded", "reason": "   "})
+        dimension = _dimension(report, "relationship-clarity")
+        dimension.update(
+            {
+                "finding_count": 0,
+                "excluded_count": 1,
+                "exclusion_reasons": ["   "],
+            }
+        )
+        report["findings"] = []
+        errors = _validate(report)
+        self.assertTrue(any("excluded/unresolvedにはreason" in error for error in errors))
+        self.assertTrue(any("exclusion_reasons" in error for error in errors))
+
     def test_cli_rejects_invalid_severity(self) -> None:
         report = finding_report("CRITICAL")
         inventory = build_markdown_inventory(FINDING_TEXT, source="<text>")

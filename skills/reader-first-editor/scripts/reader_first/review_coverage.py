@@ -477,7 +477,7 @@ def _is_integer(value: object, *, minimum: int) -> bool:
 
 def _is_string_list(value: object, *, nonempty_items: bool = False) -> bool:
     return isinstance(value, list) and all(
-        isinstance(item, str) and (not nonempty_items or bool(item))
+        isinstance(item, str) and (not nonempty_items or bool(item.strip()))
         for item in value
     )
 
@@ -583,7 +583,10 @@ def validate_coverage_report(
             errors.append(f"{label}: sourceが指定inventoryと一致しません")
         if "reason" in candidate and not isinstance(candidate.get("reason"), str):
             errors.append(f"{label}: reasonは文字列である必要があります")
-        if candidate.get("resolution") in {"excluded", "unresolved"} and not candidate.get("reason"):
+        if candidate.get("resolution") in {"excluded", "unresolved"} and (
+            not isinstance(candidate.get("reason"), str)
+            or not candidate["reason"].strip()
+        ):
             errors.append(f"{label}: excluded/unresolvedにはreasonが必要です")
 
     covered_candidate_ids: set[str] = set()
@@ -718,7 +721,7 @@ def validate_coverage_report(
         if counts["candidate_count"] != sum(classified.values()):
             errors.append(f"{label}: candidateが未分類です")
         reasons = dimension.get("exclusion_reasons")
-        if not isinstance(reasons, list) or not all(isinstance(item, str) for item in reasons):
+        if not _is_string_list(reasons, nonempty_items=True):
             errors.append(f"{label}: exclusion_reasonsは文字列listである必要があります")
         elif counts["excluded_count"] and not reasons:
             errors.append(f"{label}: excluded candidateには除外理由が必要です")

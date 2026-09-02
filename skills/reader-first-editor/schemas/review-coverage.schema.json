@@ -115,7 +115,7 @@
         "unresolved_count": {"type": "integer", "minimum": 0},
         "exclusion_reasons": {
           "type": "array",
-          "items": {"type": "string"}
+          "items": {"type": "string", "pattern": "\\S"}
         },
         "unchecked_scope": {
           "type": "array",
@@ -132,7 +132,7 @@
         "source": {"type": "string", "minLength": 1},
         "line": {"type": "integer", "minimum": 1},
         "resolution": {"enum": ["finding", "excluded", "unresolved"]},
-        "reason": {"type": "string"}
+        "reason": {"type": "string", "pattern": "\\S"}
       }
     },
     "finding": {
