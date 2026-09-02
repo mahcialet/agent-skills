@@ -39,7 +39,7 @@ proposalには次が必要である。
 - language、genre、reader、purpose、native・translationのscope
 - 頻度以外のmechanismとsemantic risk
 - 既存ruleとの重複確認
-- positive、negative、boundary eval候補
+- positive、negative、boundary eval候補。case IDをcategory間で再利用しない
 - 未説明の反例数とdecision理由
 
 反例が一つでも残る場合は、多数決で無視しない。反例が成立しない範囲までruleを狭められなければ
@@ -67,11 +67,14 @@ reviewerが人間かは認証しないため、人間による明示reviewはtoo
 structured recordから自動生成しない。commitとpushも自動では行わない。
 toolはrule diffの自然言語からduplicate、頻度依存、hard threshold依存を推論しない。Agentの
 structured flagとdiffの整合、既存ruleとの照合はtool外の人間reviewで確認する。
+counterexample gateもstructuredな `unexplained` と、選択済みcontrolの `explained`／boundaryへの
+記載を確認する。説明内容が妥当かはtool外の人間reviewで確認する。
 
 `rules propose --apply` は名前に `apply` を含むが、proposal artifactをlocal dataへ保存するだけで
 ある。core ruleへ適用する `rules apply` とは異なる。作成時のregressionは全て `not-run`、
 human approvalはfalseで固定する。承認情報はproposal自体を書き換えず、別のimmutable artifactとして
-保存する。
+保存する。ここでimmutableはtoolが同じlocal pathを上書きしないことを指し、全fieldをartifact IDへ
+含めることや、外部編集を暗号学的に検出することまでは意味しない。
 
 `rule-proposal.schema.json` へ適合しても、それだけではapplyできない。schemaはproposalと検証結果を
 受け渡すための形式である。regression結果、approval artifact、明示的な `--apply` は別のruntime gateで
@@ -96,10 +99,10 @@ rules approve
 rules apply（既定preview、--applyで変更）
 ```
 
-`regression-plan` はbundled eval全件、promoted local corpus、proposalのpositive／negative／
-boundary evalを含む。provider、model、model version、host version、repeat回数を固定し、Codexと
-GitHub Copilotを必須providerとして記録する。local corpusのraw textはplanへ複製せず、record path、
-content hash、取得要否だけを保持する。
+`regression-plan` はbundled eval全件、callerが `--corpus-record` で選んだpromoted record、proposalの
+positive／negative／boundary evalを含む。promoted record全件は自動選択しない。provider、model、
+model version、host version、repeat回数を固定し、CodexとGitHub Copilotを必須providerとして記録する。
+local corpusのraw textはplanへ複製せず、record path、content hash、取得要否だけを保持する。
 
 `regression-ingest` はplanと同じcase順、provider metadata、repeat indexを検証してlocal保存する。
 各caseは `pass`、`fail`、`unsupported`、`error` を区別し、semantic preservation、unnecessary

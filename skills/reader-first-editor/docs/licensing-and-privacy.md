@@ -7,9 +7,9 @@ corpus recordでは、sourceのprovenanceと、raw textを保存・再配布で�
 public repositoryであること、repositoryにlicenseがあること、textを匿名化したことだけを根拠に、
 PR本文やreview commentを再配布できるとは判断しない。
 
-## 既定値
+## GitHub collectorの既定値
 
-third-party sourceのrightsが未確認なら、次を既定にする。
+GitHub collectorでは、third-party sourceのrightsが未確認なら次を設定する。
 
 ```text
 raw text: 保存しない
@@ -21,10 +21,13 @@ planned public promotion: reject
 
 URLに加えて、immutable commit SHA、PR番号、file、取得日時、content hashを保存する。
 source reputationやmerge済みという事実を、licenseまたはqualityの証明として使わない。
+manual collectionはcaller-supplied recordをこの既定値へ自動変換しない。利用者がstorage、rights、
+privacyの状態を確認して指定する。
 
 GitHub collectorはrepository licenseのSPDX IDを観測値として保存する。ただし、この値だけを根拠に
 PR本文、patch、review commentの権利を確認済みとは扱わない。live responseからは本文fieldを
-破棄する。recorded fixtureにraw text fieldが含まれる場合も拒否する。account名は保存せず、
+破棄する。recorded fixtureにraw text fieldが含まれる場合も拒否する。source repositoryの
+owner/nameはprovenanceとして保存する。一方、PR author、reviewer、commenterのaccount名は保存せず、
 human／bot／unknownの種別だけを残す。
 
 ## 必須provenance
@@ -37,7 +40,8 @@ human／bot／unknownの種別だけを残す。
   validatorは、`repository_license` が非nullの場合に空でない `rights.notes` を要求する
 - raw text、PR本文、review commentそれぞれのredistribution status
 - local-only、public候補、redaction、改変の有無
-- record作成者とannotationの由来
+- record作成とannotationのactor・理由。専用fieldとしてdetached recordへ埋め込まず、local audit
+  logへ記録する
 
 review commentの権利をrepository licenseから自動推定しない。licenseやrightsが混在する場合は、
 content単位でstatusを分ける。
@@ -63,4 +67,5 @@ third-party contentの分離を確認する。rights statusが `unknown`、`unli
 拒否するpolicyとする。
 
 local-only recordはlocal evalへ利用できる。ただし、repositoryのfixture、investigation bundle、
-reportへraw textを転載しない。権利確認後にstatusを変更する場合もaudit logを残す。
+reportへraw textを転載しない。rights statusを更新するCLIは未実装である。将来、権利確認後にstatusを
+変更できるようにする場合も、audit logを残す方針とする。

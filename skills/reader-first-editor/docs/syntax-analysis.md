@@ -101,7 +101,8 @@ expected-behavior accuracy、処理時間、parse-failure rateを条件間で比
 accuracyのspreadと、同じcaseに対するrisk判定のdisagreement rateも比較する。
 
 paired result不足、unsupported／error、parser unavailable、semantic regression、false positiveや
-unnecessary revisionの増加、provider差の増加、改善なしのいずれかがあれば `do-not-default` とする。
+unnecessary revisionの増加、provider別accuracy spreadまたはrisk disagreementの増加、改善なしの
+いずれかがあれば `do-not-default` とする。
 blockerがなく改善が観測されても `human-review-required` に留め、`default_enabled` は常にfalseで
 ある。実際のCodex／GitHub Copilot resultは未収集である。resultを収集し、人間が確認するまでは
 optional機能を既定化しない。

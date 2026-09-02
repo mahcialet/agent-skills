@@ -164,7 +164,8 @@ LLM-only確認を続け、coverageを `partial` として未確認範囲を示�
 ### ローカルコーパスを育成する
 
 実文、review履歴、採用・却下判断を、インストール済みSkillとは別のlocal dataへ蓄積できます。
-蓄積した候補は、人間が確認してからcorpusへ追加し、ruleの候補として慎重に評価します。
+蓄積した候補は、tool外で人間が確認してからcorpusへ追加し、ruleの候補として慎重に評価します。
+toolはactorやreviewerが人間かを認証しません。
 public promotionと通常のreviewでのlocal corpus利用は未実装であり、現在の通常reviewには
 影響しません。
 
@@ -225,6 +226,8 @@ python3 "$tool" --data-dir "$data_dir" corpus collect-github \
 対象とし、PR本文、patch、review/comment本文は保存しません。
 
 保存するのは、変更済みMarkdownのpath・SHA、review state、inline threadの位置と件数だけです。
+thread集約はlive responseまたはfixtureの `review_comments` でparent commentがreplyより先に並ぶことを
+前提とし、順序の正規化は行いません。
 これらを `github_evidence` に残し、rightsは `unknown`、textは `reference-only`、recordは
 `local_only` とします。repository licenseの値と、GitHub REST APIのrepository metadataから
 観測したことは `rights.notes` に記録します。`--dry-run` を外すまでlocal dataへも書き込みません。
@@ -233,16 +236,18 @@ python3 "$tool" --data-dir "$data_dir" corpus collect-github \
 
 rule investigationは、support／control recordを明示して `rules bundle` を実行した場合だけ
 開始します。bundleではCounterexample Hunterを最優先にし、既定判断を `HOLD` とします。
-`rules validate-investigation` は未説明の反例を独立に検出します。固定閾値だけの根拠、頻度だけの
-根拠、既存ruleのduplicateは、Agent resultが申告したstructured flagを検証して `PROMOTE` を
-拒否します。toolは自然言語からflagの正しさを推論しないため、自己申告と本文の整合は人間が
-確認します。`rules propose --apply` もlocal proposalを保存するだけで、core rule、references、
-evalsを変更しません。
+`rules validate-investigation` は、選択済みcontrolが `explained` またはboundaryへ記載されているかと、
+`unexplained` が空かを検証します。説明内容の妥当性は自然言語から判定しません。固定閾値だけの根拠、
+頻度だけの根拠、既存ruleのduplicateは、Agent resultが申告したstructured flagを検証して
+`PROMOTE` を拒否します。toolは自然言語からflagの正しさを推論しないため、自己申告、本文、
+counterexample説明の整合は人間が確認します。`rules propose --apply` もlocal proposalを保存するだけで、
+core rule、references、evalsを変更しません。
 詳細は[Agentによる調査](docs/agent-investigation.md)を参照してください。
 
 proposal後は `rules regression-plan`、`rules regression-ingest`、`rules regression-report` を
-使います。bundled eval全件、promoted corpus、proposal evalを対象に、CodexとGitHub Copilotの
-結果を集約します。Python tool自体はproviderを起動しません。
+使います。bundled eval全件、`--corpus-record` で選んだpromoted record、proposal evalを対象に、
+CodexとGitHub Copilotの結果を集約します。promoted record全件は自動選択しません。Python tool自体は
+providerを起動しません。
 
 pass reportでは、`rules approve` がcaller-suppliedなreviewerと理由を別artifactへ記録します。
 toolはreviewerが人間かを認証しないため、人間による明示reviewはtool外で行います。`rules apply` は

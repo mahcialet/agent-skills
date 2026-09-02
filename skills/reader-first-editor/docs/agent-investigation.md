@@ -59,9 +59,10 @@ Agentの出力はproposal recordのdraftにすぎず、toolのstate transition�
 
 ### bundleを作る
 
-最初に、人間がsupportとcontrolを明示的に選ぶ。supportに使用できるのは
+最初に、callerがsupportとcontrolを明示的に選ぶ。supportに使用できるのは
 accepted／promoted recordだけである。controlにはaccepted／promoted／rejected recordを
-使用できる。candidateから直接調査を始めることはできない。
+使用できる。candidateから直接調査を始めることはできない。人間による選択はtool外の運用要件であり、
+toolはcallerや `--actor` が人間かを認証しない。
 
 ```bash
 tool=skills/reader-first-editor/scripts/corpus_tool.py
@@ -82,7 +83,10 @@ provenance、分類metadataだけを持つ。embeddedなlocal textも別fileへc
 
 Agentにはbundle、bundle内の `text_reference.record_path` が指すlocal record、
 `../references/core/rule-investigation.md` を明示して調査を依頼し、
-`investigation.schema.json` に適合するJSONを作らせる。resultは次で検証する。
+`investigation.schema.json` のfield構成に沿うJSONを作らせる。`id` には空でないplaceholder stringを
+指定する。次のCLIはcustom validatorでresultを検証し、submitted `id` を採用せず、内容から
+deterministic IDを再計算する。JSON Schema validator自体は実行しないため、入力JSONそのものの
+schema適合性を独立に保証するgateではない。
 
 ```bash
 python3 "$tool" --data-dir "$data_dir" rules validate-investigation \
@@ -90,12 +94,13 @@ python3 "$tool" --data-dir "$data_dir" rules validate-investigation \
 ```
 
 toolはsupport数をrecord件数ではなくcorrelation groupから再計算し、bundle外record、改ざんされた
-source correlation、未説明のcounterexampleを独立に検出する。provenance未確認、固定閾値・頻度だけの
-判断、duplicate ruleについては、Agent resultのstructured booleanを検証して拒否する。toolは
-`mechanism` や `existing_rule_analysis` の自然言語からbooleanの正しさを推論しないため、Agentの
-自己申告と本文の整合は後段の人間reviewで確認する。flag上で無効な `PROMOTE` はeffective statusを
-`HOLD` として返し、`--apply` があっても保存しない。`HOLD` と `NEEDS_MORE_EVIDENCE` は正常な
-調査結果として保存できる。
+source correlation、選択済みcontrolの `explained`／boundaryへの記載漏れを独立に検出する。nonemptyな
+`unexplained` も拒否するが、`explained` に列挙されたcontrolの説明が妥当かは自然言語から判定しない。
+provenance未確認、固定閾値・頻度だけの判断、duplicate ruleについては、Agent resultのstructured
+booleanを検証して拒否する。toolは `mechanism` や `existing_rule_analysis` の自然言語からbooleanの
+正しさを推論しないため、Agentの自己申告と本文、counterexample説明の整合は後段の人間reviewで
+確認する。flag上で無効な `PROMOTE` はeffective statusを `HOLD` として返し、`--apply` があっても
+保存しない。`HOLD` と `NEEDS_MORE_EVIDENCE` は正常な調査結果として保存できる。
 
 ### proposal draftを作る
 
@@ -114,8 +119,9 @@ regression後の `rules approve` と `rules apply` で検証する。
 
 ### regressionから明示applyまで進める
 
-proposal後は、bundled eval、promoted corpus、positive／negative／boundary evalを含むplanを
-`rules regression-plan` で作る。CodexとGitHub Copilotで実行したresultは
+proposal後は、bundled eval、`--corpus-record` で選んだpromoted record、positive／negative／
+boundary evalを含むplanを `rules regression-plan` で作る。promoted record全件は自動選択しない。
+CodexとGitHub Copilotで実行したresultは
 `rules regression-ingest` で取り込み、`rules regression-report` で全provider・repeatを
 集約する。toolはproviderを直接起動せず、planとresultの検証・保存・再集計だけを担う。
 

@@ -2,8 +2,9 @@
 
 状態: 一部implemented（manual CLI、public GitHub収集、local promotionまで実装済み）
 
-この文書では、実文、review履歴、採用・却下判断をlocal corpus候補として蓄積し、人間の審査を
-経てcorpusへ昇格する手順を説明する。schema v1、local data directory解決、state transition、
+この文書では、実文、review履歴、採用・却下判断をlocal corpus候補として蓄積し、tool外の人間審査を
+経てcorpusへ昇格する手順を説明する。toolはactorやreviewerが人間かを認証しない。schema v1、
+local data directory解決、state transition、
 audit log、manual CLI、public GitHub PR収集、local promotionは実装済みである。一方、public
 promotionと、通常のreviewでのlocal corpus読込みは未実装である。
 
@@ -78,6 +79,11 @@ review commentのendpointが全て成功してからcandidateを組み立てる�
 欠けたthreadは拒否し、収集開始前のstateを維持する。private repositoryではrepository metadataの
 確認直後に停止し、その後のPR endpointを読まない。
 
+inline threadの集約は、live responseまたはrecorded fixtureの `review_comments` で、parent commentが
+replyより先に並ぶことを前提とする。commentをIDや親子関係で並び替えない。親が完全に欠けたreplyは
+拒否するが、replyがparentより先に現れる順序は拒否せず、現行実装ではreply数とhuman／bot comment数を
+過少集計する。
+
 対象は変更済みMarkdownだけで、fileごとにcandidateを作る。PR本文、file content、patch、
 review/comment本文は保存せず、final head SHA、blob SHA、path、review state、対象SHA、threadの
 位置・reply数を保持する。raw textの有無はbooleanだけで記録する。rightsは次で固定する。
@@ -97,8 +103,9 @@ merged PRのfinal headにhuman approvalがあり、対象fileにrevisionを示�
 `annotate` と `accept` を実行するまでcorpusへ昇格できない。
 
 test用の `--fixture` はraw textを除いたrecorded snapshotだけを読む。fixture内に `body`、
-`content`、`patch`、`diff_hunk` があれば拒否する。PR #138と#187のfixtureはGitHub上の事実metadata
-だけを保存し、第三者の文章をrepositoryへ複製しない。
+`content`、`patch`、`diff_hunk` があれば拒否する。PR #138と#187のfixtureは、2026-08-30にGitHub
+REST APIから取得したものとして記録されたmetadataだけを保存し、第三者の文章をrepositoryへ
+複製しない。repository-reviewだけでは、取得元の外部情報との一致を再検証しない。
 
 ## Local data
 
@@ -142,12 +149,15 @@ reader-first-editor-data/
 GitHub由来のrecordは、`positive-reviewed`、`review-directed-revision`、`human-revision`、
 `rejected-suggestion` を区別する。mergeやsource reputationだけをgold labelにしない。
 
-## Promotion gate
+## Local promotion gate
 
 corpus promotionには、schema、provenance、immutable source、rights status、annotation、
 expected behavior、duplicate確認、reviewer decisionが必要である。rightsが不明なrecordは
-local-onlyに限る。publicなbundled corpusへ移す場合は、raw textの再配布権限、NOTICE、
-attribution、third-party contentの分離も確認する。
+local-onlyに限る。reviewer decisionはcaller-suppliedなactorとaudit eventで確認し、toolはactorが
+人間かを認証しない。
+
+public promotionは未実装である。将来publicなbundled corpusへ移す場合は、raw textの再配布権限、
+NOTICE、attribution、third-party contentの分離も確認する方針とする。
 
 ## Audit
 
