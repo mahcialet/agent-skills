@@ -373,7 +373,11 @@ def validate_corpus_record(
         "annotations",
     )
     _reject_unknown_keys(annotations, annotation_keys, "annotations")
-    if annotations["expected_behavior"] not in EXPECTED_BEHAVIORS:
+    expected_behavior = annotations["expected_behavior"]
+    if (
+        not isinstance(expected_behavior, str)
+        or expected_behavior not in EXPECTED_BEHAVIORS
+    ):
         raise RecordValidationError("annotations.expected_behaviorが未対応です")
     if not isinstance(annotations["rationale"], str):
         raise RecordValidationError("annotations.rationaleはstringである必要があります")

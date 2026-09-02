@@ -279,7 +279,10 @@ def _bundled_cases(eval_dir: Path) -> list[dict]:
                 if mode in {"review", "repository-review"}
                 else "context-dependent",
             )
-            if expected_behavior not in EXPECTED_BEHAVIORS:
+            if (
+                not isinstance(expected_behavior, str)
+                or expected_behavior not in EXPECTED_BEHAVIORS
+            ):
                 raise RegressionError(f"{path}: {case_id}のexpected_behaviorが不正です")
             if oracle_errors := validate_eval_oracles(case):
                 raise RegressionError(
@@ -502,7 +505,11 @@ def validate_regression_plan(plan: object) -> dict:
         case_ids.append(_string(item, "id", "regression plan.cases[]"))
         if item.get("category") not in CATEGORIES:
             raise RegressionError("regression case categoryが不正です")
-        if item.get("expected_behavior") not in EXPECTED_BEHAVIORS:
+        expected_behavior = item.get("expected_behavior")
+        if (
+            not isinstance(expected_behavior, str)
+            or expected_behavior not in EXPECTED_BEHAVIORS
+        ):
             raise RegressionError("regression case expected_behaviorが不正です")
         if schema_version == LEGACY_REGRESSION_SCHEMA_VERSION:
             if STRUCTURED_ORACLES.keys() & item.keys():

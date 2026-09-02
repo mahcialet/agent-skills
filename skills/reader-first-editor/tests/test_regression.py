@@ -34,6 +34,7 @@ from reader_first.regression import (
 )
 from reader_first.state import LocalCorpusStore
 from test_investigation import create_record, valid_result
+from validate_content import validate as validate_eval_content
 
 SKILL_DIR = Path(__file__).resolve().parents[1]
 CLI = SKILL_DIR / "scripts" / "corpus_tool.py"
@@ -264,6 +265,38 @@ class RegressionTests(unittest.TestCase):
         plan["cases"][0]["expected_behavior"] = "always-change"
         with self.assertRaisesRegex(RegressionError, "expected_behavior"):
             validate_regression_plan(plan)
+
+    def test_plan_rejects_non_string_expected_behavior(self) -> None:
+        plan = deepcopy(self.plan)
+        plan["cases"][0]["expected_behavior"] = []
+        with self.assertRaisesRegex(RegressionError, "expected_behavior"):
+            validate_regression_plan(plan)
+
+    def test_content_validation_reports_non_string_expected_behavior(self) -> None:
+        eval_dir = self.root / "invalid-evals"
+        eval_dir.mkdir()
+        (eval_dir / "invalid.yaml").write_text(
+            json.dumps(
+                {
+                    "suite": "invalid-behavior",
+                    "cases": [
+                        {
+                            "id": "list-behavior",
+                            "mode": "review",
+                            "language": "ja",
+                            "input": "入力",
+                            "expected": "期待",
+                            "expected_behavior": [],
+                        }
+                    ],
+                },
+                ensure_ascii=False,
+            ),
+            encoding="utf-8",
+        )
+
+        errors = validate_eval_content(eval_dir)
+        self.assertTrue(any("invalid expected_behavior []" in error for error in errors))
 
     def test_plan_rejects_invalid_structured_oracle_type(self) -> None:
         plan = deepcopy(self.plan)

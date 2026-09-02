@@ -124,12 +124,13 @@ def validate(eval_dir: Path) -> list[str]:
                 errors.append(f"{label}: input must be non-empty text")
             if not isinstance(case.get("expected"), str) or not case["expected"].strip():
                 errors.append(f"{label}: expected must be non-empty text")
-            if (
-                "expected_behavior" in case
-                and case["expected_behavior"] not in EXPECTED_BEHAVIORS
+            expected_behavior = case.get("expected_behavior")
+            if "expected_behavior" in case and (
+                not isinstance(expected_behavior, str)
+                or expected_behavior not in EXPECTED_BEHAVIORS
             ):
                 errors.append(
-                    f"{label}: invalid expected_behavior {case['expected_behavior']!r}"
+                    f"{label}: invalid expected_behavior {expected_behavior!r}"
                 )
             for key in (
                 "must_preserve",
