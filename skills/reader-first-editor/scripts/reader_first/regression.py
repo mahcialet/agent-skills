@@ -622,11 +622,13 @@ def validate_regression_run(run: object, plan: dict) -> dict:
                     f"regression run.cases[].{observed_key}に未知の値があります: "
                     f"{', '.join(unknown)}"
                 )
-            missing_expected = set(planned_case[expected_key]) - set(observed)
-            if status == "pass" and missing_expected:
+            expected_values = set(planned_case[expected_key])
+            observed_values = set(observed)
+            if status == "pass" and expected_values != observed_values:
                 raise RegressionError(
-                    f"regression run.cases[].{observed_key}に期待値がありません: "
-                    f"{', '.join(sorted(missing_expected))}"
+                    f"regression run.cases[].{observed_key}が期待値と完全一致しません: "
+                    f"expected={', '.join(sorted(expected_values))}; "
+                    f"observed={', '.join(sorted(observed_values))}"
                 )
     expected_ids = [case["id"] for case in plan["cases"]]
     if case_ids != expected_ids:

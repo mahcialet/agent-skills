@@ -119,7 +119,7 @@ manual recordのcontent hashはrecordに保存されたcaller-supplied値であ�
 
 `regression-ingest` はplanと同じcase順、provider metadata、repeat indexを検証してlocal保存する。
 planに構造化された期待値がある `pass` caseでは、外部runnerの `observed_risks`、
-`observed_statuses`、`observed_evidence_types` に期待値が含まれることも検証する。`fail` caseは
+`observed_statuses`、`observed_evidence_types` が期待値と完全一致することも検証する。`fail` caseは
 期待値と異なる実測値を保存でき、`unsupported`／`error` caseは取得できなかった観測fieldを
 省略できる。
 各caseは `pass`、`fail`、`unsupported`、`error` を区別し、semantic preservation、unnecessary

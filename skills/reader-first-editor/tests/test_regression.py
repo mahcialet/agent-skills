@@ -272,9 +272,26 @@ class RegressionTests(unittest.TestCase):
 
     def test_run_requires_planned_structured_oracles(self) -> None:
         run = passing_run(self.plan, self.plan["providers"][0], 1)
-        case = next(item for item in run["cases"] if "observed_statuses" in item)
+        case = next(
+            item
+            for item in run["cases"]
+            if item.get("observed_statuses") == ["CONTRADICTED"]
+        )
         case["observed_statuses"] = ["VERIFIED"]
-        with self.assertRaisesRegex(RegressionError, "期待値"):
+        with self.assertRaisesRegex(RegressionError, "期待値と完全一致"):
+            validate_regression_run(run, self.plan)
+
+    def test_passing_run_rejects_additional_structured_oracles(self) -> None:
+        run = passing_run(self.plan, self.plan["providers"][0], 1)
+        case = next(
+            item
+            for item in run["cases"]
+            if item.get("observed_statuses") == ["CONTRADICTED"]
+        )
+        self.assertEqual(case["observed_statuses"], ["CONTRADICTED"])
+        case["observed_statuses"].append("VERIFIED")
+
+        with self.assertRaisesRegex(RegressionError, "期待値と完全一致"):
             validate_regression_run(run, self.plan)
 
     def test_failed_run_preserves_actual_structured_oracles(self) -> None:
