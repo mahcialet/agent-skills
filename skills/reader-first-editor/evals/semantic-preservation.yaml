@@ -45,6 +45,15 @@
       "must_preserve": ["may", "after approval"],
       "must_not_add": ["will", "manager"],
       "expected": "可能性を確実性へ変えずactorを創作しない"
+    },
+    {
+      "id": "preserve-cautious-modality-during-naturalization",
+      "language": "ja",
+      "mode": "revise-safe",
+      "input": "この変更によって、一部の環境で応答が遅くなる可能性があります。",
+      "must_preserve": ["一部の環境", "可能性があります"],
+      "must_not_add": ["すべての環境", "応答が遅くなります", "必ず"],
+      "expected": "文章を自然または簡潔に見せるために慎重さを削らず、対象scopeと可能性のmodalityを維持する"
     }
   ]
 }

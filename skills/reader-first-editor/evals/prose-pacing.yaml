@@ -23,6 +23,53 @@
       "input": "Set `allow_implicit_invocation` to `false`, then run `/skills reload`.",
       "must_preserve": ["`allow_implicit_invocation`", "`false`", "`/skills reload`"],
       "expected": "識別子とコマンドを完全一致で保持する"
+    },
+    {
+      "id": "clear-ai-associated-phrase-is-no-change",
+      "language": "ja",
+      "mode": "review",
+      "input": "バックアップを作成してから設定ファイルを更新します。このように更新前の状態を保存すると、失敗時に元へ戻せます。",
+      "must_preserve": ["このように", "更新前の状態", "失敗時に元へ戻せます"],
+      "must_not_claim": [
+        "AI生成文である",
+        "定型句があるため削除する",
+        "AIらしさを減らす必要がある"
+      ],
+      "expected": "『このように』の参照先、条件、行動が明確なため、語の存在だけではfindingにせず、作者も判定しない"
+    },
+    {
+      "id": "repeated-safety-steps-remain-predictable",
+      "language": "ja",
+      "mode": "revise-safe",
+      "input": "電源が切れていることを確認します。圧力がゼロであることを確認します。保護具を装着していることを確認します。",
+      "must_preserve": ["電源", "圧力", "保護具", "確認します"],
+      "must_not_claim": [
+        "文末が同じなので不自然",
+        "単調さを避けるため動詞を言い換える"
+      ],
+      "expected": "安全手順の走査性と予測可能性を優先し、反復回数だけを理由に文末や確認動作を変えない"
+    },
+    {
+      "id": "natural-sounding-ambiguous-action-is-finding",
+      "language": "ja",
+      "mode": "review",
+      "input": "利用者から連絡があった場合は、必要に応じて対応します。",
+      "must_preserve": ["利用者から連絡があった場合", "必要に応じて", "対応します"],
+      "must_not_claim": ["AIらしい表現である", "AIが執筆した"],
+      "expected_risks": ["RR-01", "RR-06"],
+      "expected": "表現の自然さとは別に、対応する主体、必要と判断する条件、実際の行動を読者が補う必要がある点をfindingとして示す"
+    },
+    {
+      "id": "repeated-technical-literal-is-not-varied",
+      "language": "ja",
+      "mode": "revise-safe",
+      "input": "requestを受信したら`request_id`を記録します。retry時も同じ`request_id`を送信し、responseには`request_id`を含めます。",
+      "must_preserve": ["request", "`request_id`", "retry", "response"],
+      "must_not_claim": [
+        "反復を避けるため別の名前へ変える",
+        "二回目以降を代名詞へ置き換える"
+      ],
+      "expected": "technical literalの反復を照合可能性に必要なものとして保持し、単調さ回避のために類語化しない"
     }
   ]
 }

@@ -141,6 +141,21 @@
       "expected_evidence_types": ["DOC↔CODE"],
       "must_not_claim": ["reviewer文字列が人間であることを証明する"],
       "expected": "caller-supplied attestationと人間認証を区別し、tool外の運用責任を明記するか独立した承認証拠を要求するよう提案する"
+    },
+    {
+      "id": "natural-prose-still-contradicts-config-default",
+      "language": "ja",
+      "mode": "repository-review",
+      "input": "README.mdは『再試行間隔は30秒なので、応答を待ちながら落ち着いて再試行できます』と自然な説明をしているが、config/defaults.yamlはretry_interval: 60を定義している。",
+      "expected_statuses": ["CONTRADICTED"],
+      "expected_evidence_types": ["DOC↔CONFIG"],
+      "must_preserve": ["30秒", "retry_interval: 60"],
+      "must_not_claim": [
+        "自然な文章なので問題はない",
+        "AIらしさがないため確認不要",
+        "どちらが正本かを証拠なしに決める"
+      ],
+      "expected": "表面的な自然さや作者推定に関係なくdefault値の不一致をCONTRADICTEDとして報告し、正しい値の決定主体が不明なら一方を正と断定しない"
     }
   ]
 }
