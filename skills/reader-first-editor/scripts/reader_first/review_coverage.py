@@ -805,6 +805,7 @@ def validate_coverage_report(
             errors.append(f"{label}: locationsが必要です")
             continue
         location_pairs: set[tuple[str, int]] = set()
+        valid_location_count = 0
         for location in locations:
             if (
                 not isinstance(location, dict)
@@ -814,7 +815,10 @@ def validate_coverage_report(
             ):
                 errors.append(f"{label}: locationにはsourceと1以上のlineが必要です")
                 continue
+            valid_location_count += 1
             location_pairs.add((location["source"], location["line"]))
+        if valid_location_count != len(location_pairs):
+            errors.append(f"{label}: locationsが重複しています")
         expected_locations = {
             (candidate["source"], candidate["line"])
             for candidate_id in linked
@@ -827,6 +831,9 @@ def validate_coverage_report(
         missing_locations = expected_locations - location_pairs
         if missing_locations:
             errors.append(f"{label}: candidateのlocationを保持していません: {sorted(missing_locations)}")
+        extra_locations = location_pairs - expected_locations
+        if extra_locations:
+            errors.append(f"{label}: candidateにないlocationがあります: {sorted(extra_locations)}")
 
     expected_finding_candidates = {
         candidate_id for candidate_id, candidate in candidate_map.items()

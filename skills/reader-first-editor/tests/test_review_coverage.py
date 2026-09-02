@@ -540,6 +540,23 @@ outside
             )
         )
 
+    def test_finding_locations_exactly_match_linked_candidates(self) -> None:
+        extra = finding_report()
+        extra["findings"][0]["locations"].append(
+            {"source": "finding.md", "line": 1}
+        )
+        self.assertTrue(
+            any("candidateにないlocation" in error for error in _validate(extra))
+        )
+
+        duplicate = finding_report()
+        duplicate["findings"][0]["locations"].append(
+            {"source": "finding.md", "line": 3}
+        )
+        self.assertTrue(
+            any("locationsが重複" in error for error in _validate(duplicate))
+        )
+
     def test_cli_rejects_invalid_severity(self) -> None:
         report = finding_report("CRITICAL")
         inventory = build_markdown_inventory(FINDING_TEXT, source="<text>")
