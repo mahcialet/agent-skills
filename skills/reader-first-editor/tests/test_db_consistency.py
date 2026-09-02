@@ -93,6 +93,19 @@ class DatabaseConsistencyTests(unittest.TestCase):
         self.assertEqual(report["candidates"][0]["column"], "published_at")
         self.assertEqual(report["candidates"][0]["minority_value"], "nullable")
 
+    def test_english_required_header_uses_required_polarity(self) -> None:
+        text = """| Column | Type | Required |
+|---|---|---|
+| created_at | timestamptz | Yes |
+| updated_at | timestamptz | Yes |
+| deleted_at | timestamptz | Yes |
+| published_at | timestamptz | No |"""
+        extraction = extract_markdown_tables(text, source="required-en.md")
+        self.assertEqual(
+            [row["normalized"]["nullable"] for row in extraction["rows"]],
+            ["not-null", "not-null", "not-null", "nullable"],
+        )
+
     def test_quoted_default_literal_preserves_case_and_whitespace(self) -> None:
         rows = [
             ("events", "created_at", "text", "NO", "'active'", ""),

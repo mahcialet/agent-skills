@@ -14,7 +14,7 @@ HEADER_ALIASES = {
     "column": {"column", "column name", "field", "列", "列名", "カラム", "カラム名"},
     "type": {"type", "data type", "datatype", "型", "データ型"},
     "nullable": {"nullable", "null", "null allowed", "null許可", "null可"},
-    "required": {"必須"},
+    "required": {"required", "必須"},
     "default": {"default", "default value", "既定値", "初期値", "デフォルト"},
     "constraint": {"constraint", "constraints", "制約"},
     "comment": {"comment", "description", "note", "説明", "備考", "コメント"},
