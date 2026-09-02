@@ -137,8 +137,10 @@ rule targetとeval targetの両方が必要である。現行parserは、空白�
 `diff --git` sectionを確認する。
 
 認識したsectionについては、binary、削除、rename、path traversal、symlink、no-op、対象fileの
-未commit変更を拒否する。eval targetの追加行からcase IDを抽出し、proposalのpositive、
-negative、boundary ID集合と双方向で一致しないpatchも拒否する。`git apply --check` 後にpatchを適用し、
+未commit変更を拒否する。previewはpatchを一時領域へ適用し、適用後のeval suiteに新規追加された
+`cases` を解析する。proposalのpositive、negative、boundary ID集合との双方向一致に加え、
+regression planへ固定したinput、期待結果、保持事項、禁止claimなどのfixture内容との一致も確認する。
+metadataなど `cases` 外に同じIDがあるだけのpatchは拒否する。`git apply --check` 後にpatchを適用し、
 content validatorとSkill validatorが失敗した場合はreverse patchによるrollbackを試みる。reverse check
 またはrollbackにも失敗した場合は変更がworktreeへ残り、errorは手動確認を求める。commitとpushは
 行わない。

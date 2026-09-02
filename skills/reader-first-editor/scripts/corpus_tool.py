@@ -638,6 +638,7 @@ def run(args: argparse.Namespace) -> int:
         if not args.apply:
             preview = preview_rule_apply(
                 proposal,
+                plan,
                 report,
                 approval,
                 repository_root=args.repository_root,
@@ -652,6 +653,7 @@ def run(args: argparse.Namespace) -> int:
             return 0
         applied = apply_rule_patch(
             proposal,
+            plan,
             report,
             approval,
             repository_root=args.repository_root,

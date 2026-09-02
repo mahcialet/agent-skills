@@ -275,6 +275,8 @@ promoted record全件は自動選択しません。Python tool自体はprovider�
 pass reportでは、`rules approve` がcaller-suppliedなreviewerと理由を別artifactへ記録します。
 toolはreviewerが人間かを認証しないため、人間による明示reviewはtool外で行います。`rules apply` は
 既定でpreviewを返し、`--apply` を付けた場合だけ承認artifactと一致するexact diffを適用します。
+previewではpatch適用後のeval suiteの `cases` を解析し、新規caseのIDとfixture内容がregression planへ
+固定したproposal evalに一致することを確認します。metadataにIDがあるだけでは通過しません。
 意図したapply対象はSkill本文・references・evalsです。ただし、現行のtarget parserが認識するのは
 空白を含まないunquotedな `diff --git a/... b/...` headerだけです。quotedまたは空白を含む追加sectionは
 target検査から漏れてもpatch全体として `git apply` へ渡るため、toolのpreviewだけでは許可外pathが
