@@ -250,6 +250,20 @@ class DatabaseConsistencyTests(unittest.TestCase):
         with self.assertRaisesRegex(DatabaseConsistencyError, "1件以上のpeer group"):
             analyze_peer_groups(extraction, [])
 
+    def test_duplicate_attributes_are_rejected(self) -> None:
+        extraction = extract_markdown_tables(
+            definition_table(
+                [("events", "created_at", "timestamptz", "NO", "", "")]
+            ),
+            source="database.md",
+        )
+        with self.assertRaisesRegex(DatabaseConsistencyError, "重複"):
+            analyze_peer_groups(
+                extraction,
+                [PeerGroupSpec(name="timestamps", column_pattern=r"_at$")],
+                attributes=("type", "type"),
+            )
+
     def test_unmatched_or_small_peer_group_is_partial(self) -> None:
         extraction = extract_markdown_tables(
             definition_table(

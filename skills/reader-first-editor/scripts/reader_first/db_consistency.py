@@ -268,6 +268,8 @@ def analyze_peer_groups(
 ) -> dict[str, object]:
     if not specs:
         raise DatabaseConsistencyError("1件以上のpeer groupを指定する必要があります")
+    if len(attributes) != len(set(attributes)):
+        raise DatabaseConsistencyError("attributeを重複指定できません")
     if min_group_size < 2:
         raise DatabaseConsistencyError("min_group_sizeは2以上である必要があります")
     if not 0.5 < dominance_ratio < 1:
