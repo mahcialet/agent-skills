@@ -386,6 +386,43 @@ class PortableLocationTestCase(unittest.TestCase):
         validator.validate_coverage_example_locations(coverage_path, invalid, errors)
         self.assertTrue(any("portable relative locator" in error for error in errors))
 
+    def test_coverage_example_requires_one_location_per_finding(self) -> None:
+        coverage_path = SKILL_DIR / "examples" / "coverage-gap-audit.md"
+        text = coverage_path.read_text(encoding="utf-8")
+        for finding_id, locator in (
+            ("F-001", "sample-repo/src/repository_review.py:84"),
+            ("F-002", "sample-repo/SKILL.md:118"),
+            ("F-003", "sample-repo/src/validate_result.py:52"),
+        ):
+            with self.subTest(finding_id=finding_id):
+                missing = text.replace(f"- Location: `{locator}`\n", "", 1)
+                errors: list[str] = []
+                validator.validate_coverage_example_locations(
+                    coverage_path, missing, errors
+                )
+                self.assertTrue(
+                    any(
+                        f"finding {finding_id} must contain exactly one Location line"
+                        in error
+                        for error in errors
+                    )
+                )
+
+        duplicate = text.replace(
+            "- Location: `sample-repo/src/repository_review.py:84`",
+            "- Location: `sample-repo/src/repository_review.py:84`\n"
+            "- Location: `sample-repo/src/repository_review.py:85`",
+            1,
+        )
+        errors = []
+        validator.validate_coverage_example_locations(coverage_path, duplicate, errors)
+        self.assertTrue(
+            any(
+                "finding F-001 must contain exactly one Location line" in error
+                for error in errors
+            )
+        )
+
     def test_location_inside_fenced_code_is_not_counted(self) -> None:
         text = (
             "```text\n"

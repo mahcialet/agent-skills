@@ -809,6 +809,37 @@ def validate_example_location(path: Path, text: str, errors: list[str]) -> None:
 
 
 def validate_coverage_example_locations(path: Path, text: str, errors: list[str]) -> None:
+    lines = _visible_markdown_lines(text)
+    finding_starts: list[tuple[int, str]] = []
+    for index, line in enumerate(lines):
+        finding_match = re.match(r"^### (F-\d{3})(?::|$)", line)
+        if finding_match:
+            finding_starts.append((index, finding_match.group(1)))
+
+    if not finding_starts:
+        errors.append(f"{path}: coverage example must contain at least one finding")
+    for position, (start, finding_id) in enumerate(finding_starts):
+        end = (
+            finding_starts[position + 1][0]
+            if position + 1 < len(finding_starts)
+            else len(lines)
+        )
+        next_section = next(
+            (
+                index
+                for index in range(start + 1, end)
+                if lines[index].startswith(("## ", "### "))
+            ),
+            end,
+        )
+        location_count = sum(
+            line.startswith("- Location:") for line in lines[start + 1 : next_section]
+        )
+        if location_count != 1:
+            errors.append(
+                f"{path}: finding {finding_id} must contain exactly one Location line"
+            )
+
     _validate_location_entries(path, text, errors, require_single=False)
 
 
