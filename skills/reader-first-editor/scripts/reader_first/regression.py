@@ -581,7 +581,8 @@ def validate_regression_run(run: object, plan: dict) -> dict:
             )
         case_id = _string(item, "id", "regression run.cases[]")
         case_ids.append(case_id)
-        if item.get("status") not in {"pass", "fail", "unsupported", "error"}:
+        status = item.get("status")
+        if status not in {"pass", "fail", "unsupported", "error"}:
             raise RegressionError("regression case statusが不正です")
         if not isinstance(item.get("expected_behavior_match"), bool):
             raise RegressionError("expected_behavior_matchはbooleanである必要があります")
@@ -608,6 +609,8 @@ def validate_regression_run(run: object, plan: dict) -> dict:
                             f"{', '.join(unknown)}"
                         )
                 continue
+            if status in {"unsupported", "error"} and observed_key not in item:
+                continue
             observed = _strings(
                 item,
                 observed_key,
@@ -620,7 +623,7 @@ def validate_regression_run(run: object, plan: dict) -> dict:
                     f"{', '.join(unknown)}"
                 )
             missing_expected = set(planned_case[expected_key]) - set(observed)
-            if missing_expected:
+            if status == "pass" and missing_expected:
                 raise RegressionError(
                     f"regression run.cases[].{observed_key}に期待値がありません: "
                     f"{', '.join(sorted(missing_expected))}"

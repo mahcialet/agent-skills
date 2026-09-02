@@ -277,6 +277,27 @@ class RegressionTests(unittest.TestCase):
         with self.assertRaisesRegex(RegressionError, "期待値"):
             validate_regression_run(run, self.plan)
 
+    def test_failed_run_preserves_actual_structured_oracles(self) -> None:
+        run = passing_run(self.plan, self.plan["providers"][0], 1)
+        case = next(item for item in run["cases"] if "observed_statuses" in item)
+        case["status"] = "fail"
+        case["observed_statuses"] = ["VERIFIED"]
+
+        validated = validate_regression_run(run, self.plan)
+        self.assertEqual(case["observed_statuses"], ["VERIFIED"])
+        self.assertEqual(validated["cases"], run["cases"])
+
+    def test_unsupported_or_error_run_may_omit_structured_observations(self) -> None:
+        for status in ("unsupported", "error"):
+            with self.subTest(status=status):
+                run = passing_run(self.plan, self.plan["providers"][0], 1)
+                case = next(item for item in run["cases"] if "observed_statuses" in item)
+                case["status"] = status
+                case.pop("observed_statuses")
+
+                validated = validate_regression_run(run, self.plan)
+                self.assertNotIn("observed_statuses", validated["cases"][run["cases"].index(case)])
+
     def test_complete_repeated_runs_pass_all_gates(self) -> None:
         report = build_regression_report(
             self.plan,
