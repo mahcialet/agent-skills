@@ -11,7 +11,7 @@ Codex、GitHub Copilot、およびオープンなAgent Skills形式に対応す�
 
 | Skill | Codex | Copilot | Languages | Stability | Description | License |
 |---|:---:|:---:|---|---|---|---|
-| [reader-first-editor](skills/reader-first-editor/README.md) | ✓ | ✓ | ja, en | experimental | 長文の確認範囲、読み返しや誤解、局所的な少数例、リポジトリ内の実態との乖離を診断し、意味を損なわず文章を整える | [MIT + notices](skills/reader-first-editor/NOTICE.md) |
+| [reader-first-editor](skills/reader-first-editor/README.md) | ✓ | ✓ | ja, en | experimental | 長文の確認範囲、話題のつながり、読み返しや誤解、局所的な少数例、リポジトリ内の実態との乖離を診断し、意味を損なわず文章を整える | [MIT + notices](skills/reader-first-editor/NOTICE.md) |
 
 ### Code Review
 

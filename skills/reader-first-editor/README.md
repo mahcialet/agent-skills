@@ -10,8 +10,9 @@
 減らします。その結果として機械的で均質な表現が減ることはありますが、それは目的ではなく
 副次的な結果です。
 
-長文では確認範囲をcoverageとして示します。また、同じ役割を持つ要素群から外れる少数例も、
-根拠とともに確認します。改稿では、元の内容が変わっていないことも確かめます。
+長文では確認範囲をcoverageとして示し、導入から各段落・節へ話題がどうつながるかも確認します。
+また、同じ役割を持つ要素群から外れる少数例も、根拠とともに確認します。改稿では、元の内容が
+変わっていないことも確かめます。
 リポジトリ内校閲を明示された場合は、文書の記述を同一リポジトリ内のコード、設定、テスト、
 他文書などと照合します。
 
@@ -29,6 +30,7 @@
 | 内容を変えない改稿 | 事実、条件、例外、必須・推奨・任意・可能性の違い、コード、コマンド、設定値、識別子などを保ちながら、並べ替え・分割・結合・明確化を行う | `revise-safe`。明示依頼が必要 |
 | リポジトリ内校閲 | 文書の記述を、同じリポジトリのコード、設定、テスト、他文書と照合する | `repository-review`。文書や証拠ファイルを変更しない |
 | 長文coverage | 見出しなどの構造単位で局所確認した後、文書全体を確認し、0件と未確認を区別する | 長文・複数file・網羅性を求められた `review`／`repository-review`。原文やファイルを変更しない |
+| 話題のつながり | 文書種別に合う入口、各段落の役割と配置理由、新しい概念の初出を確認する | `review` は非破壊。`revise-safe` は確認済みの局所bridgeだけを追加し、安全に直せない箇所は不足情報を示す |
 | 局所整合性 | 同じ役割を持つ要素群の型・値・表記から外れる少数例をcandidateとして拾い、意図的な例外か確認する | `review` は与えられた本文とcontext内、`repository-review` は関連するrepository evidenceまで確認。少数派だけで誤りとせず、自動修正しない |
 | 構造変更の提案 | 情報の移動、重複の統合、削除候補と、失われる可能性のある内容を示す | `revise-structural`。明示的な削除許可がなければ提案だけを返す |
 | 変更点の比較 | 改稿前後の文章に、変更理由と内容が変わるリスクを対応付ける | `diff`。明示依頼が必要 |
@@ -44,6 +46,7 @@
 - [作者ではなく読者影響を確認するreview例](examples/authorship-boundary-ja.md)
 - [関係を一語で済ませた文の確認例](examples/relationship-clarity-ja.md)
 - [長文のcoverage-driven review例](examples/coverage-review-ja.md)
+- [段落・節の話題のつながりを確認する例](examples/discourse-continuity-ja.md)
 - [DB定義の局所整合性review例](examples/local-consistency-ja.md)
 
 ## 起動例
@@ -63,6 +66,9 @@ $reader-first-editor docs/configuration.mdをrepository-reviewで確認してく
 
 # 長い文書を構造単位で確認し、coverageを示す
 $reader-first-editor docs/operations.mdを見落としがないようreviewし、coverageも示してください。
+
+# 段落・節の話題のつながりを確認し、安全に直せる箇所だけ改稿する
+$reader-first-editor docs/guide.mdの話題のつながりを確認し、revise-safeで改稿してください。
 
 # DB定義の同じ役割の列から外れる少数例と根拠を確認する
 $reader-first-editor docs/database.mdのaudit timestampをrepository-reviewしてください。
@@ -128,6 +134,18 @@ citationがないだけで `UNSUPPORTED` へ変えません。
 明示依頼、証拠が競合する文脈の確認に限定します。詳細は
 [リポジトリ内の証拠に基づく校閲](references/core/repository-grounded-review.md)を
 参照してください。
+
+### 話題のつながり
+
+複数段落・複数sectionでは、文書種別に合う入口、各段落の役割、前段・見出し・文書目的との関係、
+「なぜこの位置で必要か」、新しい概念の初出を確認します。各段落を直前段落へ機械的につなげず、
+reference、FAQ、option一覧、表などは見出しや分類規則をanchorに独立できる場合があります。
+
+接続詞の有無だけで判定せず、関係を説明できない段落を不要とは決めません。`revise-safe` では本文や
+確認済みcontextから一意に導ける短いbridgeだけを追加します。安全に関係を確定できない場合は、
+原文にない因果や目的を作らず、不足情報、修正しなかった理由、可能な次の対応を示します。改稿後は
+可能な限り別contextで初見確認を行い、同一Agentで代替した場合は独立性の限界を明記します。詳細は
+[話題のつながりの確認](docs/discourse-continuity.md)を参照してください。
 
 ### 長文と局所整合性
 
@@ -308,6 +326,7 @@ schema、CLI例は[日本語構文解析](docs/syntax-analysis.md)を参照し�
 
 関連文書:
 
+- [話題のつながりの確認](docs/discourse-continuity.md)
 - [`natural-japanese`との目的・設計上の関係](docs/related-work-natural-japanese.md)
 - [コーパス運用](docs/corpus-workflow.md)
 - [コーパスデータモデル](docs/corpus-data-model.md)
