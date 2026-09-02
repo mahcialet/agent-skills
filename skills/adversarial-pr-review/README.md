@@ -108,7 +108,8 @@ $adversarial-pr-review F-001とF-003を既存review-checklist.mdと比較し、n
 ```
 
 この操作でも、checklist候補と分類結果だけをreportします。明示的な編集依頼なしにchecklistを
-変更しません。
+変更しません。これはchecklist-only operationの例外であり、通常のfull-review output contract（Coverage gap auditを
+含む）は適用しません。
 
 <a id="敵対性level"></a>
 

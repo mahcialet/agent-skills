@@ -292,6 +292,10 @@ path、schema field、固定enumは原文どおり保つ。英語で依頼され
 criteriaが存在しない場合は空の表を並べず、`specification_status=missing`、確認できたrepository
 contract／invariant、保留した判断を簡潔に示す。
 
+この出力契約は、PR、diff、branch、commitをreviewする通常のreportに適用する。READMEの
+checklist-only operationは明示的な例外であり、checklist候補と分類結果だけを返し、Coverage gap auditを
+含むfull-review sectionsは省略できる。
+
 `PASS` は、指定scope、取得できたcontract、確認したevidenceの範囲でblocking findingを
 確認しなかったという限定的なrecommendationであり、無欠陥、安全、merge後の成功、未確認要件への
 適合を保証しない。`mode=gate` でも `Approval status: NOT GRANTED` と

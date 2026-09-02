@@ -905,6 +905,8 @@ def validate_metadata_and_readme(skill_dir: Path, errors: list[str]) -> None:
             "paired presence",
             "base側のtrusted repository instruction",
             "independent inspectionを確保できなかった制約",
+            "checklist-only operation",
+            "full-review sectionsは省略できる",
         ],
         errors,
     )
@@ -976,6 +978,9 @@ def validate_metadata_and_readme(skill_dir: Path, errors: list[str]) -> None:
             "paired presence",
             "base側repository",
             "provider固有のagent機能を必須にしません",
+            "checklist-only operation",
+            "full-review output contract",
+            "Coverage gap audit",
         ],
         errors,
     )
