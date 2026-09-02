@@ -38,6 +38,35 @@
 - Discovered impact: shared export query and its tenant predicate
 - Undeclared impact requiring follow-up: asynchronous export formats outside the reviewed path
 
+## Coverage gap audit
+
+- Inspection separation: an independent read-only reviewer performed the blind pass.
+- Initial findings were not used as the completion criterion: the pass started from the changed tenant-scope contract.
+
+### Change-obligation coverage
+
+| Changed concept | Route inspected | Status | Evidence | Linked finding / hypothesis |
+|---|---|---|---|---|
+| tenant scope | request producer → body parser → middleware context → query consumer → response side effect | Inspected | E-01〜E-05 | F-001 |
+| asynchronous export formats | alternate producer and worker consumer | Unverified | route is outside the retrieved source set | Residual risk |
+
+### Relational-invariant coverage
+
+| Field / state group | Relationship checked | Status | Evidence |
+|---|---|---|---|
+| body tenant ID and verified context tenant ID | paired presence, equality requirement, mode compatibility | Inspected | E-01〜E-04 |
+
+### Repository-rule obligations
+
+| Base instruction | Triggering change | Required companion | Status | Evidence |
+|---|---|---|---|---|
+| repository test policy | authorization behavior change | focused cross-tenant test | Inspected | E-05 |
+
+### Blind-spot result
+
+The blind pass confirmed F-001 through a route not limited to the changed handler. It did not create an additional
+finding for the unavailable asynchronous route; that route remains an explicit residual risk.
+
 ## Findings
 
 ### F-001: The export query trusts a tenant ID from the request body

@@ -319,6 +319,7 @@ REPORT_SECTION_ORDER = (
     "## Review contract",
     "## Requirement traceability",
     "## Impact comparison",
+    "## Coverage gap audit",
     "## Findings",
     "## Hypotheses",
     "## Evidence ledger",
@@ -578,6 +579,11 @@ def validate_examples(skill_dir: Path, errors: list[str]) -> None:
             "Contract / invariant reference:",
             "False-positive condition:",
             "未実施",
+            "Initial findings were not used as the completion criterion",
+            "Change-obligation coverage",
+            "Relational-invariant coverage",
+            "Repository-rule obligations",
+            "Blind-spot result",
         ],
         errors,
     )
@@ -601,6 +607,11 @@ def validate_examples(skill_dir: Path, errors: list[str]) -> None:
             "Approval status: NOT GRANTED",
             "Human approval required: yes",
             "report-only",
+            "Initial findings were not used as the completion criterion",
+            "Change-obligation coverage",
+            "Relational-invariant coverage",
+            "Repository-rule obligations",
+            "Blind-spot result",
         ],
         errors,
     )
@@ -621,6 +632,10 @@ def validate_examples(skill_dir: Path, errors: list[str]) -> None:
             "Human approval required: yes",
             "`PASS`",
             "not a safety guarantee",
+            "Initial findings were not used as the completion criterion",
+            "追加candidateはなかった",
+            "Not applicable",
+            "Unverified",
         ],
         errors,
     )
@@ -630,6 +645,26 @@ def validate_examples(skill_dir: Path, errors: list[str]) -> None:
         errors.append("English example must demonstrate an A3 tenant authorization boundary")
     if not no_findings:
         errors.append("no-finding example must be readable")
+
+    coverage_path = skill_dir / "examples" / "coverage-gap-audit.md"
+    coverage = require_ordered_tokens(coverage_path, REPORT_SECTION_ORDER, errors)
+    require_text_tokens(
+        coverage_path,
+        coverage,
+        [
+            "13 findings",
+            "alternate producer",
+            "paired presence",
+            "base `AGENTS.md`",
+            "Not applicable",
+            "Unverified",
+            "docs-only",
+            "discussion_r3917733760",
+            "discussion_r3917733769",
+            "discussion_r3917733777",
+        ],
+        errors,
+    )
 
 
 def validate_policy_and_assets(skill_dir: Path, errors: list[str]) -> None:
@@ -703,6 +738,30 @@ def validate_policy_and_assets(skill_dir: Path, errors: list[str]) -> None:
             "line unverified",
             "- Location line status: unverified",
             "literal `unverified`",
+            "Initial findings were not used as the completion criterion",
+            "Change-obligation coverage",
+            "Relational-invariant coverage",
+            "Repository-rule obligations",
+            "Blind-spot result",
+        ],
+        errors,
+    )
+
+    require_tokens(
+        skill_dir / "references" / "coverage-gap-audit.md",
+        [
+            "Change-obligation coverage",
+            "Relational-invariant audit",
+            "Repository-rule obligation audit",
+            "Inspected",
+            "Not applicable",
+            "Unverified",
+            "findingが0件でも多数でも",
+            "独立したread-only reviewer",
+            "provider固有toolをcore workflowの必須条件にしない",
+            "discussion_r3917733760",
+            "discussion_r3917733769",
+            "discussion_r3917733777",
         ],
         errors,
     )
@@ -741,6 +800,9 @@ def validate_policy_and_assets(skill_dir: Path, errors: list[str]) -> None:
             "claimed",
             "observed",
             "executed",
+            "change_obligations",
+            "repository_rule_obligations",
+            "coverage-gap audit",
             "Gate recommendation: BLOCK | CONDITIONAL | PASS",
             "Approval status: NOT GRANTED",
             "Human approval required: yes",
@@ -761,6 +823,11 @@ def validate_metadata_and_readme(skill_dir: Path, errors: list[str]) -> None:
             "portable locator",
             "absolute path",
             "行番号だけのlabel",
+            "coverage-gap audit",
+            "初回finding数を終了理由にせず",
+            "paired presence",
+            "base側のtrusted repository instruction",
+            "independent inspectionを確保できなかった制約",
         ],
         errors,
     )
@@ -826,6 +893,12 @@ def validate_metadata_and_readme(skill_dir: Path, errors: list[str]) -> None:
             "Human approval required: yes",
             "repository-root-relative path",
             "absolute path",
+            "coverage-gap audit",
+            "findingが0件でも多数でも",
+            "producer、transform、serialization、validator、consumer",
+            "paired presence",
+            "base側repository",
+            "provider固有のagent機能を必須にしません",
         ],
         errors,
     )

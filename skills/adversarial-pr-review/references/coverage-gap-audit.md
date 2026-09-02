@@ -122,6 +122,7 @@ repository_rule_obligation:
 6. 確定できないgapをfindingへ水増しせず、`Unverified`、Hypothesis、未実施検証、残余リスクへ分ける。
 
 hostが独立したread-only reviewerまたはfresh contextを提供できる場合は、このblind passへ使う。
+独立reviewerには、初回passが終わるまで既出findingの本文や実装者の自己評価を渡さない。
 利用できない場合も、同じreviewerが既出findingを一旦脇へ置いてfresh passを行う。独立性を確保
 できなかった事実はreportのlimitationに記録する。provider固有toolをcore workflowの必須条件にしない。
 

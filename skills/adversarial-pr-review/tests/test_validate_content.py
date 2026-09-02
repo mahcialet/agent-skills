@@ -76,6 +76,28 @@ class CoverageGapSuiteTestCase(unittest.TestCase):
         )
 
 
+class CoverageGapReportOrderTestCase(unittest.TestCase):
+    def errors_for_sections(self, sections: list[str]) -> list[str]:
+        with tempfile.TemporaryDirectory() as temporary:
+            path = Path(temporary) / "report.md"
+            path.write_text("\n\n".join(sections) + "\n", encoding="utf-8")
+            errors: list[str] = []
+            validator.require_ordered_tokens(
+                path, validator.REPORT_SECTION_ORDER, errors
+            )
+            return errors
+
+    def test_coverage_gap_section_between_impact_and_findings_is_accepted(self) -> None:
+        self.assertEqual([], self.errors_for_sections(list(validator.REPORT_SECTION_ORDER)))
+
+    def test_coverage_gap_section_after_findings_is_rejected(self) -> None:
+        sections = list(validator.REPORT_SECTION_ORDER)
+        sections.remove("## Coverage gap audit")
+        sections.insert(sections.index("## Findings") + 1, "## Coverage gap audit")
+        errors = self.errors_for_sections(sections)
+        self.assertTrue(any("out of order" in error for error in errors))
+
+
 class PortableLocationTestCase(unittest.TestCase):
     def errors_for(self, text: str) -> list[str]:
         errors: list[str] = []

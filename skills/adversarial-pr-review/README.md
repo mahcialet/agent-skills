@@ -43,6 +43,22 @@ testの証跡は、成功したという申告だけの `claimed`、CI結果や�
 reviewerが安全な環境で実行した `executed` に分けます。申告だけの結果を、確認済みまたは実行済みと
 表現しません。
 
+## 初回review後のcoverage-gap audit
+
+primary reviewでfinding候補を集めた後、既出findingの確認とは別に `coverage-gap audit` を行います。
+findingが0件でも多数でも、件数をreviewの完了条件にはしません。変更されたconceptごとに、
+producer、transform、serialization、validator、consumer、test、example、alternate modeを追います。
+また、関連field間のpaired presence、cardinality、empty／missing、compatibilityと、base側repository
+instructionが変更種別に要求するcompanion artifactを確認します。
+
+独立したread-only reviewerまたはfresh contextを利用できる場合はblind passへ使います。利用できない
+hostでも、既出findingを一旦脇へ置いたfresh passを行い、独立性の制約をreportへ記録します。この
+工程はprovider固有のagent機能を必須にしません。追加findingがない場合も、確認したroute、適用外の
+根拠、未確認事項、残余制約を `## Coverage gap audit` に残します。
+
+詳しい手順は
+[coverage-gap audit](references/coverage-gap-audit.md)を参照してください。
+
 Findingのlocationは、`sample-repo/src/policy.ts:16` のようなrepository labelと
 repository-root-relative pathを組み合わせたinline locatorで示します。Location fieldにはlocatorだけを
 置き、行番号だけのlink labelを含むMarkdown linkや、host固有のabsolute pathは出力しません。

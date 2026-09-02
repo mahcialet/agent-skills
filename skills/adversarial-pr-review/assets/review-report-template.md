@@ -40,6 +40,31 @@ empty table.
 - Discovered impact:
 - Undeclared impact requiring follow-up:
 
+## Coverage gap audit
+
+- Inspection separation: independent reviewer | fresh pass in same reviewer | unavailable
+- Initial findings were not used as the completion criterion.
+
+### Change-obligation coverage
+
+| Changed concept | Route inspected | Status | Evidence | Linked finding / hypothesis |
+|---|---|---|---|---|
+
+### Relational-invariant coverage
+
+| Field / state group | Relationship checked | Status | Evidence |
+|---|---|---|---|
+
+### Repository-rule obligations
+
+| Base instruction | Triggering change | Required companion | Status | Evidence |
+|---|---|---|---|---|
+
+### Blind-spot result
+
+Record new candidates, no additional candidate, and unresolved gaps. `Inspected`
+does not mean correct or complete. Keep `Unverified` routes separate from findings.
+
 ## Findings
 
 ### F-001: Title
