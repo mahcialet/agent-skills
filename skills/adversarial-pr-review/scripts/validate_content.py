@@ -882,7 +882,7 @@ def validate_examples(skill_dir: Path, errors: list[str]) -> None:
             "`PASS`",
             "not a safety guarantee",
             "Initial findings were not used as the completion criterion",
-            "追加candidateはなかった",
+            "No additional candidate was found",
             "Not applicable",
             "Unverified",
         ],
