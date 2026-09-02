@@ -382,6 +382,21 @@ REPORT_SECTION_ORDER = (
 FORBIDDEN_FRONTMATTER = {"allowed-tools", "model", "version", "tools", "compatibility"}
 MARKDOWN_LINK_RE = re.compile(r"(?<!!)\[[^]]*\]\(([^)]+)\)")
 RESOURCE_RE = re.compile(r"`((?:references|examples|evals|scripts|assets)/[^`\s]+)`")
+HTML_BLOCK_TAG_RE = re.compile(
+    r"^</?(?:address|article|aside|base|basefont|blockquote|body|caption|center|"
+    r"col|colgroup|dd|details|dialog|dir|div|dl|dt|fieldset|figcaption|figure|"
+    r"footer|form|frame|frameset|h[1-6]|head|header|hr|html|iframe|legend|li|"
+    r"link|main|menu|menuitem|nav|noframes|ol|optgroup|option|p|param|search|"
+    r"section|summary|table|tbody|td|tfoot|th|thead|title|tr|track|ul)"
+    r"(?=[ \t/>]|$)",
+    re.IGNORECASE,
+)
+HTML_COMPLETE_TAG_RE = re.compile(
+    r"^</?[A-Za-z][A-Za-z0-9-]*"
+    r"(?:[ \t]+[A-Za-z_:][A-Za-z0-9_.:-]*"
+    r"(?:[ \t]*=[ \t]*(?:[^ \"'=<>`]+|'[^']*'|\"[^\"]*\"))?)*"
+    r"[ \t]*/?>[ \t]*$"
+)
 
 
 def read(path: Path, errors: list[str]) -> str:
@@ -540,11 +555,36 @@ def _strip_html_comments(line: str, in_comment: bool) -> tuple[str, bool]:
         in_comment = True
 
 
+def _raw_html_block_end(line: str) -> str | None:
+    """Return an end pattern for a CommonMark raw HTML block start."""
+    leading_spaces = len(line) - len(line.lstrip(" "))
+    if leading_spaces > 3:
+        return None
+    stripped = line[leading_spaces:]
+
+    tag_match = re.match(
+        r"^<(script|pre|style|textarea)(?=[ \t>])", stripped, re.IGNORECASE
+    )
+    if tag_match:
+        return rf"</{re.escape(tag_match.group(1))}[ \t]*>"
+    if stripped.startswith("<?"):
+        return r"\?>"
+    if re.match(r"^<![A-Z]", stripped):
+        return r">"
+    if stripped.startswith("<![CDATA["):
+        return r"\]\]>"
+    if HTML_BLOCK_TAG_RE.match(stripped) or HTML_COMPLETE_TAG_RE.fullmatch(stripped):
+        # CommonMark block-tag and complete-tag blocks end at the next blank line.
+        return ""
+    return None
+
+
 def _visible_markdown_lines(text: str) -> list[str]:
-    """Return lines that are visible Markdown content, excluding code blocks."""
+    """Return visible Markdown lines, excluding code and raw HTML blocks."""
     visible_lines: list[str] = []
     fence_char: str | None = None
     fence_length = 0
+    html_block_end: str | None = None
     in_html_comment = False
 
     for raw_line in text.splitlines():
@@ -561,6 +601,14 @@ def _visible_markdown_lines(text: str) -> list[str]:
                 ):
                     fence_char = None
                     fence_length = 0
+            continue
+
+        if html_block_end is not None:
+            if html_block_end == "":
+                if not raw_line.strip():
+                    html_block_end = None
+            elif re.search(html_block_end, raw_line, re.IGNORECASE):
+                html_block_end = None
             continue
 
         line, in_html_comment = _strip_html_comments(raw_line, in_html_comment)
@@ -580,6 +628,14 @@ def _visible_markdown_lines(text: str) -> list[str]:
                 fence_char = marker[0]
                 fence_length = len(marker)
                 continue
+
+        raw_html_end = _raw_html_block_end(line)
+        if raw_html_end is not None:
+            if raw_html_end == "" or not re.search(
+                raw_html_end, line, re.IGNORECASE
+            ):
+                html_block_end = raw_html_end
+            continue
 
         visible_lines.append(line)
 

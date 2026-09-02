@@ -221,6 +221,28 @@ class CoverageGapReportOrderTestCase(unittest.TestCase):
         errors = self.errors_for_sections(sections)
         self.assertTrue(any("missing required token" in error for error in errors))
 
+    def test_heading_inside_raw_html_script_block_is_not_counted(self) -> None:
+        sections = list(validator.REPORT_SECTION_ORDER)
+        sections.remove("## Coverage gap audit")
+        sections.insert(
+            sections.index("## Findings"),
+            "<script>\n## Coverage gap audit\n</script>",
+        )
+        sections.insert(sections.index("## Findings") + 1, "## Coverage gap audit")
+        errors = self.errors_for_sections(sections)
+        self.assertTrue(any("out of order" in error for error in errors))
+
+    def test_heading_inside_raw_html_block_tag_is_not_counted(self) -> None:
+        sections = list(validator.REPORT_SECTION_ORDER)
+        sections.remove("## Coverage gap audit")
+        sections.insert(
+            sections.index("## Findings"),
+            "<div>\n## Coverage gap audit\n</div>",
+        )
+        sections.insert(sections.index("## Findings") + 1, "## Coverage gap audit")
+        errors = self.errors_for_sections(sections)
+        self.assertTrue(any("out of order" in error for error in errors))
+
     def test_longer_fence_requires_matching_length(self) -> None:
         text = """## Scope and parameters
 ````text
