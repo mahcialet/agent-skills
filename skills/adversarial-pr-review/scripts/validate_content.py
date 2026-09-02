@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import re
 import sys
@@ -314,6 +315,20 @@ HISTORICAL_PROVENANCE = {
         "8bf6c1ff9749a8736e4e4b6444883324465432c9 / discussion_r3917733777"
     ),
 }
+HISTORICAL_FIXTURE_DIGESTS = {
+    "coverage-pr2-propagation-all-producers": {
+        "input": "ae894fbfe0ae5382865d21a2a36be8032bf9a17494d6a7327ba3fda192ffca64",
+        "expected": "293db3f795e115867ed270a4d274a258fbd59209a2af2241aedc8d05fdd4afa2",
+    },
+    "coverage-pr2-repository-rule-companion-example": {
+        "input": "a50b4b2d0e098fff557c1f7f8e6442c18de25440ac12ac0082b7956aed12f733",
+        "expected": "a97997bdaad2e48cd179c39592ee03677788ca02a329627127e8f9413b86162d",
+    },
+    "coverage-pr2-relational-oracle-invariants": {
+        "input": "0380234976a5199e11ccfb6fab510630502b11e3a366e75c06f2c7d937394e2e",
+        "expected": "40d5cf88a01897e788e5c892bd542f724e0638dd127b461a2026cb6c414641c2",
+    },
+}
 REPORT_SECTION_ORDER = (
     "## Scope and parameters",
     "## Review contract",
@@ -426,6 +441,17 @@ def validate_suites(skill_dir: Path, errors: list[str]) -> int:
                     errors.append(
                         f"{label}: historical case {case_id} must preserve frozen provenance"
                     )
+            if isinstance(case_id, str) and case_id in HISTORICAL_FIXTURE_DIGESTS:
+                canonical_digests = HISTORICAL_FIXTURE_DIGESTS[case_id]
+                for field in ("input", "expected"):
+                    value = case.get(field)
+                    if isinstance(value, str):
+                        digest = hashlib.sha256(value.encode("utf-8")).hexdigest()
+                        if digest != canonical_digests[field]:
+                            errors.append(
+                                f"{label}: historical case {case_id} canonical "
+                                f"{field} digest mismatch"
+                            )
             count += 1
 
     missing_suites = REQUIRED_SUITES - seen_suites

@@ -50,6 +50,24 @@ class CoverageGapSuiteTestCase(unittest.TestCase):
         errors = self.validate_with_mutation(replace_comment)
         self.assertTrue(any("frozen provenance" in error for error in errors))
 
+    def test_historical_case_with_changed_input_is_rejected(self) -> None:
+        def replace_input(data: dict) -> None:
+            data["cases"][0]["input"] = "unrelated scenario"
+
+        errors = self.validate_with_mutation(replace_input)
+        self.assertTrue(
+            any("canonical input digest mismatch" in error for error in errors)
+        )
+
+    def test_historical_case_with_changed_expected_is_rejected(self) -> None:
+        def replace_expected(data: dict) -> None:
+            data["cases"][0]["expected"] += " but skip the audit"
+
+        errors = self.validate_with_mutation(replace_expected)
+        self.assertTrue(
+            any("canonical expected digest mismatch" in error for error in errors)
+        )
+
     def test_required_coverage_case_cannot_be_removed(self) -> None:
         def remove_case(data: dict) -> None:
             data["cases"] = [
