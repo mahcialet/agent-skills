@@ -339,6 +339,54 @@ class RegressionTests(unittest.TestCase):
                 corpus_record_ids=[self.promoted["id"]],
             )
 
+    def test_plan_builder_rejects_unpaired_status_or_evidence(self) -> None:
+        invalid_oracles = (
+            (
+                "status-without-evidence",
+                {"expected_statuses": ["VERIFIED"]},
+                "provided together",
+            ),
+            (
+                "multiple-statuses-without-evidence",
+                {"expected_statuses": ["VERIFIED", "UNSUPPORTED"]},
+                "exactly one status per case",
+            ),
+            (
+                "evidence-without-status",
+                {"expected_evidence_types": ["DOC↔CODE"]},
+                "provided together",
+            ),
+        )
+        for case_id, oracle, message in invalid_oracles:
+            with self.subTest(case_id=case_id):
+                eval_dir = self.root / f"invalid-oracle-{case_id}"
+                eval_dir.mkdir()
+                case = {
+                    "id": case_id,
+                    "language": "ja",
+                    "mode": "review",
+                    "input": "入力",
+                    "expected": "期待",
+                    **oracle,
+                }
+                (eval_dir / "invalid-oracle.yaml").write_text(
+                    json.dumps(
+                        {"suite": "invalid-oracle", "cases": [case]},
+                        ensure_ascii=False,
+                    ),
+                    encoding="utf-8",
+                )
+
+                with self.assertRaisesRegex(RegressionError, message):
+                    build_regression_plan(
+                        self.proposal,
+                        self.store,
+                        eval_dir=eval_dir,
+                        provider_matrix=provider_matrix(),
+                        candidate_evals=candidate_evals(),
+                        corpus_record_ids=[self.promoted["id"]],
+                    )
+
     def test_plan_rejects_repository_review_with_empty_oracles(self) -> None:
         plan = deepcopy(self.plan)
         bundled = next(
@@ -416,6 +464,13 @@ class RegressionTests(unittest.TestCase):
         case_schema = schema["properties"]["cases"]["items"]
         self.assertEqual(
             case_schema["properties"]["expected_statuses"]["maxItems"], 1
+        )
+        self.assertEqual(
+            case_schema["dependentRequired"],
+            {
+                "expected_statuses": ["expected_evidence_types"],
+                "expected_evidence_types": ["expected_statuses"],
+            },
         )
         status_rules = case_schema["allOf"][1:]
         expected = {

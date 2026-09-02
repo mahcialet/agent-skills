@@ -110,7 +110,8 @@ rules apply（既定preview、--applyで変更）
 そのdirectoryへ置き換わり、Skillのbundled eval directoryか、全suiteを含むかは検証しない。
 bundled evalに `expected_risks`、`expected_statuses`、`expected_evidence_types` がある場合は、
 外部runnerが構造化された期待値を照合できるようplanへ保持する。これらのfieldを指定する場合は
-1件以上の値が必要であり、期待値がないfieldは省略する。1件のeval caseは1件のclaimを表し、
+1件以上の値が必要であり、期待値がないfieldは省略する。`expected_statuses`と
+`expected_evidence_types`はmodeにかかわらず対で指定する。1件のeval caseは1件のclaimを表し、
 `expected_statuses`は1件だけを指定する。`VERIFIED`／`CONTRADICTED`ではリポジトリ内の
 照合関係だけ、`SUPPORTED-BY-CITATION`では`CITATION`だけ、`UNSUPPORTED`では
 `EVIDENCE-GAP`だけ、`UNVERIFIED`では`UNVERIFIED`だけをevidence typeとして許可する。

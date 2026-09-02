@@ -71,10 +71,14 @@ def validate_eval_oracles(case: dict) -> list[str]:
             errors.append("repository-review requires expected_statuses")
         if not evidence_types:
             errors.append("repository-review requires expected_evidence_types")
-    if statuses is not None and evidence_types is not None:
-        if len(statuses) != 1:
-            errors.append("expected_statuses must contain exactly one status per case")
-        elif statuses[0] in EVIDENCE_TYPES_BY_STATUS:
+    if statuses is not None and len(statuses) != 1:
+        errors.append("expected_statuses must contain exactly one status per case")
+    if (statuses is None) != (evidence_types is None):
+        errors.append(
+            "expected_statuses and expected_evidence_types must be provided together"
+        )
+    elif statuses is not None and evidence_types is not None:
+        if len(statuses) == 1 and statuses[0] in EVIDENCE_TYPES_BY_STATUS:
             status = statuses[0]
             incompatible = sorted(
                 set(evidence_types) - EVIDENCE_TYPES_BY_STATUS[status]
