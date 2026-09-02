@@ -15,7 +15,11 @@ from copy import deepcopy
 from datetime import datetime, timezone
 from pathlib import Path
 
-from .eval_validation import STRUCTURED_ORACLE_VALUES, validate_eval_oracles
+from .eval_validation import (
+    STRUCTURED_ORACLE_VALUES,
+    validate_eval_oracles,
+    validate_status_evidence_pair,
+)
 from .schema_validation import is_schema_version
 from .state import STATE_DIRECTORIES, LocalCorpusStore, StoreError
 
@@ -653,6 +657,7 @@ def validate_regression_run(run: object, plan: dict) -> dict:
                         item,
                         observed_key,
                         "regression run.cases[]",
+                        nonempty=True,
                         unique=True,
                     )
                     if unknown := sorted(set(observed) - allowed_values):
@@ -667,6 +672,7 @@ def validate_regression_run(run: object, plan: dict) -> dict:
                 item,
                 observed_key,
                 "regression run.cases[]",
+                nonempty=True,
                 unique=True,
             )
             if unknown := sorted(set(observed) - allowed_values):
@@ -682,6 +688,18 @@ def validate_regression_run(run: object, plan: dict) -> dict:
                     f"expected={', '.join(sorted(expected_values))}; "
                     f"observed={', '.join(sorted(observed_values))}"
                 )
+        observation_errors = validate_status_evidence_pair(
+            item.get("observed_statuses"),
+            item.get("observed_evidence_types"),
+            status_field="observed_statuses",
+            evidence_field="observed_evidence_types",
+            require_pair=status not in {"unsupported", "error"},
+        )
+        if observation_errors:
+            raise RegressionError(
+                "regression run.cases[]のstructured observationが不正です: "
+                + "; ".join(observation_errors)
+            )
     expected_ids = [case["id"] for case in plan["cases"]]
     if case_ids != expected_ids:
         raise RegressionError("regression runはplanの全caseを同じ順序で含める必要があります")

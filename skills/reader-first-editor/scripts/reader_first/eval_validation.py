@@ -41,6 +41,34 @@ STRUCTURED_ORACLE_VALUES = {
 }
 
 
+def validate_status_evidence_pair(
+    statuses: list[str] | None,
+    evidence_types: list[str] | None,
+    *,
+    status_field: str = "expected_statuses",
+    evidence_field: str = "expected_evidence_types",
+    require_pair: bool = True,
+) -> list[str]:
+    """単一claimのstatusとevidence typeの対応関係を検証する。"""
+
+    errors: list[str] = []
+    if statuses is not None and len(statuses) != 1:
+        errors.append(f"{status_field} must contain exactly one status per case")
+    if require_pair and (statuses is None) != (evidence_types is None):
+        errors.append(f"{status_field} and {evidence_field} must be provided together")
+    if statuses is not None and evidence_types is not None:
+        if len(statuses) == 1 and statuses[0] in EVIDENCE_TYPES_BY_STATUS:
+            status = statuses[0]
+            incompatible = sorted(
+                set(evidence_types) - EVIDENCE_TYPES_BY_STATUS[status]
+            )
+            if incompatible:
+                errors.append(
+                    f"{status} has incompatible evidence types: {incompatible}"
+                )
+    return errors
+
+
 def validate_eval_oracles(case: dict) -> list[str]:
     """1件のeval caseにあるoracleの型・値・組合せを検証する。"""
 
@@ -71,22 +99,7 @@ def validate_eval_oracles(case: dict) -> list[str]:
             errors.append("repository-review requires expected_statuses")
         if not evidence_types:
             errors.append("repository-review requires expected_evidence_types")
-    if statuses is not None and len(statuses) != 1:
-        errors.append("expected_statuses must contain exactly one status per case")
-    if (statuses is None) != (evidence_types is None):
-        errors.append(
-            "expected_statuses and expected_evidence_types must be provided together"
-        )
-    elif statuses is not None and evidence_types is not None:
-        if len(statuses) == 1 and statuses[0] in EVIDENCE_TYPES_BY_STATUS:
-            status = statuses[0]
-            incompatible = sorted(
-                set(evidence_types) - EVIDENCE_TYPES_BY_STATUS[status]
-            )
-            if incompatible:
-                errors.append(
-                    f"{status} has incompatible evidence types: {incompatible}"
-                )
+    errors.extend(validate_status_evidence_pair(statuses, evidence_types))
     return errors
 
 
@@ -98,4 +111,5 @@ __all__ = [
     "REPOSITORY_EVIDENCE_TYPES",
     "STRUCTURED_ORACLE_VALUES",
     "validate_eval_oracles",
+    "validate_status_evidence_pair",
 ]

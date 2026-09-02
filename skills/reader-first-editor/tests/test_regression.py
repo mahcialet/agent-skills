@@ -524,6 +524,55 @@ class RegressionTests(unittest.TestCase):
             actual[frozenset(statuses)] = set(evidence_types)
         self.assertEqual(actual, expected)
 
+    def test_regression_run_schema_matches_observation_contract(self) -> None:
+        schema = json.loads(
+            (SKILL_DIR / "schemas" / "regression-run.schema.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        case_schema = schema["properties"]["cases"]["items"]
+        properties = case_schema["properties"]
+        self.assertEqual(properties["observed_risks"]["minItems"], 1)
+        self.assertEqual(properties["observed_statuses"]["minItems"], 1)
+        self.assertEqual(properties["observed_statuses"]["maxItems"], 1)
+        self.assertEqual(properties["observed_evidence_types"]["minItems"], 1)
+        self.assertEqual(
+            case_schema["allOf"][0]["then"]["dependentRequired"],
+            {
+                "observed_statuses": ["observed_evidence_types"],
+                "observed_evidence_types": ["observed_statuses"],
+            },
+        )
+
+        expected = {
+            frozenset({"VERIFIED", "CONTRADICTED"}): {
+                "DOC↔CODE",
+                "DOC↔CONFIG",
+                "DOC↔TEST",
+                "DOC↔DOC",
+                "DOC↔HISTORY",
+            },
+            frozenset({"SUPPORTED-BY-CITATION"}): {"CITATION"},
+            frozenset({"UNSUPPORTED"}): {"EVIDENCE-GAP"},
+            frozenset({"UNVERIFIED"}): {"UNVERIFIED"},
+        }
+        actual = {}
+        for rule in case_schema["allOf"][1:]:
+            status_constraint = rule["if"]["properties"]["observed_statuses"][
+                "contains"
+            ]
+            statuses = status_constraint.get(
+                "enum", [status_constraint.get("const")]
+            )
+            evidence_constraint = rule["then"]["properties"][
+                "observed_evidence_types"
+            ]["items"]
+            evidence_types = evidence_constraint.get(
+                "enum", [evidence_constraint.get("const")]
+            )
+            actual[frozenset(statuses)] = set(evidence_types)
+        self.assertEqual(actual, expected)
+
     def test_run_requires_planned_structured_oracles(self) -> None:
         run = passing_run(self.plan, self.plan["providers"][0], 1)
         case = next(
@@ -548,9 +597,52 @@ class RegressionTests(unittest.TestCase):
         with self.assertRaisesRegex(RegressionError, "期待値と完全一致"):
             validate_regression_run(run, self.plan)
 
+    def test_run_rejects_invalid_unplanned_structured_observations(self) -> None:
+        invalid_observations = (
+            ("empty", {"observed_risks": []}, "1件以上"),
+            (
+                "multiple-statuses",
+                {
+                    "observed_statuses": ["VERIFIED", "CONTRADICTED"],
+                    "observed_evidence_types": ["DOC↔CODE"],
+                },
+                "exactly one status",
+            ),
+            (
+                "unpaired-status",
+                {"observed_statuses": ["VERIFIED"]},
+                "provided together",
+            ),
+            (
+                "incompatible-evidence",
+                {
+                    "observed_statuses": ["SUPPORTED-BY-CITATION"],
+                    "observed_evidence_types": ["DOC↔CODE"],
+                },
+                "incompatible",
+            ),
+        )
+        for name, observations, message in invalid_observations:
+            with self.subTest(name=name):
+                run = passing_run(self.plan, self.plan["providers"][0], 1)
+                case = next(
+                    item
+                    for item in run["cases"]
+                    if not any(key.startswith("observed_") for key in item)
+                )
+                case.update(observations)
+
+                with self.assertRaisesRegex(RegressionError, message):
+                    validate_regression_run(run, self.plan)
+
     def test_failed_run_preserves_actual_structured_oracles(self) -> None:
         run = passing_run(self.plan, self.plan["providers"][0], 1)
-        case = next(item for item in run["cases"] if "observed_statuses" in item)
+        case = next(
+            item
+            for item in run["cases"]
+            if item.get("observed_statuses") == ["CONTRADICTED"]
+            and item.get("observed_evidence_types") == ["DOC↔CONFIG"]
+        )
         case["status"] = "fail"
         case["observed_statuses"] = ["VERIFIED"]
 
