@@ -557,6 +557,24 @@ outside
             any("locationsが重複" in error for error in _validate(duplicate))
         )
 
+    def test_dimension_finding_count_counts_consolidated_findings(self) -> None:
+        report = finding_report()
+        report["candidates"].append(
+            {
+                "candidate_id": "REL-0002",
+                "source": "finding.md",
+                "line": 3,
+                "resolution": "finding",
+            }
+        )
+        report["chunks"][0]["candidate_ids"].append("REL-0002")
+        dimension = _dimension(report, "relationship-clarity")
+        dimension["candidate_ids"].append("REL-0002")
+        dimension["candidate_count"] = 2
+        dimension["finding_count"] = 1
+        report["findings"][0]["candidate_ids"].append("REL-0002")
+        self.assertEqual(_validate(report), [])
+
     def test_cli_rejects_invalid_severity(self) -> None:
         report = finding_report("CRITICAL")
         inventory = build_markdown_inventory(FINDING_TEXT, source="<text>")

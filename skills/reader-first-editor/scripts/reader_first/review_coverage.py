@@ -658,6 +658,7 @@ def validate_coverage_report(
     dimension_names: set[str] = set()
     dimension_candidate_ids: set[str] = set()
     dimension_statuses: dict[str, object] = {}
+    dimension_finding_counts: list[tuple[str, list[str], int]] = []
     for index, dimension in enumerate(dimensions, start=1):
         label = f"dimension {index}"
         if not isinstance(dimension, dict):
@@ -714,8 +715,9 @@ def validate_coverage_report(
             )
             for resolution in RESOLUTIONS
         }
-        if counts["finding_count"] != classified["finding"]:
-            errors.append(f"{label}: finding_countがcandidateの分類と一致しません")
+        dimension_finding_counts.append(
+            (label, list(candidate_ids), counts["finding_count"])
+        )
         if counts["excluded_count"] != classified["excluded"]:
             errors.append(f"{label}: excluded_countがcandidateの分類と一致しません")
         if counts["unresolved_count"] != classified["unresolved"]:
@@ -773,6 +775,7 @@ def validate_coverage_report(
         findings = []
     finding_candidate_ids: set[str] = set()
     finding_ids: set[str] = set()
+    candidate_finding_ids: dict[str, set[str]] = {}
     for index, finding in enumerate(findings, start=1):
         label = f"finding {index}"
         if not isinstance(finding, dict):
@@ -800,6 +803,8 @@ def validate_coverage_report(
             elif candidate_map[candidate_id].get("resolution") != "finding":
                 errors.append(f"{label}: finding以外のcandidateを参照しています: {candidate_id}")
             finding_candidate_ids.add(candidate_id)
+            if isinstance(finding_id, str) and finding_id:
+                candidate_finding_ids.setdefault(candidate_id, set()).add(finding_id)
         locations = finding.get("locations")
         if not isinstance(locations, list) or not locations:
             errors.append(f"{label}: locationsが必要です")
@@ -842,4 +847,14 @@ def validate_coverage_report(
     omitted = expected_finding_candidates - finding_candidate_ids
     if omitted:
         errors.append(f"findingへ保持されていないcandidateがあります: {sorted(omitted)}")
+    for label, candidate_ids, declared_finding_count in dimension_finding_counts:
+        linked_finding_ids = {
+            finding_id
+            for candidate_id in candidate_ids
+            for finding_id in candidate_finding_ids.get(candidate_id, set())
+        }
+        if declared_finding_count != len(linked_finding_ids):
+            errors.append(
+                f"{label}: finding_countが関連するconsolidated finding数と一致しません"
+            )
     return errors
