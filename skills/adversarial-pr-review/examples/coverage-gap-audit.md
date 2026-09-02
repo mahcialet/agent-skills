@@ -160,12 +160,13 @@ Historical provenance:
 
 | Test / check | Provenance | Source / command | Result | Limitation |
 |---|---|---|---|---|
-| synthetic fixture validation | observed | fixture tied to reviewed synthetic head | main path succeeds、alternate path fails | model-backed review behaviorは未実行 |
+| synthetic fixture contract | claimed | `evals/coverage-gap-audit.yaml` | expected: main path succeeds、alternate path fails | static oracle only。実行log／CI resultはない |
 
 ## Unexecuted validation
 
-generated producerとdynamic dispatchはsourceを取得できず未実施。live PRはcanonical fixtureではないため、
-runtime dependencyとして取得していない。
+synthetic fixtureのmain／alternate pathは実行しておらず、保存済みlogやCI resultもない。generated
+producerとdynamic dispatchはsourceを取得できず未実施。live PRはcanonical fixtureではないため、runtime
+dependencyとして取得していない。
 
 ## Residual risks
 

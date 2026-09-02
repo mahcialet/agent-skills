@@ -905,6 +905,9 @@ def validate_examples(skill_dir: Path, errors: list[str]) -> None:
             "discussion_r3917733760",
             "discussion_r3917733769",
             "discussion_r3917733777",
+            "| synthetic fixture contract | claimed |",
+            "static oracle only",
+            "保存済みlogやCI resultもない",
         ],
         errors,
     )
