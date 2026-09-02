@@ -51,8 +51,14 @@ def _canonical_header(value: str) -> str | None:
     return None
 
 
+def _unwrap_inline_code(value: str) -> str:
+    stripped = value.strip()
+    match = re.fullmatch(r"(`+)(.*?)\1", stripped, re.DOTALL)
+    return match.group(2) if match else stripped
+
+
 def normalize_type(value: str, dialect: str) -> str:
-    normalized = re.sub(r"\s+", " ", value.strip().casefold())
+    normalized = re.sub(r"\s+", " ", _unwrap_inline_code(value).strip().casefold())
     if dialect == "postgresql":
         aliases = {
             "timestamp with time zone": "timestamptz",
@@ -129,6 +135,7 @@ def _normalize_value(
     *,
     nullable_source: str = "nullable",
 ) -> str:
+    value = _unwrap_inline_code(value)
     if attribute == "type":
         return normalize_type(value, dialect)
     if attribute == "nullable":
@@ -281,8 +288,11 @@ def analyze_peer_groups(
             row
             for row in rows
             if isinstance(row, dict)
-            and column_re.search(str(row.get("column", "")))
-            and (table_re is None or table_re.search(str(row.get("table", ""))))
+            and column_re.search(_unwrap_inline_code(str(row.get("column", ""))))
+            and (
+                table_re is None
+                or table_re.search(_unwrap_inline_code(str(row.get("table", ""))))
+            )
         ]
         if len(members) < min_group_size:
             limitations.append(

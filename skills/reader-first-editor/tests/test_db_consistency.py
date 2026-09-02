@@ -106,6 +106,26 @@ class DatabaseConsistencyTests(unittest.TestCase):
             ["not-null", "not-null", "not-null", "nullable"],
         )
 
+    def test_inline_code_is_unwrapped_for_matching_and_normalization(self) -> None:
+        text = definition_table(
+            [
+                ("`events`", "`created_at`", "`TIMESTAMPTZ`", "NO", "`now()`", ""),
+                ("`events`", "`updated_at`", "`TIMESTAMPTZ`", "NO", "`now()`", ""),
+                ("`events`", "`deleted_at`", "`TIMESTAMPTZ`", "NO", "`now()`", ""),
+                ("`events`", "`published_at`", "`TIMESTAMP`", "NO", "`now()`", ""),
+            ]
+        )
+        extraction = extract_markdown_tables(text, source="inline-code.md", dialect="postgresql")
+        self.assertEqual(extraction["rows"][0]["column"], "`created_at`")
+        self.assertEqual(extraction["rows"][0]["normalized"]["type"], "timestamptz")
+        report = analyze_peer_groups(
+            extraction,
+            [PeerGroupSpec(name="timestamps", column_pattern=r"_at$")],
+            attributes=("type",),
+        )
+        self.assertEqual(report["peer_groups"][0]["member_count"], 4)
+        self.assertEqual(report["candidate_count"], 1)
+
     def test_quoted_default_literal_preserves_case_and_whitespace(self) -> None:
         rows = [
             ("events", "created_at", "text", "NO", "'active'", ""),
