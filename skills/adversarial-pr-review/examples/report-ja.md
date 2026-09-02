@@ -9,6 +9,7 @@
 - Selection rationale: 正規権限を持つclientが同じrequestを並行・再送でき、idempotencyと
   金額反映を扱うためA2
 - Excluded scope: 外部決済事業者の本番挙動
+- Identifier scope: new report
 
 ## Review contract
 
@@ -39,6 +40,35 @@
 - Declared impact: payment API、ledger、balance
 - Discovered impact: timeout時に同じkeyを再送するretry worker
 - Undeclared impact requiring follow-up: reconciliation batchが重複entryをどう扱うか
+
+## Coverage gap audit
+
+- Inspection separation: same reviewerのfresh pass。独立reviewerは利用していないため、独立性に制約がある。
+- Initial findings were not used as the completion criterion: 初回候補を固定し、idempotency keyの変更obligationから再探索した。
+
+### Change-obligation coverage
+
+| Changed concept | Route inspected | Status | Evidence | Linked finding / hypothesis |
+|---|---|---|---|---|
+| idempotency keyのat-most-once契約 | API producer → service check → ledger write → balance side effect → migration／refund test | Inspected | E-01〜E-04 | F-001 |
+| reconciliation batchへの伝播 | batch consumerと重複entryの扱い | Unverified | production batch設定を取得できない | Residual risk |
+
+### Relational-invariant coverage
+
+| Field / state group | Relationship checked | Status | Evidence |
+|---|---|---|---|
+| idempotency key、ledger entry、balance update | 1 logical requestに対するcardinality、checkとcommitのatomicity、duplicate時のstate | Inspected | E-01〜E-04 |
+
+### Repository-rule obligations
+
+| Base instruction | Triggering change | Required companion | Status | Evidence |
+|---|---|---|---|---|
+| base側instructionは未取得 | transaction behaviorの変更 | companion requirementを確定できない | Unverified | base instructionを取得できない制約 |
+
+### Blind-spot result
+
+fresh passではF-001と同じbroken invariantへ収束した。追加findingは作らず、未確認のbatch設定を
+Residual risksへ分離した。`Inspected`をcorrectness保証とは扱わない。
 
 ## Findings
 

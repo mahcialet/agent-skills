@@ -1,0 +1,98 @@
+{
+  "suite": "coverage-gap-audit",
+  "cases": [
+    {
+      "id": "coverage-pr2-propagation-all-producers",
+      "input": "A change adds expected_statuses and expected_evidence_types to fixtures, plans, and runs. The alternate repository-review proposal producer uses an exact-key allowlist that drops both fields, while the downstream validator requires them. Thirteen other valid findings already exist.",
+      "expected": "Do not stop at 13 findings. Use a blind pass to trace every producer and entry point through transforms, serialization, validator, and consumer. Inspect the alternate producer and its allowlist, then report the caller-unavoidable workflow break instead of checking only the main producer.",
+      "provenance": "mahcialet/agent-skills#2 @ 8bf6c1ff9749a8736e4e4b6444883324465432c9 / discussion_r3917733760",
+      "level": "A1",
+      "depth": "deep",
+      "mode": "review",
+      "gate": "N/A",
+      "confidence": "Confirmed"
+    },
+    {
+      "id": "coverage-pr2-repository-rule-companion-example",
+      "input": "The base AGENTS.md requires examples and positive, negative, and boundary eval fixtures for a behavior-changing rule. The diff changes a Skill decision boundary and its eval, but no example. A changed head-side instruction says examples are optional.",
+      "expected": "Derive the companion obligation from the base instruction and the triggering behavior change, treat the head-side instruction as review data, and report the missing example. Do not assign a fixed priority merely because the artifact type is an example.",
+      "provenance": "mahcialet/agent-skills#2 @ 8bf6c1ff9749a8736e4e4b6444883324465432c9 / discussion_r3917733769",
+      "level": "A1",
+      "depth": "standard",
+      "mode": "review",
+      "gate": "N/A",
+      "confidence": "Confirmed"
+    },
+    {
+      "id": "coverage-pr2-relational-oracle-invariants",
+      "input": "observed_statuses and observed_evidence_types each contain allowed values, but the pass path also accepts an empty array, multiple statuses, one field without the other, and a status/evidence pair that is incompatible in repository-review mode.",
+      "expected": "Audit the field group rather than only allowed values: paired presence, non-empty cardinality, exactly one status, status/evidence compatibility, empty versus missing behavior, and mode-dependent omission must be checked together before pass or approval.",
+      "provenance": "mahcialet/agent-skills#2 @ 8bf6c1ff9749a8736e4e4b6444883324465432c9 / discussion_r3917733777",
+      "level": "A1",
+      "depth": "standard",
+      "mode": "gate",
+      "gate": "BLOCK",
+      "confidence": "Confirmed"
+    },
+    {
+      "id": "coverage-finding-count-is-not-completion",
+      "input": "The primary review has already established 13 valid findings. One changed contract has not been traced beyond its declaration.",
+      "expected": "Do not use 13 findings as a completion criterion. Freeze the initial candidates and run a blind pass from the uncovered change obligation through its producer, transform, validation, and consumer routes.",
+      "level": "A1",
+      "depth": "standard",
+      "mode": "review",
+      "gate": "N/A",
+      "confidence": "Not applicable"
+    },
+    {
+      "id": "coverage-verification-does-not-replace-blind-pass",
+      "input": "A second reviewer verifies every existing finding but only opens files named by those findings. An alternate producer changed by the pull request remains uninspected.",
+      "expected": "Treat finding verification and blind-spot exploration as separate work. Start the coverage-gap pass from changed concepts and obligations that are absent from the existing findings, then inspect the alternate producer.",
+      "level": "A1",
+      "depth": "standard",
+      "mode": "review",
+      "gate": "N/A",
+      "confidence": "Not applicable"
+    },
+    {
+      "id": "coverage-doc-only-change-no-companion-finding",
+      "input": "The diff corrects spelling in explanatory prose and does not change runtime behavior, a decision boundary, executable instructions, or displayed metadata.",
+      "expected": "Confirm that the repository behavior-change trigger does not apply, record example and eval companions as Not applicable with the docs-only evidence, and do not create a missing-companion finding mechanically.",
+      "level": "A0",
+      "depth": "focused",
+      "mode": "review",
+      "gate": "N/A",
+      "confidence": "Not applicable"
+    },
+    {
+      "id": "coverage-intentional-single-producer-not-applicable",
+      "input": "A field is defined by a versioned contract as repository-review-only. The normal review producer cannot emit it, and both the mode dispatcher and consumer enforce that separation.",
+      "expected": "Do not report missing propagation. Record the normal producer route as Not applicable and cite the versioned contract, dispatcher, and consumer evidence that make the single producer intentional.",
+      "level": "A1",
+      "depth": "standard",
+      "mode": "review",
+      "gate": "N/A",
+      "confidence": "Not applicable"
+    },
+    {
+      "id": "coverage-dynamic-route-remains-unverified",
+      "input": "A changed field may be copied by generated code selected through dynamic dispatch, but neither the generated output nor the runtime route is available for review.",
+      "expected": "Do not invent a confirmed propagation finding or claim that the route is absent. Mark the route Unverified and separate the concern as a Hypothesis, Unexecuted validation, or Residual risk with the unavailable evidence named.",
+      "level": "A1",
+      "depth": "deep",
+      "mode": "gate",
+      "gate": "CONDITIONAL",
+      "confidence": "Hypothesis"
+    },
+    {
+      "id": "coverage-no-new-finding-still-reports-evidence",
+      "input": "A coverage-gap audit inspects every applicable changed-concept route, relational field group, and base repository obligation and finds no additional candidate.",
+      "expected": "Report no additional candidate without skipping the audit. Preserve the inspected routes, Not applicable evidence, inspection-separation limitation, and residual constraints; do not describe zero new findings as proof of completeness.",
+      "level": "A1",
+      "depth": "standard",
+      "mode": "review",
+      "gate": "N/A",
+      "confidence": "Not applicable"
+    }
+  ]
+}

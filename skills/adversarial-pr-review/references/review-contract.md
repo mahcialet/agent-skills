@@ -15,6 +15,8 @@ review_contract:
   declared_scope:
   declared_non_scope:
   declared_impact:
+  change_obligations: []
+  repository_rule_obligations: []
   claimed_tests:
   unresolved_decisions:
   stop_conditions:
@@ -158,6 +160,28 @@ discovered_impact:
 findingにしない。関連箇所が新contractへ対応していればevidence ledgerへ記録し、対応を
 確認できなければhypothesisまたはresidual riskとする。旧contractのまま到達可能な問題が
 成立するときだけfinding候補にする。
+
+## Coverage obligations
+
+review contractを構築するとき、変更されたconcept、field、ruleと、base側repository ruleから
+導出したcompanion obligationも記録する。これらは初回findingの一覧ではなく、primary exploration後の
+blind passで未確認routeを探す索引である。
+
+```yaml
+change_obligations:
+  - changed_concept: oracle result fields
+    source_or_declaration: result schema
+    routes: [producer, transform, serialization, validator, consumer]
+
+repository_rule_obligations:
+  - base_instruction_source: AGENTS.md / behavior-changing rule
+    triggering_change: Skill decision boundary
+    required_companions: [examples, positive/negative/boundary evals]
+```
+
+sourceにないroute、companion、requirement IDを創作しない。詳細なstatus、relational invariant、
+false-positive control、report形式は
+[coverage-gap audit](coverage-gap-audit.md)に従う。
 
 ## Test evidence provenance
 
