@@ -244,6 +244,25 @@ class RegressionTests(unittest.TestCase):
         self.assertEqual(contradicted["expected_statuses"], ["CONTRADICTED"])
         self.assertEqual(contradicted["expected_evidence_types"], ["DOC↔CONFIG"])
 
+    def test_plan_preserves_explicit_bundled_no_change_behavior(self) -> None:
+        expected_ids = {
+            "bundled:prose-pacing:clear-ai-associated-phrase-is-no-change",
+            "bundled:prose-pacing:repeated-safety-steps-remain-predictable",
+            "bundled:prose-pacing:repeated-technical-literal-is-not-varied",
+        }
+        no_change_ids = {
+            case["id"]
+            for case in self.plan["cases"]
+            if case["expected_behavior"] == "no-change"
+        }
+        self.assertTrue(expected_ids <= no_change_ids)
+
+    def test_plan_rejects_invalid_expected_behavior(self) -> None:
+        plan = deepcopy(self.plan)
+        plan["cases"][0]["expected_behavior"] = "always-change"
+        with self.assertRaisesRegex(RegressionError, "expected_behavior"):
+            validate_regression_plan(plan)
+
     def test_plan_rejects_invalid_structured_oracle_type(self) -> None:
         plan = deepcopy(self.plan)
         bundled = next(case for case in plan["cases"] if case["source"] == "bundled")

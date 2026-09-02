@@ -28,6 +28,7 @@
       "id": "clear-ai-associated-phrase-is-no-change",
       "language": "ja",
       "mode": "review",
+      "expected_behavior": "no-change",
       "input": "バックアップを作成してから設定ファイルを更新します。このように更新前の状態を保存すると、失敗時に元へ戻せます。",
       "must_preserve": ["このように", "更新前の状態", "失敗時に元へ戻せます"],
       "must_not_claim": [
@@ -41,6 +42,7 @@
       "id": "repeated-safety-steps-remain-predictable",
       "language": "ja",
       "mode": "revise-safe",
+      "expected_behavior": "no-change",
       "input": "電源が切れていることを確認します。圧力がゼロであることを確認します。保護具を装着していることを確認します。",
       "must_preserve": ["電源", "圧力", "保護具", "確認します"],
       "must_not_claim": [
@@ -63,6 +65,7 @@
       "id": "repeated-technical-literal-is-not-varied",
       "language": "ja",
       "mode": "revise-safe",
+      "expected_behavior": "no-change",
       "input": "requestを受信したら`request_id`を記録します。retry時も同じ`request_id`を送信し、responseには`request_id`を含めます。",
       "must_preserve": ["request", "`request_id`", "retry", "response"],
       "must_not_claim": [

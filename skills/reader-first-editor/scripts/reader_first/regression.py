@@ -26,6 +26,7 @@ DIMENSIONS = {
     "register",
 }
 CATEGORIES = {"existing", "corpus", "positive", "negative", "boundary"}
+EXPECTED_BEHAVIORS = {"change", "no-change", "review-only", "context-dependent"}
 STRUCTURED_ORACLES = {
     "expected_risks": (
         "observed_risks",
@@ -278,6 +279,14 @@ def _bundled_cases(eval_dir: Path) -> list[dict]:
             case = _require_dict(raw, f"{path}: case")
             case_id = _string(case, "id", f"{path}: case")
             mode = _string(case, "mode", f"{path}: {case_id}")
+            expected_behavior = case.get(
+                "expected_behavior",
+                "review-only"
+                if mode in {"review", "repository-review"}
+                else "context-dependent",
+            )
+            if expected_behavior not in EXPECTED_BEHAVIORS:
+                raise RegressionError(f"{path}: {case_id}のexpected_behaviorが不正です")
             must_preserve = case.get("must_preserve", [])
             must_not = [
                 *case.get("must_not_add", []),
@@ -307,9 +316,7 @@ def _bundled_cases(eval_dir: Path) -> list[dict]:
                     "suite": suite,
                     "mode": mode,
                     "language": case["language"],
-                    "expected_behavior": (
-                        "review-only" if mode in {"review", "repository-review"} else "context-dependent"
-                    ),
+                    "expected_behavior": expected_behavior,
                     "input": {
                         "kind": "embedded",
                         "value": case["input"],
@@ -492,6 +499,8 @@ def validate_regression_plan(plan: object) -> dict:
         case_ids.append(_string(item, "id", "regression plan.cases[]"))
         if item.get("category") not in CATEGORIES:
             raise RegressionError("regression case categoryが不正です")
+        if item.get("expected_behavior") not in EXPECTED_BEHAVIORS:
+            raise RegressionError("regression case expected_behaviorが不正です")
         for key, (_, allowed_values) in STRUCTURED_ORACLES.items():
             if key in item:
                 values = _strings(item, key, "regression plan.cases[]", unique=True)

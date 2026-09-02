@@ -39,6 +39,7 @@ EVIDENCE_TYPES = {
 }
 COVERAGE_STATUSES = {"checked", "partial", "not-checked"}
 ANOMALY_STATUSES = {"EXPLAINED", "UNEXPLAINED", "CONTRADICTED", "NOT-AN-OUTLIER"}
+EXPECTED_BEHAVIORS = {"change", "no-change", "review-only", "context-dependent"}
 REQUIRED_SUITES = {
     "semantic-preservation",
     "reread-risk-ja",
@@ -137,6 +138,13 @@ def validate(eval_dir: Path) -> list[str]:
                 errors.append(f"{label}: input must be non-empty text")
             if not isinstance(case.get("expected"), str) or not case["expected"].strip():
                 errors.append(f"{label}: expected must be non-empty text")
+            if (
+                "expected_behavior" in case
+                and case["expected_behavior"] not in EXPECTED_BEHAVIORS
+            ):
+                errors.append(
+                    f"{label}: invalid expected_behavior {case['expected_behavior']!r}"
+                )
             for key in (
                 "must_preserve",
                 "must_not_add",
