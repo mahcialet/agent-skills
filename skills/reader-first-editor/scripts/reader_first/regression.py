@@ -372,7 +372,7 @@ def _proposal_cases(value: object, proposal: dict) -> list[dict]:
     data = _require_dict(value, "candidate evals")
     _exact_keys(data, {"positive", "negative", "boundary"}, "candidate evals")
     cases: list[dict] = []
-    keys = {
+    required_keys = {
         "id",
         "mode",
         "language",
@@ -382,6 +382,7 @@ def _proposal_cases(value: object, proposal: dict) -> list[dict]:
         "must_preserve",
         "must_not",
     }
+    optional_keys = set(STRUCTURED_ORACLES)
     for category in ("positive", "negative", "boundary"):
         entries = data.get(category)
         if not isinstance(entries, list):
@@ -389,7 +390,15 @@ def _proposal_cases(value: object, proposal: dict) -> list[dict]:
         ids: list[str] = []
         for entry in entries:
             item = _require_dict(entry, f"candidate evals.{category}[]")
-            _exact_keys(item, keys, f"candidate evals.{category}[]")
+            context = f"candidate evals.{category}[]"
+            if missing := sorted(required_keys - item.keys()):
+                raise RegressionError(
+                    f"{context}に必須keyがありません: {', '.join(missing)}"
+                )
+            if unknown := sorted(item.keys() - required_keys - optional_keys):
+                raise RegressionError(
+                    f"{context}に未知のkeyがあります: {', '.join(unknown)}"
+                )
             case_id = _string(item, "id", f"candidate evals.{category}[]")
             ids.append(case_id)
             for key in ("mode", "language", "input", "expected", "expected_behavior"):
@@ -405,6 +414,16 @@ def _proposal_cases(value: object, proposal: dict) -> list[dict]:
                 "context-dependent",
             }:
                 raise RegressionError("candidate eval expected_behaviorが不正です")
+            if oracle_errors := validate_eval_oracles(item):
+                raise RegressionError(
+                    f"{context}のstructured oracleが不正です: "
+                    + "; ".join(oracle_errors)
+                )
+            structured_oracles = {
+                key: deepcopy(item[key])
+                for key in STRUCTURED_ORACLES
+                if key in item
+            }
             cases.append(
                 {
                     "id": f"proposal:{category}:{case_id}",
@@ -425,6 +444,7 @@ def _proposal_cases(value: object, proposal: dict) -> list[dict]:
                     "expected": item["expected"],
                     "must_preserve": deepcopy(item["must_preserve"]),
                     "must_not": deepcopy(item["must_not"]),
+                    **structured_oracles,
                 }
             )
         if ids != proposal["evals"][category]:
@@ -1034,6 +1054,11 @@ def _expected_proposal_eval_cases(proposal: dict, plan: dict) -> dict[str, dict]
                 "expected_behavior": case["expected_behavior"],
                 "must_preserve": case["must_preserve"],
                 "must_not_claim": case["must_not"],
+                **{
+                    key: deepcopy(case[key])
+                    for key in STRUCTURED_ORACLES
+                    if key in case
+                },
             }
     return expected
 

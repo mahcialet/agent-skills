@@ -247,6 +247,30 @@ class RegressionTests(unittest.TestCase):
         self.assertEqual(contradicted["expected_statuses"], ["CONTRADICTED"])
         self.assertEqual(contradicted["expected_evidence_types"], ["DOC↔CONFIG"])
 
+    def test_plan_preserves_repository_review_candidate_oracles(self) -> None:
+        candidates = candidate_evals()
+        candidate = candidates["positive"][0]
+        candidate["mode"] = "repository-review"
+        candidate["expected_statuses"] = ["CONTRADICTED"]
+        candidate["expected_evidence_types"] = ["DOC↔CODE"]
+
+        plan = build_regression_plan(
+            self.proposal,
+            self.store,
+            eval_dir=SKILL_DIR / "evals",
+            provider_matrix=provider_matrix(),
+            candidate_evals=candidates,
+            corpus_record_ids=[self.promoted["id"]],
+        )
+
+        planned = next(
+            case
+            for case in plan["cases"]
+            if case["id"] == "proposal:positive:eval-positive-1"
+        )
+        self.assertEqual(planned["expected_statuses"], ["CONTRADICTED"])
+        self.assertEqual(planned["expected_evidence_types"], ["DOC↔CODE"])
+
     def test_plan_preserves_explicit_bundled_no_change_behavior(self) -> None:
         expected_ids = {
             "bundled:prose-pacing:clear-ai-associated-phrase-is-no-change",
