@@ -105,6 +105,16 @@ class CoverageGapReportOrderTestCase(unittest.TestCase):
             )
             return errors
 
+    def errors_for_text(self, text: str) -> list[str]:
+        with tempfile.TemporaryDirectory() as temporary:
+            path = Path(temporary) / "report.md"
+            path.write_text(text, encoding="utf-8")
+            errors: list[str] = []
+            validator.require_ordered_tokens(
+                path, validator.REPORT_SECTION_ORDER, errors
+            )
+            return errors
+
     def test_coverage_gap_section_between_impact_and_findings_is_accepted(self) -> None:
         self.assertEqual([], self.errors_for_sections(list(validator.REPORT_SECTION_ORDER)))
 
@@ -124,6 +134,39 @@ class CoverageGapReportOrderTestCase(unittest.TestCase):
         sections.insert(sections.index("## Findings") + 1, "## Coverage gap audit")
         errors = self.errors_for_sections(sections)
         self.assertTrue(any("out of order" in error for error in errors))
+
+    def test_heading_inside_indented_code_is_not_counted(self) -> None:
+        sections = list(validator.REPORT_SECTION_ORDER)
+        sections[sections.index("## Coverage gap audit")] = (
+            "    ## Coverage gap audit"
+        )
+        errors = self.errors_for_sections(sections)
+        self.assertTrue(any("missing required token" in error for error in errors))
+
+    def test_longer_fence_requires_matching_length(self) -> None:
+        text = """## Scope and parameters
+````text
+not a visible report
+```
+## Review contract
+## Requirement traceability
+## Impact comparison
+## Coverage gap audit
+## Findings
+## Hypotheses
+## Evidence ledger
+## Test evidence
+## Unexecuted validation
+## Residual risks
+````
+"""
+        errors = self.errors_for_text(text)
+        self.assertTrue(
+            any(
+                "missing required token '## Review contract'" in error
+                for error in errors
+            )
+        )
 
     def test_duplicate_required_heading_is_rejected(self) -> None:
         sections = list(validator.REPORT_SECTION_ORDER)
@@ -229,6 +272,15 @@ class PortableLocationTestCase(unittest.TestCase):
         errors = []
         validator.validate_coverage_example_locations(coverage_path, invalid, errors)
         self.assertTrue(any("portable relative locator" in error for error in errors))
+
+    def test_location_inside_fenced_code_is_not_counted(self) -> None:
+        text = (
+            "```text\n"
+            "- Repository label: `sample-repo`\n"
+            "- Location: `sample-repo/src/fake.py:9`\n"
+            "```"
+        )
+        self.assertTrue(self.errors_for(text))
 
     def test_location_rejects_trailing_text_links_and_continuations(self) -> None:
         for suffix in (

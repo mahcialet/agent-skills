@@ -471,22 +471,80 @@ def require_tokens(path: Path, tokens: list[str], errors: list[str]) -> str:
     return text
 
 
+def _strip_html_comments(line: str, in_comment: bool) -> tuple[str, bool]:
+    visible_parts: list[str] = []
+    remainder = line
+    while True:
+        if in_comment:
+            comment_end = remainder.find("-->")
+            if comment_end < 0:
+                return "".join(visible_parts), True
+            remainder = remainder[comment_end + 3 :]
+            in_comment = False
+
+        comment_start = remainder.find("<!--")
+        if comment_start < 0:
+            visible_parts.append(remainder)
+            return "".join(visible_parts), False
+        visible_parts.append(remainder[:comment_start])
+        remainder = remainder[comment_start + 4 :]
+        in_comment = True
+
+
+def _visible_markdown_lines(text: str) -> list[str]:
+    """Return lines that are visible Markdown content, excluding code blocks."""
+    visible_lines: list[str] = []
+    fence_char: str | None = None
+    fence_length = 0
+    in_html_comment = False
+
+    for raw_line in text.splitlines():
+        if fence_char is not None:
+            closing_match = re.fullmatch(
+                r"[ ]{0,3}([`~]{3,})[ \t]*", raw_line
+            )
+            if closing_match:
+                marker = closing_match.group(1)
+                if (
+                    len(set(marker)) == 1
+                    and marker[0] == fence_char
+                    and len(marker) >= fence_length
+                ):
+                    fence_char = None
+                    fence_length = 0
+            continue
+
+        line, in_html_comment = _strip_html_comments(raw_line, in_html_comment)
+        if not line and in_html_comment:
+            continue
+
+        # Four-space and tab-indented lines are indented code blocks. Check
+        # this before fence parsing so an indented fence is not treated as a
+        # real delimiter.
+        if line.startswith("    ") or line.startswith("\t"):
+            continue
+
+        opening_match = re.match(r"^[ ]{0,3}([`~]{3,})", line)
+        if opening_match:
+            marker = opening_match.group(1)
+            if len(set(marker)) == 1:
+                fence_char = marker[0]
+                fence_length = len(marker)
+                continue
+
+        visible_lines.append(line)
+
+    return visible_lines
+
+
 def require_ordered_tokens(
     path: Path, tokens: tuple[str, ...], errors: list[str]
 ) -> str:
     text = read(path, errors)
     heading_positions: dict[str, list[int]] = {}
-    fence: str | None = None
-    for line_number, line in enumerate(text.splitlines()):
+    for line_number, line in enumerate(_visible_markdown_lines(text)):
         stripped = line.strip()
-        if stripped.startswith(("```", "~~~")):
-            marker = stripped[:3]
-            if fence is None:
-                fence = marker
-            elif marker == fence:
-                fence = None
-            continue
-        if fence is None and stripped.startswith("#"):
+        if stripped.startswith("#"):
             heading_positions.setdefault(stripped, []).append(line_number)
 
     last_position = -1
@@ -543,7 +601,7 @@ def _repository_label(
 def _validate_location_entries(
     path: Path, text: str, errors: list[str], *, require_single: bool
 ) -> None:
-    lines = text.splitlines()
+    lines = _visible_markdown_lines(text)
     valid_label, repository_label = _repository_label(path, lines, errors)
     if not valid_label:
         return
