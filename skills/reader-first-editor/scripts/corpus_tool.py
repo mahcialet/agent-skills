@@ -599,6 +599,7 @@ def run(args: argparse.Namespace) -> int:
         report = validate_report_against_runs(report, plan, runs)
         approval = build_rule_approval(
             proposal,
+            plan,
             report,
             reviewer=args.reviewer,
             reason=args.reason,

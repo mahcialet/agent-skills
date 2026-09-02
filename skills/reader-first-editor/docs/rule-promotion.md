@@ -118,7 +118,9 @@ local corpusのraw textはplanへ複製せず、record path、content hash、取
 manual recordのcontent hashはrecordに保存されたcaller-supplied値であり、plan作成時にも再計算しない。
 structured oracleを追加したplan／runのschema versionは2である。version 1のplan／runは
 structured oracle／observationを持たないlegacy artifactとして、同じversionの組合せに限り読取りを
-継続する。version 1と2を混在させたrunの取込みは拒否する。
+継続する。legacy artifactからreportを再表示できるが、approvalとrule applyには使用できない。
+rule promotionを続ける場合はversion 2のplanを再生成し、regressionを再実行する。version 1と2を
+混在させたrunの取込みも拒否する。
 
 `regression-ingest` はplanと同じcase順、provider metadata、repeat indexを検証してlocal保存する。
 planに構造化された期待値がある `pass` caseでは、外部runnerの `observed_risks`、

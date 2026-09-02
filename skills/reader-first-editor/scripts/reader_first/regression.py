@@ -861,8 +861,19 @@ def validate_report_against_runs(report: object, plan: dict, runs: list[dict]) -
     return data
 
 
+def _require_current_regression_plan(plan: object, action: str) -> dict:
+    data = validate_regression_plan(plan)
+    if data["schema_version"] != REGRESSION_SCHEMA_VERSION:
+        raise RegressionError(
+            f"{action}にはschema version {REGRESSION_SCHEMA_VERSION}のregression planが必要です。"
+            "legacy planは再生成してください"
+        )
+    return data
+
+
 def build_rule_approval(
     proposal: dict,
+    plan: dict,
     report: dict,
     *,
     reviewer: str,
@@ -870,12 +881,17 @@ def build_rule_approval(
     clock: Callable[[], str] = _utc_now,
 ) -> dict:
     proposal = validate_rule_proposal(proposal)
+    plan = _require_current_regression_plan(plan, "rule approval")
     report = validate_regression_report(report)
     if report["status"] != "pass":
         raise RegressionError("全regression gateを通過したreportだけを承認できます")
     diff_hash = rule_diff_hash(proposal["rule_diff"])
-    if report["proposal_id"] != proposal["id"] or report["diff_hash"] != diff_hash:
-        raise RegressionError("reportとproposalのdiff identityが一致しません")
+    if (
+        report["proposal_id"] != proposal["id"]
+        or report["plan_id"] != plan["id"]
+        or report["diff_hash"] != diff_hash
+    ):
+        raise RegressionError("plan、report、proposalのdiff identityが一致しません")
     if not reviewer.strip() or not reason.strip():
         raise RegressionError("reviewer attestationと承認理由が必要です")
     identity = {
@@ -933,7 +949,7 @@ def validate_apply_artifacts(
     approval: dict,
 ) -> tuple[dict, dict, dict, dict]:
     proposal = validate_rule_proposal(proposal)
-    plan = validate_regression_plan(plan)
+    plan = _require_current_regression_plan(plan, "rule apply")
     report = validate_regression_report(report)
     approval = validate_rule_approval(approval)
     diff_hash = rule_diff_hash(proposal["rule_diff"])

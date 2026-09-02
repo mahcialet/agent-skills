@@ -389,6 +389,7 @@ class RegressionTests(unittest.TestCase):
         )
         approval = build_rule_approval(
             self.proposal,
+            self.plan,
             report,
             reviewer="human-reviewer",
             reason="all gates passed",
@@ -446,6 +447,16 @@ class RegressionTests(unittest.TestCase):
         run = passing_run(validated_plan, validated_plan["providers"][0], 1)
         validated_run = validate_regression_run(run, validated_plan)
         self.assertEqual(validated_run["schema_version"], 1)
+
+        report = build_regression_report(validated_plan, [validated_run])
+        with self.assertRaisesRegex(RegressionError, "legacy planは再生成"):
+            build_rule_approval(
+                self.proposal,
+                validated_plan,
+                report,
+                reviewer="human-reviewer",
+                reason="legacy regression passed",
+            )
 
     def test_run_schema_version_must_match_plan(self) -> None:
         run = passing_run(self.plan, self.plan["providers"][0], 1)
@@ -505,6 +516,7 @@ class RegressionTests(unittest.TestCase):
         with self.assertRaisesRegex(RegressionError, "通過"):
             build_rule_approval(
                 self.proposal,
+                self.plan,
                 failed,
                 reviewer="human-reviewer",
                 reason="reviewed",
@@ -512,6 +524,7 @@ class RegressionTests(unittest.TestCase):
         passed = build_regression_report(self.plan, self.runs)
         approval = build_rule_approval(
             self.proposal,
+            self.plan,
             passed,
             reviewer="human-reviewer",
             reason="exact diff and report reviewed",
@@ -524,6 +537,7 @@ class RegressionTests(unittest.TestCase):
         passed = build_regression_report(self.plan, self.runs)
         approval = build_rule_approval(
             self.proposal,
+            self.plan,
             passed,
             reviewer="automation-bot",
             reason="caller supplied attestation",
@@ -557,6 +571,7 @@ class RegressionTests(unittest.TestCase):
         report = build_regression_report(plan, runs)
         approval = build_rule_approval(
             proposal,
+            plan,
             report,
             reviewer="reviewer-attestation",
             reason="exact diff reviewed outside the tool",
@@ -662,6 +677,7 @@ class RegressionTests(unittest.TestCase):
         report = build_regression_report(self.plan, self.runs)
         approval = build_rule_approval(
             self.proposal,
+            self.plan,
             report,
             reviewer="human-reviewer",
             reason="approved",
@@ -701,6 +717,7 @@ class RegressionTests(unittest.TestCase):
         report = build_regression_report(self.plan, self.runs)
         approval = build_rule_approval(
             self.proposal,
+            self.plan,
             report,
             reviewer="human-reviewer",
             reason="approved",
