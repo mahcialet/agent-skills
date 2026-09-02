@@ -1,11 +1,12 @@
 # ルール昇格
 
-状態: implemented（investigation、regression gate、human approval、明示的なapply）
+状態: implemented（investigation、regression gate、caller-supplied approval、明示的なapply）
 
 rule promotionはcorpus promotionとは別のworkflowである。実例を評価に使えるcorpusへ追加しても、
 それだけではSkillの判断規則は変わらない。behavior-changing ruleの既定判断は `HOLD` または
 `NEEDS_MORE_EVIDENCE` とする。structured investigation、human-unapproved proposal draft、
-provider-neutralなregression集約、human approval artifact、rule patchの明示的なapplyは実装済みである。
+provider-neutralなregression集約、caller-supplied approval artifact、rule patchの明示的なapplyは
+実装済みである。人間によるreviewはtool外の運用要件である。
 
 ## Workflow
 
@@ -20,7 +21,7 @@ counterexample / boundary / regression review
   ↓
 rule diff
   ↓
-human approval
+tool外のhuman review / approval artifact
   ↓
 明示的なapply
 ```
@@ -46,7 +47,9 @@ proposalには次が必要である。
 
 ## Apply gate
 
-`rules apply` の既定動作はpreviewであり、`--apply` と人間の承認がそろうまでfileを変更しない。
+`rules apply` の既定動作はpreviewであり、`--apply` と承認artifactがそろうまでfileを変更しない。
+toolが確認するのは、pass report、exact diff、空でないreviewer・理由を持つcaller-supplied artifactである。
+reviewerが人間かは認証しないため、人間による明示reviewはtool外の運用責任である。
 少なくとも次の場合はapplyを拒否する。
 
 - provenance reviewが完了していない
@@ -55,21 +58,21 @@ proposalには次が必要である。
 - languageまたはgenre scopeがない
 - rule diffがない、no-op、既存ruleのduplicate
 - 頻度やhard thresholdだけを根拠にしている
-- human approvalがない
+- approval artifactがない
 - existing eval、semantic preservation、unnecessary revision、literal、registerにregressionがある
 - positive、negative、boundary evalのいずれかがない
 - candidateまたはcorpus promotionからruleへ直接遷移している
 
-applyの対象はhuman-reviewedなprose diffとeval updateである。初版ではcore referencesを
+運用上、applyの対象は人間がreviewしたprose diffとeval updateに限定する。初版ではcore referencesを
 structured recordから自動生成しない。commitとpushも自動では行わない。
 
 `rules propose --apply` は名前に `apply` を含むが、proposal artifactをlocal dataへ保存するだけで
 ある。core ruleへ適用する `rules apply` とは異なる。作成時のregressionは全て `not-run`、
-human approvalはfalseで固定する。承認はproposal自体を書き換えず、別のimmutable artifactとして
+human approvalはfalseで固定する。承認情報はproposal自体を書き換えず、別のimmutable artifactとして
 保存する。
 
 `rule-proposal.schema.json` へ適合しても、それだけではapplyできない。schemaはproposalと検証結果を
-受け渡すための形式である。regression結果、人間の承認、明示的な `--apply` は、別のruntime gateで
+受け渡すための形式である。regression結果、approval artifact、明示的な `--apply` は別のruntime gateで
 再確認する。
 
 ## Regression workflow
@@ -103,8 +106,9 @@ revision、literal、register、expected behaviorの一致を記録する。`uns
 
 `regression-report` は全provider・repeatの不足と重複を検出し、existing、corpus、positive、
 negative、boundary、no-change accuracyを集約する。`approve` と `apply` は保存済みplanとrunから
-reportを再計算し、改変されたreportを拒否する。人間が承認できるのはpass reportだけである。
-承認artifactにはproposal ID、report ID、exact diff hash、reviewer、理由を固定する。
+reportを再計算し、改変されたreportを拒否する。approval artifactを作成できるのはpass reportだけで
+ある。承認artifactにはproposal ID、report ID、exact diff hash、caller-suppliedなreviewer、理由を
+固定する。
 
 `rules apply` が変更できるのは次だけである。
 
@@ -113,7 +117,8 @@ reportを再計算し、改変されたreportを拒否する。人間が承認�
 - `skills/reader-first-editor/evals/*.yaml`
 
 rule targetとeval targetの両方が必要である。binary、削除、rename、path traversal、symlink、no-op、
-proposalにないeval ID、対象fileの未commit変更は拒否する。`git apply --check` 後にpatchを適用し、
+対象fileの未commit変更は拒否する。eval targetの追加行からcase IDを抽出し、proposalのpositive、
+negative、boundary ID集合と双方向で一致しないpatchも拒否する。`git apply --check` 後にpatchを適用し、
 content validatorとSkill validatorが失敗した場合はpatchをrollbackする。commitとpushは行わない。
 
 ## Decision

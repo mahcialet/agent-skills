@@ -9,7 +9,7 @@ toolが生成したprovider-neutralなinvestigation bundleを読むのは、Code
 
 bundle作成から、対象を限定したrule applyまでの経路は実装済みである。この経路では、
 Agent resultのruntime gate、human-unapproved proposal draft、regression結果の集約、
-人間による明示承認を順に行う。
+tool外の人間review、caller-suppliedなapproval artifactを順に扱う。
 
 ## 既定姿勢
 
@@ -85,11 +85,13 @@ python3 "$tool" --data-dir "$data_dir" rules validate-investigation \
   --bundle-id <bundle-id> --result investigation.json
 ```
 
-toolはsupport数をrecord件数ではなくcorrelation groupから再計算する。また、bundle外record、
-改ざんされたsource correlation、未説明のcounterexample、provenance未確認、固定閾値や頻度だけに
-基づく判断、duplicate ruleを検出する。無効な `PROMOTE` は、effective statusを `HOLD` として返す。
-この場合は `--apply` があっても保存しない。`HOLD` と `NEEDS_MORE_EVIDENCE` は正常な調査結果として
-保存できる。
+toolはsupport数をrecord件数ではなくcorrelation groupから再計算し、bundle外record、改ざんされた
+source correlation、未説明のcounterexampleを独立に検出する。provenance未確認、固定閾値・頻度だけの
+判断、duplicate ruleについては、Agent resultのstructured booleanを検証して拒否する。toolは
+`mechanism` や `existing_rule_analysis` の自然言語からbooleanの正しさを推論しないため、Agentの
+自己申告と本文の整合は後段の人間reviewで確認する。flag上で無効な `PROMOTE` はeffective statusを
+`HOLD` として返し、`--apply` があっても保存しない。`HOLD` と `NEEDS_MORE_EVIDENCE` は正常な
+調査結果として保存できる。
 
 ### proposal draftを作る
 

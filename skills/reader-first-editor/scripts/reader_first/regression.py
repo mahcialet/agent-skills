@@ -714,7 +714,7 @@ def build_rule_approval(
     if report["proposal_id"] != proposal["id"] or report["diff_hash"] != diff_hash:
         raise RegressionError("reportとproposalのdiff identityが一致しません")
     if not reviewer.strip() or not reason.strip():
-        raise RegressionError("human reviewerと承認理由が必要です")
+        raise RegressionError("reviewer attestationと承認理由が必要です")
     identity = {
         "proposal_id": proposal["id"],
         "report_id": report["id"],
@@ -809,6 +809,42 @@ def parse_rule_patch(rule_diff: str) -> list[str]:
     return targets
 
 
+def _added_eval_ids(rule_diff: str) -> list[str]:
+    """Eval targetの追加行からcase IDを列挙する。eval suiteはJSON-compatible YAMLである。"""
+
+    current_is_eval = False
+    added: list[str] = []
+    for line in rule_diff.splitlines():
+        section = re.fullmatch(r"diff --git a/(\S+) b/(\S+)", line)
+        if section:
+            current_is_eval = bool(ALLOWED_EVAL_TARGET.fullmatch(section.group(2)))
+            continue
+        if current_is_eval and line.startswith("+") and not line.startswith("+++"):
+            added.extend(re.findall(r'"id"\s*:\s*"([^"]+)"', line[1:]))
+    return added
+
+
+def _validate_proposal_eval_ids(rule_diff: str, proposal: dict) -> None:
+    expected = [
+        eval_id
+        for category in ("positive", "negative", "boundary")
+        for eval_id in proposal["evals"][category]
+    ]
+    added = _added_eval_ids(rule_diff)
+    duplicates = sorted(eval_id for eval_id, count in Counter(added).items() if count > 1)
+    missing = sorted(set(expected) - set(added))
+    unexpected = sorted(set(added) - set(expected))
+    errors: list[str] = []
+    if missing:
+        errors.append("proposal eval IDがありません: " + ", ".join(missing))
+    if unexpected:
+        errors.append("proposalにないeval IDがあります: " + ", ".join(unexpected))
+    if duplicates:
+        errors.append("eval IDが重複しています: " + ", ".join(duplicates))
+    if errors:
+        raise RegressionError("rule patchのeval IDがproposalと一致しません: " + "; ".join(errors))
+
+
 def _git(root: Path, args: list[str], *, input_text: str | None = None) -> subprocess.CompletedProcess[str]:
     return subprocess.run(
         ["git", *args],
@@ -857,21 +893,14 @@ def preview_rule_apply(
     )
     if check.returncode:
         raise RegressionError(f"rule patchが適用不能またはno-opです: {check.stderr.strip()}")
-    missing_eval_ids = [
-        eval_id
-        for category in ("positive", "negative", "boundary")
-        for eval_id in proposal["evals"][category]
-        if eval_id not in proposal["rule_diff"]
-    ]
-    if missing_eval_ids:
-        raise RegressionError("rule patchにproposal eval IDがありません: " + ", ".join(missing_eval_ids))
+    _validate_proposal_eval_ids(proposal["rule_diff"], proposal)
     return {
         "proposal_id": proposal["id"],
         "report_id": report["id"],
         "approval_id": approval["id"],
         "diff_hash": rule_diff_hash(proposal["rule_diff"]),
         "targets": targets,
-        "human_reviewer": approval["reviewer"],
+        "reviewer_attestation": approval["reviewer"],
         "will_commit": False,
         "will_push": False,
     }

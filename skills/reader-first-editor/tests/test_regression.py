@@ -167,6 +167,8 @@ class RegressionTests(unittest.TestCase):
         )
         investigation, blockers = validate_investigation_result(valid_result(bundle), bundle)
         self.assertEqual(blockers, [])
+        self.bundle = bundle
+        self.investigation = investigation
         self.proposal = build_rule_proposal(
             investigation,
             bundle,
@@ -308,6 +310,17 @@ class RegressionTests(unittest.TestCase):
         self.assertTrue(approval["approved"])
         self.assertEqual(approval["diff_hash"], passed["diff_hash"])
 
+    def test_approval_records_caller_supplied_reviewer_without_authentication(self) -> None:
+        passed = build_regression_report(self.plan, self.runs)
+        approval = build_rule_approval(
+            self.proposal,
+            passed,
+            reviewer="automation-bot",
+            reason="caller supplied attestation",
+        )
+        self.assertTrue(approval["approved"])
+        self.assertEqual(approval["reviewer"], "automation-bot")
+
     def test_patch_parser_requires_rule_and_eval_targets(self) -> None:
         self.assertEqual(len(parse_rule_patch(self.proposal["rule_diff"])), 2)
         unsafe = self.proposal["rule_diff"].replace(
@@ -316,6 +329,60 @@ class RegressionTests(unittest.TestCase):
         )
         with self.assertRaises(RegressionError):
             parse_rule_patch(unsafe)
+
+    def _apply_artifacts_for_patch(self, patch: str) -> tuple[dict, dict, dict]:
+        proposal = build_rule_proposal(self.investigation, self.bundle, patch)
+        plan = build_regression_plan(
+            proposal,
+            self.store,
+            eval_dir=SKILL_DIR / "evals",
+            provider_matrix=provider_matrix(repeats=1),
+            candidate_evals=candidate_evals(),
+            corpus_record_ids=[self.promoted["id"]],
+        )
+        runs = [
+            validate_regression_run(passing_run(plan, provider, 1), plan)
+            for provider in plan["providers"]
+        ]
+        report = build_regression_report(plan, runs)
+        approval = build_rule_approval(
+            proposal,
+            report,
+            reviewer="reviewer-attestation",
+            reason="exact diff reviewed outside the tool",
+        )
+        return proposal, report, approval
+
+    def test_patch_rejects_eval_id_not_declared_by_proposal(self) -> None:
+        patch = rule_patch().replace(
+            '@@ -0,0 +1,8 @@\n+{',
+            '@@ -0,0 +1,9 @@\n+{',
+        ).replace(
+            '+    {"id": "eval-boundary-1"}\n',
+            '+    {"id": "eval-boundary-1"},\n+    {"id": "eval-extra"}\n',
+        )
+        proposal, report, approval = self._apply_artifacts_for_patch(patch)
+        with self.assertRaisesRegex(RegressionError, "proposalにないeval ID"):
+            preview_rule_apply(
+                proposal,
+                report,
+                approval,
+                repository_root=self._test_repository(),
+            )
+
+    def test_patch_rejects_missing_proposal_eval_id(self) -> None:
+        patch = rule_patch().replace(
+            '@@ -0,0 +1,8 @@\n+{',
+            '@@ -0,0 +1,7 @@\n+{',
+        ).replace('+    {"id": "eval-boundary-1"}\n', "")
+        proposal, report, approval = self._apply_artifacts_for_patch(patch)
+        with self.assertRaisesRegex(RegressionError, "proposal eval IDがありません"):
+            preview_rule_apply(
+                proposal,
+                report,
+                approval,
+                repository_root=self._test_repository(),
+            )
 
     def _test_repository(self, *, validators_pass: bool = True) -> Path:
         repository = self.root / ("apply-pass" if validators_pass else "apply-fail")
@@ -365,6 +432,8 @@ class RegressionTests(unittest.TestCase):
         )
         self.assertFalse(preview["will_commit"])
         self.assertFalse(preview["will_push"])
+        self.assertEqual(preview["reviewer_attestation"], "human-reviewer")
+        self.assertNotIn("human_reviewer", preview)
         applied = apply_rule_patch(
             self.proposal,
             report,

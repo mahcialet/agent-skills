@@ -173,11 +173,12 @@ public promotionと通常のreviewでのlocal corpus利用は未実装であり�
 実装済みの範囲は、schema v1、local data directoryの解決、state transition、audit log、
 manual corpus CLI、local promotion、public GitHub PRのreference-only収集、
 adversarial investigation bundle、proposal draftです。さらに、provider-neutralな
-regression plan・result取込み・report、人間の承認artifact、限定したrule applyも利用できます。
+regression plan・result取込み・report、caller-supplied approval artifact、限定したrule applyも
+利用できます。人間によるreviewはtool外の運用要件です。
 
 候補の収集、corpusへのpromotion、behavior-changing ruleのpromotionは、別々の確認段階に
 分けています。収集したcandidateやpromoted local corpusを通常のreviewへ暗黙に読み込みません。
-また、明示的なapplyと人間の承認なしに `SKILL.md`、references、evalsを変更しません。
+また、明示的なapplyとapproval artifactなしに `SKILL.md`、references、evalsを変更しません。
 
 #### local corpusを操作する
 
@@ -232,18 +233,21 @@ python3 "$tool" --data-dir "$data_dir" corpus collect-github \
 
 rule investigationは、support／control recordを明示して `rules bundle` を実行した場合だけ
 開始します。bundleではCounterexample Hunterを最優先にし、既定判断を `HOLD` とします。
-`rules validate-investigation` は、未説明の反例、固定閾値だけの根拠、頻度だけの根拠、
-既存ruleのduplicateを含む `PROMOTE` を拒否します。`rules propose --apply` も
-local proposalを保存するだけで、core rule、references、evalsを変更しません。
+`rules validate-investigation` は未説明の反例を独立に検出します。固定閾値だけの根拠、頻度だけの
+根拠、既存ruleのduplicateは、Agent resultが申告したstructured flagを検証して `PROMOTE` を
+拒否します。toolは自然言語からflagの正しさを推論しないため、自己申告と本文の整合は人間が
+確認します。`rules propose --apply` もlocal proposalを保存するだけで、core rule、references、
+evalsを変更しません。
 詳細は[Agentによる調査](docs/agent-investigation.md)を参照してください。
 
 proposal後は `rules regression-plan`、`rules regression-ingest`、`rules regression-report` を
 使います。bundled eval全件、promoted corpus、proposal evalを対象に、CodexとGitHub Copilotの
 結果を集約します。Python tool自体はproviderを起動しません。
 
-pass reportは、`rules approve` で人間が別artifactとして承認します。`rules apply` は既定で
-previewを返し、`--apply` を付けた場合だけ承認済みのexact diffを適用します。apply対象は
-Skill本文・references・evalsに限定され、validator失敗時はrollbackします。toolはcommitも
+pass reportでは、`rules approve` がcaller-suppliedなreviewerと理由を別artifactへ記録します。
+toolはreviewerが人間かを認証しないため、人間による明示reviewはtool外で行います。`rules apply` は
+既定でpreviewを返し、`--apply` を付けた場合だけ承認artifactと一致するexact diffを適用します。
+apply対象はSkill本文・references・evalsに限定され、validator失敗時はrollbackします。toolはcommitも
 pushもしません。詳しくは[ルール昇格](docs/rule-promotion.md)を参照してください。
 
 ### 日本語構造sensorを評価する

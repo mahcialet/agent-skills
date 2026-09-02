@@ -24,7 +24,8 @@ recordは、原文に正解labelを付けるためのものではない。proven
 - authorshipとAI assistanceの既知・不明
 - review signalと、その根拠
 - rights status、raw text再配布可否、local-only、匿名化・redaction・変更の有無。repository
-  licenseの値がある場合は、取得・確認方法を `rights.notes` に記録する
+  licenseの値がある場合は、取得・確認方法を空でない `rights.notes` に記録する。schemaとcustom
+  validatorの両方がこの条件を検証する
 - raw text、reference-only、hashのどれで保存したか
 - expected behavior、annotation rationale、semantic invariants、do-not-change constraints
 - decision state、reviewer、日時、理由
@@ -101,6 +102,7 @@ regression planはproposal ID、exact diff hash、provider matrix、全caseを�
 raw textをplanへ複製せず、record pathとcontent hashで参照する。runはprovider、model、version、
 host、repeat indexを固定し、reportはplanと全runから再計算できる集約値を持つ。
 
-approvalには、pass済みreportとexact diffに対する人間の判断を保存する。proposalとは別の
-immutable artifactとし、proposalの `human_approval` fieldを後からtrueへ書き換えない。
+approvalには、pass済みreportとexact diffに対するcaller-suppliedなreviewer attestationを保存する。
+toolはreviewerが人間かを認証しないため、人間によるreviewはtool外の運用責任である。approvalは
+proposalとは別のimmutable artifactとし、proposalの `human_approval` fieldを後からtrueへ書き換えない。
 apply時はproposal、report、approvalのIDとdiff hashを再照合する。

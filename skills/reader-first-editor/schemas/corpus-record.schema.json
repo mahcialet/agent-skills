@@ -158,7 +158,7 @@
       ],
       "properties": {
         "status": {"enum": ["verified", "unknown", "unlicensed", "restricted"]},
-        "repository_license": {"type": ["string", "null"]},
+        "repository_license": {"type": ["string", "null"], "minLength": 1, "pattern": "\\S"},
         "raw_text_redistribution": {"enum": ["allowed", "unknown", "restricted", "not-applicable"]},
         "review_comment_redistribution": {"enum": ["allowed", "unknown", "restricted", "not-applicable"]},
         "local_only": {"type": "boolean"},
@@ -349,6 +349,26 @@
     }
   },
   "allOf": [
+    {
+      "if": {
+        "properties": {
+          "rights": {
+            "properties": {
+              "repository_license": {"type": "string"}
+            }
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "rights": {
+            "properties": {
+              "notes": {"type": "string", "minLength": 1, "pattern": "\\S"}
+            }
+          }
+        }
+      }
+    },
     {
       "if": {"required": ["github_evidence"]},
       "then": {

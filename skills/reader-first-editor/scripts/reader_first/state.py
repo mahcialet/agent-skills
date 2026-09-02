@@ -317,6 +317,13 @@ def validate_corpus_record(record: dict) -> None:
     for key in ("repository_license", "notes"):
         if rights[key] is not None and not isinstance(rights[key], str):
             raise RecordValidationError(f"rights.{key}はstringまたはnullである必要があります")
+    if rights["repository_license"] is not None:
+        if not rights["repository_license"].strip():
+            raise RecordValidationError("rights.repository_licenseは空でないstringまたはnullである必要があります")
+        if not isinstance(rights["notes"], str) or not rights["notes"].strip():
+            raise RecordValidationError(
+                "repository licenseの取得・確認方法をrights.notesへ記録する必要があります"
+            )
 
     handling = _require_object(record, "handling")
     handling_keys = {"anonymized", "modified", "redactions"}

@@ -245,6 +245,17 @@ class InvestigationTests(unittest.TestCase):
         _, blockers = validate_investigation_result(result, bundle)
         self.assertEqual(len(blockers), 4)
 
+    def test_gate_uses_structured_flags_instead_of_inferring_them_from_prose(self) -> None:
+        bundle = self.bundle()
+        result = valid_result(bundle)
+        result["support"]["mechanism"] = "出現率が80%以上なら常に適用する"
+        result["existing_rule_analysis"] = "既存ruleと同じ内容を再提案する"
+        validated, blockers = validate_investigation_result(result, bundle)
+        self.assertFalse(validated["fixed_threshold_only"])
+        self.assertFalse(validated["frequency_only"])
+        self.assertFalse(validated["duplicate_rule"])
+        self.assertEqual(blockers, [])
+
     def test_source_correlation_cannot_be_forged(self) -> None:
         bundle = self.bundle()
         result = valid_result(bundle)

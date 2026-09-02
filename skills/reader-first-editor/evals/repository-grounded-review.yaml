@@ -111,6 +111,36 @@
       "expected_evidence_types": ["DOC↔CODE"],
       "must_not_claim": ["license値だけで確認方法も分かる", "repository licenseがPR本文の権利を証明する"],
       "expected": "必須とされた確認方法をrecordから特定できない不一致を報告し、取得元または確認方法を既存fieldへ明記するかschemaへ追加するよう提案する"
+    },
+    {
+      "id": "structured-flag-is-not-semantic-detection",
+      "language": "ja",
+      "mode": "repository-review",
+      "input": "文書はvalidatorが頻度だけのruleとduplicate ruleを本文から検出すると説明する。実装はAgentが提出したfrequency_onlyとduplicate_ruleのbooleanだけを確認し、mechanismやexisting_rule_analysisの自然言語は判定しない。",
+      "expected_statuses": ["CONTRADICTED"],
+      "expected_evidence_types": ["DOC↔CODE"],
+      "must_not_claim": ["structured booleanが本文の正しさを証明する", "toolが自然言語からduplicateを検出する"],
+      "expected": "自動検出と自己申告flagの検証を区別し、文書を実装済みのstructured gateへ限定するよう提案する"
+    },
+    {
+      "id": "eval-id-set-needs-bidirectional-check",
+      "language": "ja",
+      "mode": "repository-review",
+      "input": "文書はproposalにないeval IDをrule patchで拒否すると説明する。実装はproposalのIDがdiff文字列に含まれることだけを確認し、diff側の追加IDは列挙・比較しない。",
+      "expected_statuses": ["CONTRADICTED"],
+      "expected_evidence_types": ["DOC↔CODE"],
+      "must_not_claim": ["片方向の包含確認で集合一致を保証できる"],
+      "expected": "proposal IDの欠落確認と未列挙IDの拒否を区別し、patch後または追加行のID集合を双方向比較するよう提案する"
+    },
+    {
+      "id": "caller-supplied-reviewer-is-not-human-authentication",
+      "language": "ja",
+      "mode": "repository-review",
+      "input": "文書はhuman approvalをruntimeで確認すると説明する。実装はpass reportと空でないreviewer・reasonだけを検証し、reviewerの主体を認証しない。",
+      "expected_statuses": ["CONTRADICTED"],
+      "expected_evidence_types": ["DOC↔CODE"],
+      "must_not_claim": ["reviewer文字列が人間であることを証明する"],
+      "expected": "caller-supplied attestationと人間認証を区別し、tool外の運用責任を明記するか独立した承認証拠を要求するよう提案する"
     }
   ]
 }

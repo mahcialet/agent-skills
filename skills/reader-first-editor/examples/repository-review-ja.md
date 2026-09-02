@@ -37,3 +37,20 @@ enabled: false
 URL先を確認していない通常の `repository-review` では、判定を
 `SUPPORTED-BY-CITATION` とする。この時点で読者に伝えられるのはcitationが記載されていることまでであり、
 AWSが実際に推奨しているとは断定しない。
+
+## 片方向の検証を双方向保証と表現している場合
+
+> proposalにないeval IDを拒否します。
+
+実装がproposal側のIDについて「diffに含まれるか」だけを確認している場合、未列挙IDをdiff側へ
+追加する反例も確認する。proposal IDの欠落拒否だけを根拠に、ID集合が一致すると判定しない。
+
+```text
+[DOC↔CODE][CONTRADICTED][MEDIUM]
+対象claim: 文書はproposalにないeval IDも拒否すると説明しています。
+証拠: validatorはproposal IDの欠落だけを確認し、diff側の追加IDを比較していません。
+不一致・不足: 片方向の包含確認では、未列挙IDを拒否できません。
+読者への影響: regression対象外のevalがpatchへ追加されても、gateを通る可能性があります。
+修正案・追加確認: proposalと追加evalのID集合を双方向で比較し、余分なIDのnegative testを
+追加してください。
+```

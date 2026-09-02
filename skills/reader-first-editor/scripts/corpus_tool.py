@@ -246,7 +246,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     approval_parser = rule_commands.add_parser(
         "approve",
-        help="pass済みreportとexact diffを人間が明示承認する",
+        help="pass済みreportとexact diffへのcaller-supplied reviewer attestationを記録する",
     )
     approval_parser.add_argument("--proposal-id", required=True)
     approval_parser.add_argument("--report-id", required=True)
@@ -256,7 +256,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     apply_parser = rule_commands.add_parser(
         "apply",
-        help="regressionとhuman approvalを再確認してrule patchを適用する",
+        help="regressionとapproval artifactを再確認してrule patchを適用する",
     )
     apply_parser.add_argument("--proposal-id", required=True)
     apply_parser.add_argument("--report-id", required=True)

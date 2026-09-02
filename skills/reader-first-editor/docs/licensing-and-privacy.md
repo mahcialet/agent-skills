@@ -16,7 +16,7 @@ raw text: 保存しない
 storage: reference-only
 rights status: unknown
 local only: true
-public promotion: reject
+planned public promotion: reject
 ```
 
 URLに加えて、immutable commit SHA、PR番号、file、取得日時、content hashを保存する。
@@ -33,7 +33,8 @@ human／bot／unknownの種別だけを残す。
 - immutable revisionと取得日時
 - authorship、AI assistance、review signal
 - repository licenseとして観測した値と確認方法。確認方法は `rights.notes` に記録し、GitHub
-  collectorはGitHub REST APIのrepository metadataから取得したことを明記する
+  collectorはGitHub REST APIのrepository metadataから取得したことを明記する。schemaとcustom
+  validatorは、`repository_license` が非nullの場合に空でない `rights.notes` を要求する
 - raw text、PR本文、review commentそれぞれのredistribution status
 - local-only、public候補、redaction、改変の有無
 - record作成者とannotationの由来
@@ -54,11 +55,12 @@ project-local dataは、誤ってcommitされないように保護する必要�
 利用者の `.gitignore` は無断で変更しない。unignoredなdirectoryへのwriteを拒否し、
 明示overrideがある場合だけ続行する。
 
-## Public promotion
+## Public promotion（planned policy・未実装）
 
-publicなbundled corpusへ昇格する前に、raw text再配布権限、attribution、NOTICE更新、sourceの
-固定、review commentの扱い、third-party contentの分離を確認する。rights statusが `unknown`、`unlicensed`、
-`restricted` のrecordはpublic promotionを拒否する。
+public promotionのCLIとruntime gateは未実装である。将来実装する場合は、publicなbundled corpusへ
+昇格する前に、raw text再配布権限、attribution、NOTICE更新、sourceの固定、review commentの扱い、
+third-party contentの分離を確認する。rights statusが `unknown`、`unlicensed`、`restricted` のrecordを
+拒否するpolicyとする。
 
 local-only recordはlocal evalへ利用できる。ただし、repositoryのfixture、investigation bundle、
 reportへraw textを転載しない。権利確認後にstatusを変更する場合もaudit logを残す。

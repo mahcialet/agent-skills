@@ -187,6 +187,41 @@ class RecordTests(unittest.TestCase):
         with self.assertRaises(RecordValidationError):
             validate_corpus_record(record)
 
+    def test_manual_repository_license_requires_nonempty_acquisition_method(self) -> None:
+        for notes in (None, "", "   "):
+            with self.subTest(notes=notes):
+                record = sample_record()
+                record["source"].update(
+                    {
+                        "type": "manual",
+                        "repository": None,
+                        "pr_number": None,
+                        "commit": None,
+                        "file": None,
+                        "url": None,
+                        "immutable_revision": "b" * 64,
+                    }
+                )
+                record["rights"]["repository_license"] = "MIT"
+                record["rights"]["notes"] = notes
+                record["id"] = deterministic_candidate_id(record)
+                with self.assertRaisesRegex(RecordValidationError, "取得・確認方法"):
+                    validate_corpus_record(record)
+
+    def test_repository_license_accepts_recorded_acquisition_method(self) -> None:
+        record = sample_record()
+        record["rights"]["repository_license"] = "MIT"
+        record["rights"]["notes"] = "GitHub REST APIのrepository metadataから取得"
+        record["id"] = deterministic_candidate_id(record)
+        validate_corpus_record(record)
+
+    def test_unknown_repository_license_allows_null_notes(self) -> None:
+        record = sample_record()
+        record["rights"]["repository_license"] = None
+        record["rights"]["notes"] = None
+        record["id"] = deterministic_candidate_id(record)
+        validate_corpus_record(record)
+
     def test_record_validation_rejects_unknown_fields(self) -> None:
         record = sample_record()
         record["id"] = deterministic_candidate_id(record)
