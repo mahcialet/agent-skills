@@ -55,6 +55,19 @@
       "expected": "監査日時、暦日、利用者の現地時刻をglobal frequencyだけで同じpeer groupにせず、少数派という理由ではflagしない"
     },
     {
+      "id": "ordinary-review-stays-within-provided-context",
+      "language": "ja",
+      "mode": "review",
+      "input": "次の表だけを校閲してください。audit timestampsの3列はtimestamptz、published_atだけtimestampです。repository内の根拠確認は依頼していません。",
+      "expected_anomaly_statuses": ["UNEXPLAINED"],
+      "must_not_claim": [
+        "repositoryを検索した",
+        "schemaとtestを確認した",
+        "timestampは誤り"
+      ],
+      "expected": "与えられた本文の範囲で少数例をcandidateとして示し、repository探索へ広げず、理由未確認と少数派だけを根拠に誤りと断定しない"
+    },
+    {
       "id": "required-header-uses-required-polarity",
       "language": "ja",
       "mode": "review",

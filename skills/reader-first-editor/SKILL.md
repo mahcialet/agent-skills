@@ -103,7 +103,9 @@ global passの順序を照合する。空または空白のみのMarkdownはinve
 
 同じ役割を持つ要素群の型、nullable、default、constraint、命名、表記に強い局所規則が見える
 場合は、`references/core/local-consistency-review.md` を読む。全体頻度ではなくsemantic peer
-groupを先に定義し、少数例をcandidateとして記録してからrepository evidenceを確認する。
+groupを先に定義し、少数例をcandidateとして記録する。通常の `review` では、与えられた本文と
+contextの範囲で再確認し、repository探索へ無条件に広げない。`repository-review` または利用者が
+根拠確認を明示した場合だけ、関連するrepository evidenceを限定的に確認する。
 少数派だけを理由に誤りとせず、`UNEXPLAINED` を修正対象と断定しない。review中に値を自動修正
 しない。
 

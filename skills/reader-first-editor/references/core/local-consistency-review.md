@@ -10,8 +10,11 @@
 3. type、nullable、default、constraint、命名、表記など、目的に関係する属性の分布を確認する。
 4. 強いdominant patternから外れる値をcandidateとして記録する。
 5. candidateが同じpeer groupに属するか、抽出・正規化の誤りでないかを文脈で再確認する。
-6. 対象の参照、識別子、table・column名からrepository evidenceを限定的に探索する。
-7. `EXPLAINED`、`UNEXPLAINED`、`CONTRADICTED`、`NOT-AN-OUTLIER` のいずれかへ解決する。
+6. `repository-review` または明示された根拠確認では、対象の参照、識別子、table・column名から
+   repository evidenceを限定的に探索する。通常の `review` では、与えられた本文とcontextの
+   範囲を越えて探索しない。
+7. 確認できた範囲で `EXPLAINED`、`UNEXPLAINED`、`CONTRADICTED`、
+   `NOT-AN-OUTLIER` のいずれかへ解決し、未確認範囲を明記する。
 
 候補段階で修正しない。reviewまたはrepository-reviewの非破壊契約を維持する。
 
@@ -63,7 +66,9 @@ memberが候補生成に必要な最小件数へ達しないgroupは `partial` �
 
 ## repository evidence
 
-candidateごとに、関連する範囲から次を確認する。
+この節は `repository-review` または利用者が根拠確認を明示した場合に適用する。通常の
+`review` ではrepository探索を自動的に開始しない。適用時はcandidateごとに、関連する範囲から
+次を確認する。
 
 - schema、DDL、migration、column comment
 - application code、validation、test、fixture
@@ -107,7 +112,7 @@ candidateまたはfindingには最低限、次を含める。
 - dominant patternと分布
 - 少数例の値と全location
 - peer groupの根拠と除外範囲
-- 確認したrepository evidenceと未確認範囲
+- 確認したcontextと未確認範囲。repository evidenceを確認した場合は探索scopeと結果
 - `anomaly_status` と、該当する場合は `evidence_status`
 - 読者・実装への影響
 - 次に必要な確認

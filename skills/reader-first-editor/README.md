@@ -23,7 +23,7 @@
 | 内容を変えない改稿 | 事実、条件、例外、必須・推奨・任意・可能性の違い、コード、コマンド、設定値、識別子などを保ちながら、並べ替え・分割・結合・明確化を行う | `revise-safe`。明示依頼が必要 |
 | リポジトリ内校閲 | 文書の記述を、同じリポジトリのコード、設定、テスト、他文書と照合する | `repository-review`。文書や証拠ファイルを変更しない |
 | 長文coverage | 見出しなどの構造単位で局所確認した後、文書全体を確認し、0件と未確認を区別する | 長文・複数file・網羅性を求められた `review`／`repository-review`。原文やファイルを変更しない |
-| 局所整合性 | 同じ役割を持つ要素群の型・値・表記から外れる少数例をcandidateとして拾い、意図的な例外かrepository evidenceを確認する | `review`／`repository-review`。少数派だけで誤りとせず、自動修正しない |
+| 局所整合性 | 同じ役割を持つ要素群の型・値・表記から外れる少数例をcandidateとして拾い、意図的な例外か確認する | `review` は与えられた本文とcontext内、`repository-review` は関連するrepository evidenceまで確認。少数派だけで誤りとせず、自動修正しない |
 | 構造変更の提案 | 情報の移動、重複の統合、削除候補と、失われる可能性のある内容を示す | `revise-structural`。明示的な削除許可がなければ提案だけを返す |
 | 変更点の比較 | 改稿前後の文章に、変更理由と内容が変わるリスクを対応付ける | `diff`。明示依頼が必要 |
 | 草案作成 | 既知情報から文章を作り、不明な期限・担当などは `TODO` や確認事項として示す | `authoring`。明示依頼が必要 |
@@ -132,8 +132,9 @@ severityはcandidate収集後に付けます。coverage summaryでは `checked`�
 
 DB定義表などでは、semantic peer groupを先に定義します。その上で、type、nullable、default、
 constraintなどの分布から、少数値をcandidateとして確認できます。全体頻度や少数派だけでは
-誤りとせず、repository内のschema、migration、comment、code、test、ADRなどから例外理由を
-探します。結果は
+誤りとしません。通常の `review` は与えられた本文とcontext内で確認し、`repository-review`
+または明示的な根拠確認ではrepository内のschema、migration、comment、code、test、ADRなどから
+例外理由を探します。結果は
 `EXPLAINED`、`UNEXPLAINED`、`CONTRADICTED`、`NOT-AN-OUTLIER` に分け、
 `UNEXPLAINED` を誤りや自動修正の根拠にしません。
 
