@@ -107,6 +107,7 @@
         "status": {"$ref": "#/$defs/status"},
         "candidate_ids": {
           "type": "array",
+          "uniqueItems": true,
           "items": {"type": "string", "minLength": 1}
         },
         "candidate_count": {"type": "integer", "minimum": 0},

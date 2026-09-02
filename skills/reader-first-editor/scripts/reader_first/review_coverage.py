@@ -692,6 +692,8 @@ def validate_coverage_report(
         if not _is_string_list(candidate_ids, nonempty_items=True):
             errors.append(f"{label}: candidate_idsは文字列listである必要があります")
             candidate_ids = []
+        if len(candidate_ids) != len(set(candidate_ids)):
+            errors.append(f"{label}: candidate_idsが重複しています")
         unknown = set(candidate_ids) - candidate_map.keys()
         if unknown:
             errors.append(f"{label}: 未定義candidateがあります: {sorted(unknown)}")

@@ -523,6 +523,23 @@ outside
         self.assertTrue(any("excluded/unresolvedにはreason" in error for error in errors))
         self.assertTrue(any("exclusion_reasons" in error for error in errors))
 
+    def test_dimension_candidate_ids_must_be_unique(self) -> None:
+        report = finding_report()
+        dimension = _dimension(report, "relationship-clarity")
+        dimension.update(
+            {
+                "candidate_ids": ["REL-0001", "REL-0001"],
+                "candidate_count": 2,
+                "finding_count": 2,
+            }
+        )
+        self.assertTrue(
+            any(
+                "dimension" in error and "candidate_idsが重複" in error
+                for error in _validate(report)
+            )
+        )
+
     def test_cli_rejects_invalid_severity(self) -> None:
         report = finding_report("CRITICAL")
         inventory = build_markdown_inventory(FINDING_TEXT, source="<text>")
