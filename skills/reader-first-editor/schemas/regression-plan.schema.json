@@ -58,10 +58,24 @@
           "expected": {"type": "string", "minLength": 1},
           "must_preserve": {"type": "array", "items": {"type": "string"}},
           "must_not": {"type": "array", "items": {"type": "string"}},
-          "expected_risks": {"type": "array", "uniqueItems": true, "items": {"type": "string", "pattern": "^RR-(0[1-9]|1[0-6])$"}},
-          "expected_statuses": {"type": "array", "uniqueItems": true, "items": {"enum": ["VERIFIED", "CONTRADICTED", "SUPPORTED-BY-CITATION", "UNSUPPORTED", "UNVERIFIED"]}},
-          "expected_evidence_types": {"type": "array", "uniqueItems": true, "items": {"enum": ["DOC↔CODE", "DOC↔CONFIG", "DOC↔TEST", "DOC↔DOC", "DOC↔HISTORY", "CITATION", "EVIDENCE-GAP", "UNVERIFIED"]}}
-        }
+          "expected_risks": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "pattern": "^RR-(0[1-9]|1[0-6])$"}},
+          "expected_statuses": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"enum": ["VERIFIED", "CONTRADICTED", "SUPPORTED-BY-CITATION", "UNSUPPORTED", "UNVERIFIED"]}},
+          "expected_evidence_types": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"enum": ["DOC↔CODE", "DOC↔CONFIG", "DOC↔TEST", "DOC↔DOC", "DOC↔HISTORY", "CITATION", "EVIDENCE-GAP", "UNVERIFIED"]}}
+        },
+        "allOf": [
+          {
+            "if": {"properties": {"mode": {"const": "repository-review"}}, "required": ["mode"]},
+            "then": {"required": ["expected_statuses", "expected_evidence_types"]}
+          },
+          {
+            "if": {"properties": {"expected_statuses": {"contains": {"const": "UNSUPPORTED"}}}, "required": ["expected_statuses"]},
+            "then": {"properties": {"expected_evidence_types": {"contains": {"const": "EVIDENCE-GAP"}}}, "required": ["expected_evidence_types"]}
+          },
+          {
+            "if": {"properties": {"expected_statuses": {"contains": {"const": "UNVERIFIED"}}}, "required": ["expected_statuses"]},
+            "then": {"properties": {"expected_evidence_types": {"contains": {"const": "UNVERIFIED"}}}, "required": ["expected_evidence_types"]}
+          }
+        ]
       }
     },
     "requirements": {

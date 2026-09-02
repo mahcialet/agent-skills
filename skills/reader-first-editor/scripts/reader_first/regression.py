@@ -15,6 +15,7 @@ from copy import deepcopy
 from datetime import datetime, timezone
 from pathlib import Path
 
+from .eval_validation import STRUCTURED_ORACLE_VALUES, validate_eval_oracles
 from .schema_validation import is_schema_version
 from .state import STATE_DIRECTORIES, LocalCorpusStore, StoreError
 
@@ -30,24 +31,15 @@ EXPECTED_BEHAVIORS = {"change", "no-change", "review-only", "context-dependent"}
 STRUCTURED_ORACLES = {
     "expected_risks": (
         "observed_risks",
-        {f"RR-{index:02d}" for index in range(1, 17)},
+        STRUCTURED_ORACLE_VALUES["expected_risks"],
     ),
     "expected_statuses": (
         "observed_statuses",
-        {"VERIFIED", "CONTRADICTED", "SUPPORTED-BY-CITATION", "UNSUPPORTED", "UNVERIFIED"},
+        STRUCTURED_ORACLE_VALUES["expected_statuses"],
     ),
     "expected_evidence_types": (
         "observed_evidence_types",
-        {
-            "DOC↔CODE",
-            "DOC↔CONFIG",
-            "DOC↔TEST",
-            "DOC↔DOC",
-            "DOC↔HISTORY",
-            "CITATION",
-            "EVIDENCE-GAP",
-            "UNVERIFIED",
-        },
+        STRUCTURED_ORACLE_VALUES["expected_evidence_types"],
     ),
 }
 ALLOWED_RULE_TARGETS = (
@@ -287,6 +279,11 @@ def _bundled_cases(eval_dir: Path) -> list[dict]:
             )
             if expected_behavior not in EXPECTED_BEHAVIORS:
                 raise RegressionError(f"{path}: {case_id}のexpected_behaviorが不正です")
+            if oracle_errors := validate_eval_oracles(case):
+                raise RegressionError(
+                    f"{path}: {case_id}のstructured oracleが不正です: "
+                    + "; ".join(oracle_errors)
+                )
             must_preserve = case.get("must_preserve", [])
             must_not = [
                 *case.get("must_not_add", []),
@@ -501,6 +498,11 @@ def validate_regression_plan(plan: object) -> dict:
             raise RegressionError("regression case categoryが不正です")
         if item.get("expected_behavior") not in EXPECTED_BEHAVIORS:
             raise RegressionError("regression case expected_behaviorが不正です")
+        if oracle_errors := validate_eval_oracles(item):
+            raise RegressionError(
+                "regression plan.cases[]のstructured oracleが不正です: "
+                + "; ".join(oracle_errors)
+            )
         for key, (_, allowed_values) in STRUCTURED_ORACLES.items():
             if key in item:
                 values = _strings(item, key, "regression plan.cases[]", unique=True)
