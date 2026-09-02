@@ -93,6 +93,37 @@ class DatabaseConsistencyTests(unittest.TestCase):
         self.assertEqual(report["candidates"][0]["column"], "published_at")
         self.assertEqual(report["candidates"][0]["minority_value"], "nullable")
 
+    def test_quoted_default_literal_preserves_case_and_whitespace(self) -> None:
+        rows = [
+            ("events", "created_at", "text", "NO", "'active'", ""),
+            ("events", "updated_at", "text", "NO", "'active'", ""),
+            ("events", "deleted_at", "text", "NO", "'active'", ""),
+            ("events", "published_at", "text", "NO", "'ACTIVE'", ""),
+        ]
+        report = analyze_peer_groups(
+            extract_markdown_tables(definition_table(rows), source="defaults.md"),
+            [PeerGroupSpec(name="timestamps", column_pattern=r"_at$")],
+            attributes=("default",),
+        )
+        self.assertEqual(report["candidate_count"], 1)
+        self.assertEqual(report["candidates"][0]["minority_value"], "'ACTIVE'")
+
+        spaced = definition_table(
+            [
+                ("events", "a_at", "text", "NO", "'a b'", ""),
+                ("events", "b_at", "text", "NO", "'a b'", ""),
+                ("events", "c_at", "text", "NO", "'a b'", ""),
+                ("events", "d_at", "text", "NO", "'a  b'", ""),
+            ]
+        )
+        spaced_report = analyze_peer_groups(
+            extract_markdown_tables(spaced, source="spaces.md"),
+            [PeerGroupSpec(name="timestamps", column_pattern=r"_at$")],
+            attributes=("default",),
+        )
+        self.assertEqual(spaced_report["candidate_count"], 1)
+        self.assertEqual(spaced_report["candidates"][0]["minority_value"], "'a  b'")
+
     def test_nullable_header_keeps_nullable_polarity(self) -> None:
         text = """| column | type | nullable |
 |---|---|---|

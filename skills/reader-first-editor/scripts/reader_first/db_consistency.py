@@ -86,6 +86,42 @@ def _normalize_required(value: str) -> str:
     return normalized or "<missing>"
 
 
+def _normalize_default(value: str) -> str:
+    """式部分だけを正規化し、quoted literalのcaseと空白を保持する。"""
+
+    segments: list[tuple[bool, str]] = []
+    current: list[str] = []
+    quote: str | None = None
+    index = 0
+    while index < len(value):
+        char = value[index]
+        if quote is None and char in {"'", '"'}:
+            if current:
+                segments.append((False, "".join(current)))
+                current = []
+            quote = char
+            current.append(char)
+        elif quote is not None and char == quote:
+            current.append(char)
+            if index + 1 < len(value) and value[index + 1] == quote:
+                current.append(value[index + 1])
+                index += 1
+            else:
+                segments.append((True, "".join(current)))
+                current = []
+                quote = None
+        else:
+            current.append(char)
+        index += 1
+    if current:
+        segments.append((quote is not None, "".join(current)))
+    normalized = "".join(
+        text if quoted else re.sub(r"\s+", " ", text.casefold())
+        for quoted, text in segments
+    ).strip()
+    return normalized or "<missing>"
+
+
 def _normalize_value(
     attribute: str,
     value: str,
@@ -99,6 +135,8 @@ def _normalize_value(
         if nullable_source == "required":
             return _normalize_required(value)
         return _normalize_nullable(value)
+    if attribute == "default":
+        return _normalize_default(value)
     return re.sub(r"\s+", " ", value.strip().casefold()) or "<missing>"
 
 
