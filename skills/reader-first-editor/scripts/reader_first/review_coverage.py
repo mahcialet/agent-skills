@@ -67,6 +67,10 @@ def _starts_special(lines: list[str], index: int) -> bool:
     return index + 1 < len(lines) and "|" in line and _is_table_separator(lines[index + 1])
 
 
+def _is_fence_close(line: str, marker: str) -> bool:
+    return bool(re.fullmatch(rf"\s*{re.escape(marker[0])}{{{len(marker)},}}\s*", line))
+
+
 def parse_markdown_blocks(text: str) -> tuple[list[MarkdownBlock], list[str]]:
     """Markdownの分割してはいけないblockを保ったinventoryを返す。"""
 
@@ -83,17 +87,10 @@ def parse_markdown_blocks(text: str) -> tuple[list[MarkdownBlock], list[str]]:
         fence_match = FENCE_RE.match(line)
         if fence_match:
             marker = fence_match.group(1)
-            marker_char = marker[0]
-            marker_length = len(marker)
             index += 1
             closed = False
             while index < len(lines):
-                closing = FENCE_RE.match(lines[index])
-                if (
-                    closing
-                    and closing.group(1)[0] == marker_char
-                    and len(closing.group(1)) >= marker_length
-                ):
+                if _is_fence_close(lines[index], marker):
                     index += 1
                     closed = True
                     break

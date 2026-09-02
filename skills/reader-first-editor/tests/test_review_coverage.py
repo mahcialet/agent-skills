@@ -181,6 +181,22 @@ CREATE TABLE events (
         self.assertEqual(inventory["status"], "partial")
         self.assertTrue(inventory["limitations"])
 
+    def test_fence_content_with_marker_prefix_does_not_close_block(self) -> None:
+        text = """~~~text
+before
+~~~not-a-closing-fence
+after
+~~~
+
+outside
+"""
+        inventory = build_markdown_inventory(text, source="fence.md", max_chars=30)
+        code_chunk = next(
+            chunk for chunk in inventory["chunks"] if "code-fence" in chunk["block_kinds"]
+        )
+        self.assertIn("after", code_chunk["text"])
+        self.assertNotIn("outside", code_chunk["text"])
+
     def test_checked_zero_is_distinct_from_not_checked(self) -> None:
         text = "# 文書\n\n問題はありません。"
         inventory = build_markdown_inventory(text, source="clean.md")
