@@ -41,6 +41,7 @@
 
 具体例:
 
+- [作者ではなく読者影響を確認するreview例](examples/authorship-boundary-ja.md)
 - [関係を一語で済ませた文の確認例](examples/relationship-clarity-ja.md)
 - [長文のcoverage-driven review例](examples/coverage-review-ja.md)
 - [DB定義の局所整合性review例](examples/local-consistency-ja.md)
