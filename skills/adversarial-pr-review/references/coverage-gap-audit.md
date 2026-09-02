@@ -164,8 +164,8 @@ specialist transcriptやprivate reasoningは出力しない。確認対象、sta
 
 このauditは、`mahcialet/agent-skills` PR #2で初回review後に確認された次の3系統を一般化している。
 runtimeはlive PRへ依存せず、`evals/coverage-gap-audit.yaml`のsynthetic caseをcanonical fixtureとする。
-この3件の`input`と`expected`はvalidator側のSHA-256 digestで固定し、provenanceだけを残して内容を
-差し替える回帰を検知する。
+suite内のrequired caseはすべて`input`と`expected`をvalidator側のSHA-256 digestで固定し、
+canonical scenarioとoracleの差し替えを検知する。うち次の3件はhistorical provenanceも固定する。
 
 - propagation gap: PR #2、reviewed head `8bf6c1ff9749a8736e4e4b6444883324465432c9`、
   `discussion_r3917733760`

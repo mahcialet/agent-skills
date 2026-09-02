@@ -315,7 +315,7 @@ HISTORICAL_PROVENANCE = {
         "8bf6c1ff9749a8736e4e4b6444883324465432c9 / discussion_r3917733777"
     ),
 }
-HISTORICAL_FIXTURE_DIGESTS = {
+CANONICAL_FIXTURE_DIGESTS = {
     "coverage-pr2-propagation-all-producers": {
         "input": "ae894fbfe0ae5382865d21a2a36be8032bf9a17494d6a7327ba3fda192ffca64",
         "expected": "293db3f795e115867ed270a4d274a258fbd59209a2af2241aedc8d05fdd4afa2",
@@ -327,6 +327,30 @@ HISTORICAL_FIXTURE_DIGESTS = {
     "coverage-pr2-relational-oracle-invariants": {
         "input": "0380234976a5199e11ccfb6fab510630502b11e3a366e75c06f2c7d937394e2e",
         "expected": "40d5cf88a01897e788e5c892bd542f724e0638dd127b461a2026cb6c414641c2",
+    },
+    "coverage-finding-count-is-not-completion": {
+        "input": "cfa918a2435f6b2395b88da547f0ab04d5ef421805633724de5d94ae482c13b8",
+        "expected": "b421203662721327487ec556b5ec7d22e36803b35714c1c3835b5b8e9e9ac6e3",
+    },
+    "coverage-verification-does-not-replace-blind-pass": {
+        "input": "b138bd1c152667f1cc0590fbe4d3a103eb4ee46aeaa5157bf54a3f66efa13854",
+        "expected": "c5d3cb8ae4d781804823aaedc3d90dd3b7d834fdef94201f076596a34b11aeba",
+    },
+    "coverage-doc-only-change-no-companion-finding": {
+        "input": "a35409442d058d1c6364ee3f8a13049d36017f54a7c791d1361b86ff650f3c3a",
+        "expected": "a4fda624f014d1a632efd87ecbfca0718a3794b2036e53978fc0cfa8126c06c2",
+    },
+    "coverage-intentional-single-producer-not-applicable": {
+        "input": "53757e5b959760e6e80c91cf87911901986c429ab20286821512642a8f4d8a4d",
+        "expected": "81477b66d29b56e17d9b6d9bfe1e789b538b36b080cc4f6c9da5d68d83dd94bb",
+    },
+    "coverage-dynamic-route-remains-unverified": {
+        "input": "abfa09d66bfe61a9a15404015cd24c0a983c5a1aa2c06853efa1bb251124321d",
+        "expected": "2a545b500b91607ca207be4608b6655002c34fc7b10a585c536b859062d32369",
+    },
+    "coverage-no-new-finding-still-reports-evidence": {
+        "input": "7dfc6ad867c9cd11ae7425359db8ab7ca6915a697279626c8c24ab8e0f25baa1",
+        "expected": "7abb95a37ed9d74f5c5105bc64e9cc1b13acfec053b742d0270cd06397379935",
     },
 }
 REPORT_SECTION_ORDER = (
@@ -441,8 +465,8 @@ def validate_suites(skill_dir: Path, errors: list[str]) -> int:
                     errors.append(
                         f"{label}: historical case {case_id} must preserve frozen provenance"
                     )
-            if isinstance(case_id, str) and case_id in HISTORICAL_FIXTURE_DIGESTS:
-                canonical_digests = HISTORICAL_FIXTURE_DIGESTS[case_id]
+            if isinstance(case_id, str) and case_id in CANONICAL_FIXTURE_DIGESTS:
+                canonical_digests = CANONICAL_FIXTURE_DIGESTS[case_id]
                 for field in ("input", "expected"):
                     value = case.get(field)
                     if isinstance(value, str):

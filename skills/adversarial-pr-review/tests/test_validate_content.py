@@ -68,6 +68,46 @@ class CoverageGapSuiteTestCase(unittest.TestCase):
             any("canonical expected digest mismatch" in error for error in errors)
         )
 
+    def test_new_coverage_cases_with_changed_input_are_rejected(self) -> None:
+        historical_ids = set(validator.HISTORICAL_PROVENANCE)
+        required_ids = set(validator.CANONICAL_FIXTURE_DIGESTS)
+        for case_id in sorted(required_ids - historical_ids):
+
+            def replace_input(data: dict, case_id: str = case_id) -> None:
+                case = next(
+                    case for case in data["cases"] if case["id"] == case_id
+                )
+                case["input"] = "unrelated scenario"
+
+            with self.subTest(case_id=case_id):
+                errors = self.validate_with_mutation(replace_input)
+                self.assertTrue(
+                    any(
+                        case_id in error and "canonical input digest mismatch" in error
+                        for error in errors
+                    )
+                )
+
+    def test_new_coverage_cases_with_changed_expected_are_rejected(self) -> None:
+        historical_ids = set(validator.HISTORICAL_PROVENANCE)
+        required_ids = set(validator.CANONICAL_FIXTURE_DIGESTS)
+        for case_id in sorted(required_ids - historical_ids):
+
+            def replace_expected(data: dict, case_id: str = case_id) -> None:
+                case = next(
+                    case for case in data["cases"] if case["id"] == case_id
+                )
+                case["expected"] = "unrelated expected behavior"
+
+            with self.subTest(case_id=case_id):
+                errors = self.validate_with_mutation(replace_expected)
+                self.assertTrue(
+                    any(
+                        case_id in error and "canonical expected digest mismatch" in error
+                        for error in errors
+                    )
+                )
+
     def test_required_coverage_case_cannot_be_removed(self) -> None:
         def remove_case(data: dict) -> None:
             data["cases"] = [
