@@ -1,6 +1,6 @@
 {
   "suite": "discourse-continuity-ja",
-  "provenance": "2026-09-03のCHATGPT_HANDOFF_11.mdに記録された話題のつながり、意味保存、coverage、fresh-reader passの設計要件",
+  "provenance": "2026-09-03のCHATGPT_HANDOFF_11.mdに記録された話題のつながり、意味保存、coverage、fresh-reader passの設計要件、および同日の利用者提供差分から一般化した語彙上の連続と論点上の連続の区別",
   "cases": [
     {
       "id": "continuity-abrupt-redis-without-entry",
@@ -31,6 +31,36 @@
       "must_preserve": ["また", "Redis"],
       "must_not_claim": ["『また』があるため関係は明確", "Redisはtokenを保存する"],
       "expected": "接続詞の存在を意味上のrelationの証拠にせず、Redisをここで扱う理由が本文から確認できないcandidateとして扱う"
+    },
+    {
+      "id": "continuity-shared-term-role-shift-is-candidate",
+      "language": "ja",
+      "mode": "review",
+      "expected_behavior": "review-only",
+      "input": "この工程では、最終的な採否を担当者が判断します。\n\nこの工程にかかる時間は、探索範囲に応じて増えます。\n\n終了条件がないと、担当者は探索を続けます。",
+      "must_preserve": ["この工程", "採否", "担当者", "時間", "探索範囲", "終了条件"],
+      "must_not_claim": ["同じ『工程』が続くため関係は明確", "語彙が共通するためno-change", "終了条件は最初から説明済み"],
+      "expected": "同じ主題語の反復をrelationの証拠にせず、第1段落の判断の所在から第2段落の所要時間へ役割、述語、問い、評価軸が切り替わる境界を確認する。時間を次に扱う理由は第3段落まで読まないと分からないため、理由が後置されたcontinuity candidateとして扱う"
+    },
+    {
+      "id": "continuity-shared-term-explicit-role-shift-is-no-change",
+      "language": "ja",
+      "mode": "review",
+      "expected_behavior": "no-change",
+      "input": "この工程では、最終的な採否を担当者が判断します。その判断には、必要な情報を集める範囲も決める必要があります。\n\n収集をどこで終えるか決められないと、この工程にかかる時間が増えます。",
+      "must_preserve": ["この工程", "採否", "担当者", "必要な情報", "収集", "時間"],
+      "must_not_claim": ["役割が変わるため常にfinding", "話題語を変える", "bridgeを追加する"],
+      "expected": "判断に必要な情報範囲から収集の終了条件と所要時間へ進む理由が前段だけで予測できる。述語と評価軸は変わるがrelationが明示されているためno-changeとする"
+    },
+    {
+      "id": "continuity-postposed-rationale-allows-local-reorder",
+      "language": "ja",
+      "mode": "revise-safe",
+      "expected_behavior": "change",
+      "input": "この工程では、最終的な採否を担当者が判断します。\n\nこの工程にかかる時間は、探索範囲に応じて増えます。\n\n終了条件がないと、担当者は探索を続けます。",
+      "must_preserve": ["最終的な採否", "担当者が判断", "時間", "探索範囲", "終了条件", "探索を続けます"],
+      "must_not_add": ["必ず遅延する", "担当者の能力が原因", "探索は不要"],
+      "expected": "第3段落が第2段落の配置理由を一意に示すため、既存文だけを『判断の所在→終了条件がないと探索が続く→探索範囲に応じて時間が増える』の順へ局所的に並べ替える。新しい因果、目的、scope、確信度は追加しない"
     },
     {
       "id": "continuity-heading-is-valid-anchor",
