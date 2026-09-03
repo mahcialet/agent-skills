@@ -1,0 +1,45 @@
+{
+  "suite": "discourse-continuity-en",
+  "provenance": "English boundary cases for the provider-neutral discourse-continuity workflow defined by CHATGPT_HANDOFF_11.md on 2026-09-03",
+  "cases": [
+    {
+      "id": "continuity-en-abrupt-topic-is-candidate",
+      "language": "en",
+      "mode": "review",
+      "expected_behavior": "review-only",
+      "input": "# Authentication failures\n\nAsk the user to sign in again after authentication fails.\n\n## Redis\n\nSet the connection timeout to five seconds.",
+      "must_not_claim": ["Redis is unnecessary", "Redis stores the token"],
+      "expected": "Treat the unexplained Redis section as a continuity candidate, explain why a reader cannot place it here, and request the missing relationship without recommending deletion"
+    },
+    {
+      "id": "continuity-en-explicit-relation-is-no-change",
+      "language": "en",
+      "mode": "review",
+      "expected_behavior": "no-change",
+      "input": "The server needs a store for refresh tokens. It uses Redis for that store.",
+      "must_preserve": ["server", "refresh tokens", "Redis", "store"],
+      "must_not_claim": ["a transition word is required"],
+      "expected": "The semantic relationship is explicit without a transition word, so report no continuity finding and make no unnecessary revision"
+    },
+    {
+      "id": "continuity-en-reference-items-use-heading-anchor",
+      "language": "en",
+      "mode": "review",
+      "expected_behavior": "no-change",
+      "input": "# Error reference\n\n## E101\n\nThe request is missing an identifier.\n\n## E205\n\nThe token has expired.",
+      "must_preserve": ["E101", "E205"],
+      "must_not_claim": ["connect E205 to E101", "add a narrative transition"],
+      "expected": "Treat each error entry as independent under the reference heading rather than forcing a linear narrative between entries"
+    },
+    {
+      "id": "continuity-en-does-not-manufacture-causality",
+      "language": "en",
+      "mode": "revise-safe",
+      "expected_behavior": "no-change",
+      "input": "The guide explains token expiration.\n\nRedis uses a five-second connection timeout.",
+      "must_preserve": ["token expiration", "Redis", "five-second"],
+      "must_not_add": ["because Redis stores the token", "therefore", "to share sessions"],
+      "expected": "Do not invent a causal bridge from topic proximity; preserve the text and report the missing purpose and information needed for a safe revision"
+    }
+  ]
+}

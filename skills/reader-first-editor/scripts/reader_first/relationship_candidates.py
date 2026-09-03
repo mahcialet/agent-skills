@@ -51,7 +51,31 @@ def load_tripwires(reference_path: Path) -> tuple[str, ...]:
 def _find_literal(line: str, literal: str) -> list[tuple[int, str]]:
     ascii_only = literal.isascii()
     flags = re.IGNORECASE if ascii_only else 0
-    return [(match.start(), match.group(0)) for match in re.finditer(re.escape(literal), line, flags)]
+    matches = [
+        (match.start(), match.group(0))
+        for match in re.finditer(re.escape(literal), line, flags)
+    ]
+    if literal != "場":
+        return matches
+
+    # 「判断の場」のような独立した関係語だけを候補にする。「場合」
+    # 「場所」「会場」など、別の語に含まれる文字は候補にしない。
+    preceding_boundaries = set("のをはがにへと、。！？：；（［【「『( [\t")
+    following_boundaries = set("、。！？：；（［【「『）］】」』()[] \t")
+    return [
+        (index, matched)
+        for index, matched in matches
+        if (
+            index == 0
+            or line[index - 1] in preceding_boundaries
+            or "ぁ" <= line[index - 1] <= "ゖ"
+        )
+        and (
+            index + len(matched) == len(line)
+            or line[index + len(matched)] in following_boundaries
+            or "ぁ" <= line[index + len(matched)] <= "ゖ"
+        )
+    ]
 
 
 def build_candidate_report(

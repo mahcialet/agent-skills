@@ -42,6 +42,8 @@
 3. 各chunkを局所scanし、観点別にcandidateを記録する。0件でも確認済みなら `checked` とする。
 4. 全chunkの記録を使い、文書全体の用語、定義、モダリティ、参照、pacing、局所整合性を
    cross-chunk passで確認する。
+   話題のつながりを対象にした場合は、入口、section間の移動、初出概念、文書目的から外れたblock、
+   blockをまたぐ過程の停止・継続・再開、改稿による新しいgapも確認する。
 5. repository evidenceが必要なcandidateだけ、対象文書の参照や識別子から範囲を広げて確認する。
 6. candidateを `finding`、`excluded`、`unresolved` に分類し、重複を統合する。
 7. 全candidateを保持した後でseverityと対応優先度を決める。
@@ -79,6 +81,10 @@ inventoryの `complete` は対応subsetの処理完了を示し、文書の全Ma
 - モダリティとscope
 - 局所整合性
 - repository整合性（`repository-review` または根拠確認が必要な場合）
+
+話題のつながりを独立して追跡する場合は、現行schema v2が許す追加観点として
+`discourse-continuity` を指定できる。既存v2 reportとの互換性を保つため、既定の必須観点には
+追加していない。
 
 ## candidateとfinding
 
@@ -128,14 +134,29 @@ candidateの観点所属、全chunk・全必須観点の局所確認後にglobal
 `schema_version` もintegerとして検証し、`true` をversion 1として受理しない。
 findingのseverityは `HIGH`、`MEDIUM`、`LOW` に限定し、欠落やそれ以外の値を拒否する。
 
+```bash
+python3 scripts/review_coverage.py new-report \
+  --inventory <inventory.json> \
+  --file <target.md> \
+  --mode review \
+  --dimension discourse-continuity
+```
+
+この追加観点では、Agentがeligible blockのrole、anchor、`why_here`、初出概念を確認する。現行toolは
+paragraph edgeの全件確認を機械検証しないため、schema validationの成功だけを全段落の確認証拠には
+しない。確認済みno-changeは `excluded`、情報不足は `unresolved` と理由を残し、未確認blockや
+fresh-reader passの独立性不足は `partial` または `not-checked` とlimitationsへ記録する。
+
 ツールはAgentの判断を置き換えない。利用できない場合はLLM-onlyの確認を続け、coverageを
 `partial` にして未実施処理を記録する。ツールの終了失敗をreview全体のhard failureにはしない。
 
 ## 来歴とreview gate
 
 この設計は、2026-09-02に利用者から提示された長文での「正本」見落としと、DB定義で同じ役割を
-持つ日時列の少数型を確認したいという事例を起点にしている。既存の関係明確性の支持例、法務用語・
-文書内定義・明示済み関係の反例、異なるpeer groupの境界例をevalへ保持する。
+持つ日時列の少数型を確認したいという事例を起点にしている。2026-09-04には、利用者の明示判断により
+「軸」「場」も同じcandidate-onlyの関係表現へ追加した。既存の関係明確性の支持例、法務用語・
+文書内定義・明示済み関係・具体的な座標軸・「場合」「場所」「会場」の反例、異なるpeer groupの
+境界例をevalへ保持する。
 
 候補抽出の閾値やlocal corpusの観察だけをcore ruleへ昇格しない。挙動変更は、positive、negative、
 boundary fixture、既存eval全件、来歴を揃え、人間の明示reviewを受けてからverifiedと記録する。

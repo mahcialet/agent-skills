@@ -10,6 +10,7 @@
 3. 各chunkを、semantic preservation、情報構造、構文・読み返しリスク、関係の省略、
    モダリティとscopeの観点で局所確認する。
 4. 全chunkを対象に、用語・定義・参照・pacing・モダリティ・局所整合性のglobal passを行う。
+   話題のつながりが対象なら、入口、section間の移動、初出概念、文書目的から外れたblockも確認する。
 5. 必要なcandidateだけrepository evidenceを確認する。
 6. candidateを `finding`、`excluded`、`unresolved` に分類し、全locationを保持したまま重複を統合する。
 7. すべてのcandidateを記録してからseverityと報告順を決める。
@@ -44,6 +45,12 @@ reportを検証するときは作成元のinventoryと元Markdownを渡す。val
 passの順序を照合する。`repository-review` modeでは `repository-consistency` も必須観点にする。
 coverage workflow artifactはschema v2を使い、旧v1は元Markdownから再生成する。
 
+話題のつながりを独立して追跡する場合、現行schema v2が許す追加観点として
+`--dimension discourse-continuity` を指定できる。既存v2 reportとの互換性を保つため既定の必須観点
+には追加していない。Agentは各eligible blockのrole、anchor、`why_here`、初出概念を確認するが、
+現行toolはparagraph edgeの全件確認を機械検証しない。toolだけを根拠に「全edgeを確認済み」と
+表現しない。
+
 ## coverage記録
 
 各chunkと観点に、次のいずれかを記録する。
@@ -73,6 +80,7 @@ scannerやparserの出力はcandidateでありfindingではない。候補語、
 - 章をまたぐ指示語、参照、条件、例外、モダリティ
 - 同じ役割を持つ要素群の表記、型、nullable、default、constraint
 - 全体の情報階層とpacing
+- 話題のつながりを対象にした場合の入口、sectionの鎖、初出概念、改稿による新しいgap
 
 global passを実施できなければcoverage全体を完了扱いにせず、その状態と理由を示す。
 
@@ -80,6 +88,10 @@ global passを実施できなければcoverage全体を完了扱いにせず、�
 
 重複を統合するときは統合元candidate IDと全locationを保持する。異なる原因、異なる読者影響、
 未解決candidateを一つの代表例へ縮めない。除外には文脈上の理由を必要とし、severityを理由にしない。
+
+話題のつながりでは、確認済みno-changeを `excluded` と理由、情報不足で判定できないcandidateを
+`unresolved` と不足内容へ分ける。未確認blockや独立したfresh-reader passを利用できなかった範囲は
+`partial` または `not-checked` とlimitationsへ記録し、0 findingsへ読み替えない。
 
 詳細な設計、report項目、補助ツールの位置付けは
 [`docs/coverage-driven-review.md`](../../docs/coverage-driven-review.md)を参照する。

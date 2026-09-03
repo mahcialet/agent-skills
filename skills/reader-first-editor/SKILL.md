@@ -2,10 +2,11 @@
 name: reader-first-editor
 description: >-
   Review or revise Japanese and English reader-facing prose for first-pass
-  comprehension, reread-risk reduction, semantic fidelity, and consistency
-  with evidence in the same repository. Use for prose that is difficult to
-  absorb, structurally flat, ambiguous, overly dense, mechanically repetitive,
-  or potentially inconsistent with repository code, config, tests, or docs.
+  comprehension, discourse continuity, reread-risk reduction, semantic
+  fidelity, and consistency with evidence in the same repository. Use for
+  prose that is difficult to absorb, structurally flat, abruptly connected,
+  ambiguous, overly dense, mechanically repetitive, or potentially
+  inconsistent with repository code, config, tests, or docs.
   Default to review unless the user explicitly requests revision. Do not use
   for open-world fact checking, creative writing, controlled-language
   compliance, or rewriting code and identifiers.
@@ -28,7 +29,7 @@ Plain Languageやstyleの原則より先に意味保存契約を適用する。
 2. `references/core/semantic-preservation.md` で意味を棚卸しする。
 3. 読者、目的、ジャンル、既有知識を推定する。専門家向けの根拠がある文章を
    無条件に非専門家向けへ変えない。
-4. 情報構造と読み返しリスクを診断する。
+4. 情報構造、話題のつながり、読み返しリスクを診断する。
 5. 該当する言語・ジャンル技法だけを適用する。
 6. 表記規則を最後に適用する。
 7. 返却・保存前に、結果と元の意味台帳を比較する。
@@ -92,6 +93,18 @@ repository-reviewの判定前に、次の順でgateを通す。
 文長、同じ文頭、受身、段落長を自動的な不合格条件にしない。context内で再読する
 ためのtripwireとして使う。
 
+同じ文、箇条書き、表で列挙された要素は、文法形だけでなく対象、役割、scope、抽象度が同列かを
+確認する。一項目が他を包む上位概念でも、階層関係が明示されていれば問題にしない。対象が省略された
+動詞や抽象語を、語の存在だけで粒度不一致と判定せず、周囲から一意に戻せなければ推測して補わない。
+
+読者向けproseの括弧書きは、本文との関係から例示、定義、条件・留保、重複に分ける。定義や検索に
+必要な情報を「括弧だから任意」とみなさず、結論のscopeや強さを変える条件・留保は本文へ出す。
+重複して見える場合も、削除前後で事実、条件、scope、modality、強調、語調、判断・検索への寄与が
+変わらないか確認し、意味合いを壊さない場合だけ削除候補にする。一つの括弧内に複数の役割があれば
+句ごとに扱い、code、識別子、引用、citationなど保護対象を区切り記号だけで分類しない。
+削除候補を本文外へ分離するときは対象箇所と候補actionを特定できる形で示し、削除する場合はユーザーに
+対象候補を明示してもらう。候補の選択だけで意味保存gateを省略せず、選択された箇所だけを再確認する。
+
 対象が複数の章・大きな表・複数fileにまたがる場合、一回のpassで全文と全観点を保持しにくい
 場合、または利用者が網羅性やcoverageを求めた場合は、
 `references/core/coverage-driven-review.md` を読む。構造単位のchunkごとに候補を確認した後、
@@ -101,6 +114,19 @@ repository-reviewの判定前に、次の順でgateを通す。
 完全一致を確認する。reportのmodeを対象依頼と一致させ、`repository-review` では
 `repository-consistency` を必須にする。source、全chunk、必須観点、candidate所属、局所passと
 global passの順序を照合する。空または空白のみのMarkdownはinventory化しない。
+
+複数段落・複数sectionで、導入から後続の話題、各段落を置く理由、新しい概念の初出、または改稿後の
+流れを確認する場合は `references/core/discourse-continuity.md` を読む。各段落を直前段落へ機械的に
+接続せず、見出し、数段落前の主張、文書目的もanchorとして確認する。接続詞の有無だけで判定せず、
+同じ主題語が続く場合も段落の役割、述語、問い、評価軸の切替えを確認する。関係を確認できない段落を
+不要と決めつけない。安全に修正できなければ、原文にない因果や目的を作らず、不足情報、修正しない
+理由、可能な次の対応を利用者へ示す。利用者向けには原則として「話題のつながり」と表現する。
+停止、待機、継続、再開などの過程が記述されている場合は、誰・何が状態変化を起こし、誰・何の
+どの動作が変化し、その間またはその後に誰・何のどの動作が続くかを対応付ける。一つの動作の停止を
+過程全体の停止へ広げず、省略された主体や動作を周囲から一意に確認できない場合は推測して補わない。
+「行き詰まる」のように活動全体の停滞にも読める表現と、同じ主体に関する別の動作が並ぶ場合は、
+本来のどの動作が進まず、代わりに何を続けるのかが区別されているか確認する。未完了状態を能動的な
+継続へ読み替えず、続く動作を明示するにはcontext上の根拠を要求する。
 
 同じ役割を持つ要素群の型、nullable、default、constraint、命名、表記に強い局所規則が見える
 場合は、`references/core/local-consistency-review.md` を読む。全体頻度ではなくsemantic peer
@@ -141,6 +167,10 @@ contextの範囲で再確認し、repository探索へ無条件に広げない。
 
 - `references/core/coverage-driven-review.md`
 
+複数段落・複数sectionの話題のつながり、配置理由、新しい概念の初出、改稿後の流れを扱う場合は読む。
+
+- `references/core/discourse-continuity.md`
+
 同じ役割を持つ要素群の局所規則や少数例を確認する場合は読む。
 
 - `references/core/local-consistency-review.md`
@@ -173,7 +203,7 @@ parserなしでも処理を継続する。parser outputは構造観測値に限�
 
 ## 最終意味保存gate
 
-返答または保存前に、元文と改稿案の事実、主体、行動、対象、数値、日付、条件、
+返答または保存前に、元文と改稿案の事実、主体、行動、対象、動作の開始・停止・継続・再開、数値、日付、条件、
 例外、否定、因果、scope、義務、禁止、許可、推奨、可能性、不確実性、用語、
 識別子、読者の行動、必要な返信、registerを比較する。
 

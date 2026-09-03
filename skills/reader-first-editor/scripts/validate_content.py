@@ -26,6 +26,8 @@ COVERAGE_STATUSES = {"checked", "partial", "not-checked"}
 ANOMALY_STATUSES = {"EXPLAINED", "UNEXPLAINED", "CONTRADICTED", "NOT-AN-OUTLIER"}
 EXPECTED_BEHAVIORS = {"change", "no-change", "review-only", "context-dependent"}
 REQUIRED_SUITES = {
+    "discourse-continuity-en",
+    "discourse-continuity-ja",
     "semantic-preservation",
     "reread-risk-ja",
     "interaction-clarity-ja",

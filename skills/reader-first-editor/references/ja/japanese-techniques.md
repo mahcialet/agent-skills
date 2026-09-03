@@ -8,6 +8,10 @@
 
 - 文書全体の主張・根拠・注意の配置:
   `information-structure.md`
+- 同じ文・箇条書き・表に並ぶ項目の役割、scope、抽象度:
+  `information-structure.md` と `sentence-structure.md`
+- 括弧書きが本文に対して例示、定義、条件・留保、重複のどれを担うか:
+  `information-structure.md`
 - 述語遅延、長い連体修飾、接続助詞、名詞化、過剰分割:
   `sentence-structure.md`
 - 主題の切替え、主語省略、指示語、照応:
