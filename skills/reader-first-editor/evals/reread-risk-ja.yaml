@@ -1,5 +1,6 @@
 {
   "suite": "reread-risk-ja",
+  "provenance": "2026-09-04の利用者提示例から一般化した、同列に置かれた要素の対象・役割・scope・抽象度と、明示された階層関係の区別",
   "cases": [
     {
       "id": "stacked-conditions",
@@ -24,6 +25,66 @@
       "input": "メンテナンス中は保存できないため、作業前に状態ページを確認してください。",
       "must_preserve": ["メンテナンス中", "保存できない", "ため", "作業前", "状態ページ", "確認してください"],
       "expected": "明確な理由と行動を不必要な短文列へ分けない"
+    },
+    {
+      "id": "enumeration-mixed-granularity-is-candidate",
+      "language": "ja",
+      "mode": "review",
+      "expected_behavior": "review-only",
+      "input": "要件を決め、設計し、判断する。",
+      "expected_risks": ["RR-09"],
+      "must_not_claim": ["公開可否を判断する", "設計方針を判断する", "判断を削除する"],
+      "expected": "要件決定と設計は具体的な作業だが、対象のない判断はそれらを包む上位概念にも読めるため、三項目の対象・役割・抽象度を確認するcandidateとする。判断対象や階層を推測しない"
+    },
+    {
+      "id": "enumeration-specific-decision-object-is-parallel",
+      "language": "ja",
+      "mode": "review",
+      "expected_behavior": "no-change",
+      "input": "要件を決め、画面を設計し、公開可否を判断する。",
+      "must_preserve": ["要件", "画面", "公開可否"],
+      "must_not_claim": ["『判断する』は常に上位概念", "三項目の粒度が不一致"],
+      "expected": "各動作の対象と作業上の役割が具体的で、同列の実施項目として読めるため、『判断する』という語の存在だけでfindingにしない"
+    },
+    {
+      "id": "enumeration-explicit-hierarchy-is-no-change",
+      "language": "ja",
+      "mode": "review",
+      "expected_behavior": "no-change",
+      "input": "開発方針を決定する工程には、要件の確定と設計案の選定が含まれます。",
+      "must_preserve": ["開発方針", "決定する工程", "含まれます", "要件の確定", "設計案の選定"],
+      "must_not_claim": ["上位概念と下位作業を同列にそろえる", "三つの独立作業へ書き換える"],
+      "expected": "開発方針を決定する工程が上位概念で、要件確定と設計案選定がその内訳であることを明示しているため、階層を平坦化せずno-changeとする"
+    },
+    {
+      "id": "enumeration-matching-grammar-does-not-prove-granularity",
+      "language": "ja",
+      "mode": "review",
+      "expected_behavior": "review-only",
+      "input": "認証を実装し、監視を設定し、運用する。",
+      "expected_risks": ["RR-09"],
+      "must_not_claim": ["動詞形がそろっているため並列", "運用とは監視だけを指す"],
+      "expected": "文法形がそろっていても、認証実装と監視設定に対して対象のない『運用する』は広いscopeを持ち得る。対象・役割・包含関係を確認し、表面上の並列だけでno-changeにしない"
+    },
+    {
+      "id": "enumeration-following-context-allows-safe-specificity",
+      "language": "ja",
+      "mode": "revise-safe",
+      "expected_behavior": "change",
+      "input": "要件を決め、画面を設計し、判断します。判断対象は公開可否です。",
+      "must_preserve": ["要件", "画面", "判断", "公開可否"],
+      "must_not_add": ["多数決", "責任者", "設計承認"],
+      "expected": "後続文から判断対象を一意に確認できるため、『要件を決め、画面を設計し、公開可否を判断します』と局所的に統合できる。判断の方法・主体・順序は追加しない"
+    },
+    {
+      "id": "enumeration-unknown-hierarchy-is-not-invented",
+      "language": "ja",
+      "mode": "revise-safe",
+      "expected_behavior": "no-change",
+      "input": "要件を決め、設計し、判断する。",
+      "must_preserve": ["要件を決め", "設計し", "判断する"],
+      "must_not_add": ["公開可否", "方針", "判断には要件決定と設計を含む"],
+      "expected": "判断対象と三項目の階層を原文から確定できないため、具体化や階層化を推測で行わない。必要な対象・役割・scopeを本文外の確認事項として示す"
     }
   ]
 }
