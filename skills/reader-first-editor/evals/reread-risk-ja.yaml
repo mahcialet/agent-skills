@@ -1,6 +1,6 @@
 {
   "suite": "reread-risk-ja",
-  "provenance": "2026-09-04の利用者提示例から一般化した、同列に置かれた要素の対象・役割・scope・抽象度と、明示された階層関係の区別",
+  "provenance": "2026-09-04の利用者提示例から一般化した、同列に置かれた要素の対象・役割・scope・抽象度と明示された階層関係の区別、および括弧書きと本文の関係による例示・定義・条件／留保・重複の区別",
   "cases": [
     {
       "id": "stacked-conditions",
@@ -85,6 +85,160 @@
       "must_preserve": ["要件を決め", "設計し", "判断する"],
       "must_not_add": ["公開可否", "方針", "判断には要件決定と設計を含む"],
       "expected": "判断対象と三項目の階層を原文から確定できないため、具体化や階層化を推測で行わない。必要な対象・役割・scopeを本文外の確認事項として示す"
+    },
+    {
+      "id": "parenthetical-example-can-remain",
+      "language": "ja",
+      "mode": "review",
+      "expected_behavior": "no-change",
+      "input": "監視対象にはstorage（例: S3 bucket）を含みます。",
+      "must_preserve": ["監視対象", "storage", "例", "S3 bucket"],
+      "must_not_claim": ["括弧内は常に蛇足", "S3 bucketを削除する", "条件・留保である"],
+      "expected": "本文だけで対象範囲が成立し、括弧内はstorageの具体像を与える例である。読者の理解を助けるため、括弧の存在だけで削除候補にせずno-changeとする"
+    },
+    {
+      "id": "parenthetical-definition-is-essential",
+      "language": "ja",
+      "mode": "review",
+      "expected_behavior": "no-change",
+      "input": "OpenID Connect（OIDC）を使います。",
+      "must_preserve": ["OpenID Connect", "OIDC"],
+      "must_not_claim": ["OIDCは省略可能な補足", "括弧を削除する"],
+      "expected": "括弧内は後続文で検索・参照できる略語を定義しているため、任意の補足とみなさず初出付近に保持する"
+    },
+    {
+      "id": "parenthetical-condition-moves-to-main",
+      "language": "ja",
+      "mode": "revise-safe",
+      "expected_behavior": "change",
+      "input": "この機能は利用できます（管理者に限る）。",
+      "expected_risks": ["RR-05", "RR-13"],
+      "must_preserve": ["この機能", "利用できます", "管理者に限る"],
+      "must_not_add": ["一般利用者も利用できる", "承認が必要", "常に"],
+      "expected": "括弧内が利用可能な主体を限定し結論のscopeを変えるため、『管理者に限り、この機能を利用できます』と本文へ出す。条件を削除・拡張せず、利用可能性のmodalityを保つ"
+    },
+    {
+      "id": "parenthetical-qualification-moves-to-main",
+      "language": "ja",
+      "mode": "revise-safe",
+      "expected_behavior": "change",
+      "input": "移行は完了しました（ただし、一部のrecordは未検証です）。",
+      "expected_risks": ["RR-13"],
+      "must_preserve": ["移行は完了しました", "ただし", "一部のrecord", "未検証"],
+      "must_not_add": ["移行は未完了", "すべて検証済み", "検証不要"],
+      "expected": "括弧内が完了claimへの留保であるため、『移行は完了しました。ただし、一部のrecordは未検証です』と本文へ出す。完了と未検証の関係を推測で解消せず、両方のclaimを保持する"
+    },
+    {
+      "id": "parenthetical-redundancy-is-deletion-candidate",
+      "language": "ja",
+      "mode": "review",
+      "expected_behavior": "review-only",
+      "input": "執筆者に確認したところ、括弧内は編集時に直前の要件を誤って複製したもので、強調の意図はありません。\n申請には承認が必要です（申請には承認が必要です）。",
+      "expected_risks": ["RR-16"],
+      "must_preserve": ["編集時に直前の要件を誤って複製", "強調の意図はありません", "申請", "承認が必要"],
+      "must_not_claim": ["括弧内に新しい条件がある", "reviewで削除した", "重複なので意味確認は不要"],
+      "expected": "括弧あり／なしで事実、条件、scope、modality、強調、語調、判断・検索への寄与を比較し、執筆者の確認から新しい役割がないことも確認するため蛇足candidateとする。ただしreviewでは原文を変更しない"
+    },
+    {
+      "id": "parenthetical-redundancy-needs-deletion-permission",
+      "language": "ja",
+      "mode": "revise-structural",
+      "expected_behavior": "context-dependent",
+      "input": "括弧内は編集時に直前の要件を誤って複製したもので、強調の意図はありません。申請には承認が必要です（申請には承認が必要です）。削除許可は指定されていません。",
+      "must_preserve": ["誤って複製", "強調の意図はありません", "申請には承認が必要です"],
+      "must_not_claim": ["括弧内を削除済み", "削除許可がある"],
+      "expected": "定義・例・検索語・条件・留保・強調・語調がなく、削除前後の意味台帳が変わらないことを確認した上で削除候補を示せるが、明示的な削除許可がないため本文からは削除しない"
+    },
+    {
+      "id": "parenthetical-redundancy-remains-in-revise-safe",
+      "language": "ja",
+      "mode": "revise-safe",
+      "expected_behavior": "no-change",
+      "input": "括弧内は編集時に直前の要件を誤って複製したもので、強調の意図はありません。申請には承認が必要です（申請には承認が必要です）。",
+      "must_preserve": ["誤って複製", "強調の意図はありません", "申請には承認が必要です"],
+      "must_not_claim": ["括弧内を削除した", "revise-safeでは重複を削除できる", "意味確認は不要", "対象を明示しなくても削除できる"],
+      "expected": "括弧あり／なしの意味を比較して蛇足candidateと判断できても、revise-safeは事実を削除しないmodeであるため原文を維持する。本文外へ対象の引用または位置と候補actionを示し、削除する場合はユーザーが対象候補を明示できるようにする"
+    },
+    {
+      "id": "parenthetical-explicit-target-allows-structural-deletion",
+      "language": "ja",
+      "mode": "revise-structural",
+      "expected_behavior": "change",
+      "input": "対応候補P-01は、編集時に直前の要件を誤って複製したもので、強調の意図がないと確認済みです。P-01の『（申請には承認が必要です）』だけを削除してください。\n申請には承認が必要です（申請には承認が必要です）。",
+      "must_preserve": ["申請には承認が必要です"],
+      "must_not_add": ["承認は不要", "別の箇所も削除", "申請要件を変更"],
+      "expected": "対象候補と削除許可が明示されていても意味保存gateを省略せず、誤複製で新しい役割がないことを再確認する。申請に承認が必要という要件を保ち、指定された括弧内だけを削除する"
+    },
+    {
+      "id": "parenthetical-explicit-deletion-does-not-override-meaning-gate",
+      "language": "ja",
+      "mode": "revise-structural",
+      "expected_behavior": "context-dependent",
+      "input": "対応候補P-02は『（OIDC）』です。P-02を削除してください。\nOpenID Connect（OIDC）を使います。後続の手順ではOIDCという語で設定を検索します。",
+      "must_preserve": ["OpenID Connect（OIDC）", "後続の手順", "設定を検索"],
+      "must_not_claim": ["指定されたので意味確認なしに削除", "OIDCは検索に不要", "削除済み"],
+      "expected": "対象と削除actionは明示されているが、OIDCは後続手順で使う定義・検索語であり、削除すると理解と検索を壊す。ユーザー指定を意味保存の証拠にせず、この候補の削除を拒否して理由を示す"
+    },
+    {
+      "id": "parenthetical-explicit-target-limits-multiple-candidate-deletion",
+      "language": "ja",
+      "mode": "revise-structural",
+      "expected_behavior": "change",
+      "input": "P-01は誤複製で強調の意図がないと確認済みです。P-02は具体例です。P-01だけを削除してください。\n申請には承認が必要です（申請には承認が必要です）。監視対象にはstorage（例: S3 bucket）を含みます。",
+      "must_preserve": ["申請には承認が必要です", "監視対象", "storage", "例", "S3 bucket"],
+      "must_not_add": ["P-02も削除", "S3 bucketを削除", "承認は不要"],
+      "expected": "P-01について意味保存を再確認し、指定された誤複製だけを削除する。選択されていないP-02は具体像を与えるため括弧ごと保持し、削除許可を他候補へ拡張しない"
+    },
+    {
+      "id": "parenthetical-explicit-target-with-ambiguous-action-is-not-permission",
+      "language": "ja",
+      "mode": "revise-structural",
+      "expected_behavior": "context-dependent",
+      "input": "P-01は誤複製で強調の意図がないと確認済みです。P-01を整理してください。\n申請には承認が必要です（申請には承認が必要です）。",
+      "must_preserve": ["申請には承認が必要です（申請には承認が必要です）"],
+      "must_not_claim": ["整理は削除を意味する", "削除許可がある", "括弧内を削除済み"],
+      "expected": "対象候補は明示されているが、『整理』では削除、移動、言い換えのどれかを確定できない。削除actionの明示を求め、意味保存を確認済みでも削除許可が得られるまでは原文を維持する"
+    },
+    {
+      "id": "parenthetical-apparent-repetition-can-add-clarification",
+      "language": "ja",
+      "mode": "review",
+      "expected_behavior": "no-change",
+      "input": "この操作は元に戻せません（取り消しはできません）。",
+      "must_preserve": ["元に戻せません", "取り消しはできません"],
+      "must_not_claim": ["同じ意味なので自動削除", "括弧内は読者に寄与しない", "削除前後の意味確認は不要"],
+      "expected": "近い内容の言い換えでも、不可逆性を別の表現で確認させる役割があり得る。操作ミスへのreader impact、対象読者、文脈上の強調を確認し、文字列上の重複だけで蛇足や削除候補にしない"
+    },
+    {
+      "id": "parenthetical-apparent-repetition-needs-context",
+      "language": "ja",
+      "mode": "review",
+      "expected_behavior": "review-only",
+      "input": "申請には承認が必要です（申請するには承認が必要です）。",
+      "must_preserve": ["申請には承認が必要です", "申請するには承認が必要です"],
+      "must_not_claim": ["新しい役割がないと確認済み", "削除できると確定", "括弧内を削除した"],
+      "expected": "二つの表現は近いが、括弧内が申請行為の前提を明示するのか、重要条件を言い換えて確認させるのかをこの一文だけでは確定できない。削除前後の意味合いが同じと確認できないため原文を維持し、意図確認が必要なcandidateとして報告する"
+    },
+    {
+      "id": "parenthetical-mixed-role-keeps-example-and-promotes-condition",
+      "language": "ja",
+      "mode": "revise-safe",
+      "expected_behavior": "change",
+      "input": "再試行します（timeout時のみ。例: 外部APIが応答しない場合）。",
+      "expected_risks": ["RR-05", "RR-13"],
+      "must_preserve": ["再試行", "timeout時のみ", "例", "外部APIが応答しない場合"],
+      "must_not_add": ["必ず再試行", "30秒", "接続error"],
+      "expected": "一つの括弧内を一種類へ決め打ちせず、『timeout時のみ再試行します（例: 外部APIが応答しない場合）』として条件だけを本文へ出し、具体例は括弧に保持する"
+    },
+    {
+      "id": "parenthetical-code-is-not-prose-aside",
+      "language": "ja",
+      "mode": "review",
+      "expected_behavior": "no-change",
+      "input": "`connect(timeout=30)` を呼び出します。",
+      "must_preserve": ["`connect(timeout=30)`"],
+      "must_not_claim": ["timeout=30は括弧内の補足", "関数呼出しから括弧を削除する", "30は例示"],
+      "expected": "inline code内の括弧は関数呼出しのliteralであり、proseの例示・定義・条件・重複へ分類せず保護する"
     }
   ]
 }
