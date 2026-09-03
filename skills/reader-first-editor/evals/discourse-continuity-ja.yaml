@@ -415,6 +415,36 @@
       "must_preserve": ["operator", "gateway", "新規request受付", "停止", "health check", "送信を続けます"],
       "must_not_claim": ["operatorの動作が停止する", "gatewayの全動作が停止する", "停止と継続が矛盾する"],
       "expected": "状態変化を起こすoperator、受付動作が止まるgateway、継続するgatewayのhealth check送信を区別する。文法上の主語を停止する過程のactorと誤認せずno-changeとする"
+    },
+    {
+      "id": "continuity-broad-stagnation-hides-incomplete-check",
+      "language": "ja",
+      "mode": "review",
+      "expected_behavior": "review-only",
+      "input": "根拠がそろわず行き詰まると、追加確認がいつまでも完了しません。",
+      "must_preserve": ["根拠がそろわず", "行き詰まる", "追加確認", "完了しません"],
+      "must_not_claim": ["人の全活動が停止する", "追加確認も停止する", "論理矛盾なので一方を削除する"],
+      "expected": "『行き詰まる』が本来のどの動作の停滞を指すか省略される一方、追加確認の未完了状態が書かれている。全活動の停止や能動的な確認継続と決めつけず、進まない動作と未完了状態の関係を読者が補う必要があるcandidateとして示す"
+    },
+    {
+      "id": "continuity-broad-stagnation-can-be-safely-expanded-from-context",
+      "language": "ja",
+      "mode": "revise-safe",
+      "expected_behavior": "change",
+      "input": "担当者は根拠を基に候補を選定します。根拠がそろわず行き詰まると、追加確認がいつまでも完了しません。",
+      "must_preserve": ["担当者", "根拠", "候補", "選定", "追加確認", "完了しません"],
+      "must_not_add": ["実装を中断する", "追加確認を停止する", "追加確認を続ける", "別の担当者", "追加確認は不要"],
+      "expected": "前文から進まない本来の動作が担当者による候補の選定だと一意に確認できるため、『根拠がそろわないと、担当者は候補を選定できず、追加確認がいつまでも完了しません』と局所的に明示する。原文の確認の未完了状態を、能動的な継続へ強めず、因果やactorを追加しない"
+    },
+    {
+      "id": "continuity-explicit-primary-block-and-check-incompletion-is-coherent",
+      "language": "ja",
+      "mode": "review",
+      "expected_behavior": "no-change",
+      "input": "根拠がそろわないと、担当者は候補を選定できず、追加確認がいつまでも完了しません。",
+      "must_preserve": ["担当者", "候補を選定できず", "追加確認", "完了しません"],
+      "must_not_claim": ["二つの状態が矛盾する", "担当者は何もしていない", "追加確認を止める必要がある"],
+      "expected": "同じ担当者に関する記述でも、進まないのは候補の選定で、別に未完了なのは追加確認だと対象が明示されている。異なる動作の状態を過程の矛盾にせずno-changeとする"
     }
   ]
 }
