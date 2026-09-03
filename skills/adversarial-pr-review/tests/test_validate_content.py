@@ -117,6 +117,45 @@ class CoverageGapSuiteTestCase(unittest.TestCase):
                     )
                 )
 
+    def test_canonical_case_outcome_metadata_is_frozen(self) -> None:
+        replacements = {
+            "gate": {
+                "N/A": "PASS",
+                "BLOCK": "PASS",
+                "CONDITIONAL": "PASS",
+                "PASS": "BLOCK",
+            },
+            "confidence": {
+                "Confirmed": "Hypothesis",
+                "Strongly supported": "Confirmed",
+                "Hypothesis": "Confirmed",
+                "Not applicable": "Confirmed",
+            },
+        }
+        for case_id in sorted(validator.CANONICAL_FIXTURE_DIGESTS):
+            for field, values in replacements.items():
+
+                def replace_metadata(
+                    data: dict,
+                    case_id: str = case_id,
+                    field: str = field,
+                    values: dict[str, str] = values,
+                ) -> None:
+                    case = next(
+                        case for case in data["cases"] if case["id"] == case_id
+                    )
+                    case[field] = values[case[field]]
+
+                with self.subTest(case_id=case_id, field=field):
+                    errors = self.validate_with_mutation(replace_metadata)
+                    self.assertTrue(
+                        any(
+                            case_id in error
+                            and f"canonical {field} mismatch" in error
+                            for error in errors
+                        )
+                    )
+
     def test_required_coverage_case_cannot_be_removed(self) -> None:
         def remove_case(data: dict) -> None:
             data["cases"] = [
@@ -242,6 +281,19 @@ class CoverageGapReportOrderTestCase(unittest.TestCase):
         sections.insert(sections.index("## Findings") + 1, "## Coverage gap audit")
         errors = self.errors_for_sections(sections)
         self.assertTrue(any("out of order" in error for error in errors))
+
+    def test_heading_after_html_comment_terminator_is_not_counted(self) -> None:
+        sections = list(validator.REPORT_SECTION_ORDER)
+        sections[sections.index("## Review contract")] = (
+            "<!-- hidden --> ## Review contract"
+        )
+        errors = self.errors_for_sections(sections)
+        self.assertTrue(
+            any(
+                "missing required token '## Review contract'" in error
+                for error in errors
+            )
+        )
 
     def test_longer_fence_requires_matching_length(self) -> None:
         text = """## Scope and parameters
@@ -372,6 +424,43 @@ class PortableLocationTestCase(unittest.TestCase):
         errors = []
         validator.validate_coverage_example_locations(coverage_path, invalid, errors)
         self.assertTrue(any("portable relative locator" in error for error in errors))
+
+    def test_coverage_example_requires_one_location_per_finding(self) -> None:
+        coverage_path = SKILL_DIR / "examples" / "coverage-gap-audit.md"
+        text = coverage_path.read_text(encoding="utf-8")
+        for finding_id, locator in (
+            ("F-001", "sample-repo/src/repository_review.py:84"),
+            ("F-002", "sample-repo/SKILL.md:118"),
+            ("F-003", "sample-repo/src/validate_result.py:52"),
+        ):
+            with self.subTest(finding_id=finding_id):
+                missing = text.replace(f"- Location: `{locator}`\n", "", 1)
+                errors: list[str] = []
+                validator.validate_coverage_example_locations(
+                    coverage_path, missing, errors
+                )
+                self.assertTrue(
+                    any(
+                        f"finding {finding_id} must contain exactly one Location line"
+                        in error
+                        for error in errors
+                    )
+                )
+
+        duplicate = text.replace(
+            "- Location: `sample-repo/src/repository_review.py:84`",
+            "- Location: `sample-repo/src/repository_review.py:84`\n"
+            "- Location: `sample-repo/src/repository_review.py:85`",
+            1,
+        )
+        errors = []
+        validator.validate_coverage_example_locations(coverage_path, duplicate, errors)
+        self.assertTrue(
+            any(
+                "finding F-001 must contain exactly one Location line" in error
+                for error in errors
+            )
+        )
 
     def test_location_inside_fenced_code_is_not_counted(self) -> None:
         text = (

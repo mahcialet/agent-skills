@@ -36,33 +36,34 @@
 
 ## Coverage gap audit
 
-- Inspection separation: same reviewerのfresh pass。独立reviewerを確保できなかった制約を保持する。
-- Initial findings were not used as the completion criterion: finding 0件の状態からtimeout contractのrouteを確認した。
+- Inspection separation: the same reviewer performed a fresh pass; the lack of an independent reviewer remains a limitation.
+- Initial findings were not used as the completion criterion: the timeout-contract routes were inspected from a starting point of zero findings.
 
 ### Change-obligation coverage
 
 | Changed concept | Route inspected | Status | Evidence | Linked finding / hypothesis |
 |---|---|---|---|---|
-| timeout default | configuration declaration → omitted／explicit producers → direct caller consumer → focused tests | Inspected | E-01〜E-04 | none |
-| production-only override | deployment configuration producer | Unverified | production configurationは取得していない | Residual risk |
+| timeout default | configuration declaration → omitted/explicit producers → direct caller consumer → focused tests | Inspected | E-01–E-04 | none |
+| production-only override | deployment configuration producer | Unverified | production configuration was unavailable | Residual risk |
 
 ### Relational-invariant coverage
 
 | Field / state group | Relationship checked | Status | Evidence |
 |---|---|---|---|
-| timeout valueとmillisecond unit | omitted／explicitのpresence、default compatibility、境界値 | Inspected | E-01〜E-03 |
+| timeout value and millisecond unit | omitted/explicit presence, default compatibility, and boundary values | Inspected | E-01–E-03 |
 
 ### Repository-rule obligations
 
 | Base instruction | Triggering change | Required companion | Status | Evidence |
 |---|---|---|---|---|
-| behavior-changing ruleにtestを要求 | default behaviorを保存するrefactor | focused timeout tests | Inspected | E-03 |
-| behavior-changing ruleにexampleを要求 | runtime behaviorを変えないrefactor | example更新 | Not applicable | diffとfocused testsでbehavior不変を確認 |
+| behavior-changing rules require tests | refactor that preserves default behavior | focused timeout tests | Inspected | E-03 |
+| behavior-changing rules require examples | refactor that does not alter runtime behavior | example update | Not applicable | the diff and focused tests establish unchanged behavior |
 
 ### Blind-spot result
 
-追加candidateはなかった。確認したroute、根拠付き`Not applicable`、独立性の制約、production-only
-overrideの未確認範囲を残す。0 findingsは完全性や安全性の証明ではない。
+No additional candidate was found. The report retains the inspected routes, evidence-backed
+`Not applicable` result, inspection-separation limitation, and unverified production-only override.
+Zero findings is not proof of completeness or safety.
 
 ## Findings
 
