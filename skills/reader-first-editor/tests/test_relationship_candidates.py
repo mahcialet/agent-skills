@@ -27,7 +27,7 @@ class RelationshipCandidateTests(unittest.TestCase):
     def test_reference_contains_initial_deterministic_scope(self) -> None:
         self.assertEqual(
             load_tripwires(REFERENCE),
-            ("正本", "source of truth", "source-of-truth"),
+            ("正本", "軸", "場", "source of truth", "source-of-truth"),
         )
 
     def test_late_candidate_is_reported_with_location(self) -> None:
@@ -85,6 +85,29 @@ class RelationshipCandidateTests(unittest.TestCase):
             self.assertNotIn("verdict", candidate)
             self.assertNotIn("severity", candidate)
             self.assertNotIn("finding", candidate)
+
+    def test_axis_and_standalone_ba_are_candidates_without_compound_noise(self) -> None:
+        text = (
+            "可用性を設計の軸とする。\n"
+            "定例会を公開可否を決める場とする。\n"
+            "ここが判断の『場だ』と説明する。\n"
+            "定例会を判断の場（週次レビュー）とする。\n"
+            "障害の場合は会場で待機し、場所を記録する。"
+        )
+        report = build_candidate_report(
+            [SourceText(label="policy.md", text=text)],
+            load_tripwires(REFERENCE),
+            vocabulary_source="references/ja/relationship-clarity.md",
+        )
+        self.assertEqual(report["candidate_count"], 4)
+        self.assertEqual(
+            [candidate["term"] for candidate in report["candidates"]],
+            ["軸", "場", "場", "場"],
+        )
+        self.assertEqual(
+            [candidate["line"] for candidate in report["candidates"]],
+            [1, 2, 3, 4],
+        )
 
     def test_invalid_vocabulary_marker_fails_explicitly(self) -> None:
         with self.assertRaises(RelationshipScanError):

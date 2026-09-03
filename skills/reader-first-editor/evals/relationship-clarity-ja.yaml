@@ -51,6 +51,63 @@
       "expected": "直接編集するファイルと生成方向が後続文に明示されているため、『正本』の存在だけでは指摘しない"
     },
     {
+      "id": "flag-ambiguous-design-axis",
+      "language": "ja",
+      "mode": "review",
+      "input": "可用性を設計の軸とする。",
+      "must_not_claim": ["可用性を常に最優先する", "復旧時間だけで判断する", "費用は考慮しない"],
+      "expected": "『軸』を禁止語扱いせず、何を比較・選択するときの基準か、競合する条件があるとき何を優先するかなど、読者の判断に必要で文脈から確定できない関係だけを候補にする"
+    },
+    {
+      "id": "no-flag-explicit-design-axis",
+      "language": "ja",
+      "mode": "review",
+      "input": "可用性を設計の軸とする。候補が競合する場合は、停止時間が短い案を優先することで可用性を比較する。",
+      "must_preserve": ["可用性", "設計の軸", "停止時間が短い案", "優先する"],
+      "expected": "比較対象と競合時の判断基準が続けて明示されているため、『軸』の存在だけでは関係の省略として指摘しない"
+    },
+    {
+      "id": "preserve-concrete-coordinate-axis",
+      "language": "ja",
+      "mode": "review",
+      "input": "グラフの横軸は時刻、縦軸はrequest数を示す。",
+      "must_preserve": ["横軸", "時刻", "縦軸", "request数"],
+      "expected": "二つの座標軸とそれぞれが示す値が具体的に定義されているため、scannerに現れてもexcludedとし、語の存在だけでは指摘しない"
+    },
+    {
+      "id": "flag-ambiguous-decision-setting",
+      "language": "ja",
+      "mode": "review",
+      "input": "定例会を判断の場とする。",
+      "must_not_claim": ["運用責任者が判断する", "公開可否を決める", "多数決で承認する"],
+      "expected": "『場』を禁止語扱いせず、誰が何を判断し、どの入力からどの結果を出すかのうち、読者の参加・判断に必要で周囲から確定できない関係を候補にする"
+    },
+    {
+      "id": "no-flag-explicit-decision-setting",
+      "language": "ja",
+      "mode": "review",
+      "input": "定例会を公開可否を決める場とし、運用責任者が承認または差戻しを決定する。",
+      "must_preserve": ["定例会", "公開可否", "場", "運用責任者", "承認", "差戻し"],
+      "expected": "判断対象、判断主体、結果が明示されているため、入力資料をこの一文に列挙していないことだけで関係の省略として指摘しない"
+    },
+    {
+      "id": "flag-parenthetical-decision-setting",
+      "language": "ja",
+      "mode": "review",
+      "input": "定例会を判断の場（週次レビュー）とする。",
+      "must_preserve": ["判断の場", "週次レビュー"],
+      "must_not_claim": ["公開可否を決める", "運用責任者が承認する"],
+      "expected": "直後に補足の括弧があっても独立した『場』を関係表現candidateとして確認し、補足名だけでは確定しない判断対象や主体を創作しない"
+    },
+    {
+      "id": "baai-basho-kaijo-are-not-tripwires",
+      "language": "ja",
+      "mode": "review",
+      "input": "障害の場合は会場で待機し、場所を記録する。",
+      "must_preserve": ["場合", "会場", "場所"],
+      "expected": "『場合』『会場』『場所』に含まれる文字を関係表現candidateにせず、文章から別のreader impactが確認できない限り不要な指摘を作らない"
+    },
+    {
       "id": "flag-ambiguous-compatibility-assurance",
       "language": "ja",
       "mode": "review",
