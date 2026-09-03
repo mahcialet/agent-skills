@@ -1,6 +1,6 @@
 {
   "suite": "discourse-continuity-ja",
-  "provenance": "2026-09-03のCHATGPT_HANDOFF_11.mdに記録された話題のつながり、意味保存、coverage、fresh-reader passの設計要件、および同日の利用者提供差分から一般化した語彙上の連続と論点上の連続の区別",
+  "provenance": "2026-09-03のCHATGPT_HANDOFF_11.mdに記録された話題のつながり、意味保存、coverage、fresh-reader passの設計要件、同日の利用者提供差分から一般化した語彙上の連続と論点上の連続の区別、および2026-09-04の利用者判断から一般化した過程の停止・継続・再開と状態変化主体・動作主体の区別",
   "cases": [
     {
       "id": "continuity-abrupt-redis-without-entry",
@@ -346,6 +346,75 @@
       "must_preserve": ["管理者の場合に限り", "一般利用者は再試行できません", "監査log"],
       "must_not_claim": ["監査logの文を自由に移動できる", "全利用者が再試行できる"],
       "expected": "段落移動で管理者限定条件や一般利用者への禁止のscopeが変わり得るため、安全なlocal-reorderと断定せず原文を維持する"
+    },
+    {
+      "id": "continuity-process-transition-missing-actor-is-candidate",
+      "language": "ja",
+      "mode": "review",
+      "expected_behavior": "review-only",
+      "input": "障害を検知すると停止します。その後も処理を続けます。",
+      "must_not_claim": ["gatewayが受付を停止する", "workerがjobを続ける", "同じ処理が続く"],
+      "expected": "何が何を停止し、誰のどの処理が続くのかを周囲から一意に確認できないためcandidateとする。もっともらしいcomponent、動作、対象を推測せず、必要なactor・動作・時間関係を示す"
+    },
+    {
+      "id": "continuity-process-transition-distinct-actions-are-coherent",
+      "language": "ja",
+      "mode": "review",
+      "expected_behavior": "no-change",
+      "input": "gatewayは新規requestの受付を停止します。workerは受付済みrequestの処理を完了まで続けます。",
+      "must_preserve": ["gateway", "新規request", "受付", "worker", "受付済みrequest", "完了まで"],
+      "must_not_claim": ["停止と継続が矛盾する", "過程全体が停止する"],
+      "expected": "停止する主体・動作・対象と継続する主体・動作・対象が明示されている。新規受付の停止を受付済み処理の停止へ広げずno-changeとする"
+    },
+    {
+      "id": "continuity-process-transition-same-action-conflict",
+      "language": "ja",
+      "mode": "review",
+      "expected_behavior": "review-only",
+      "input": "workerは実行中jobを停止します。停止後も同じworkerがそのjobの実行を続けます。",
+      "must_preserve": ["worker", "実行中job", "停止", "同じworker", "そのjob", "実行を続けます"],
+      "must_not_claim": ["自動的に再開する", "別のjobを処理する"],
+      "expected": "同じ主体・動作・対象について停止後の継続が書かれ、再開条件や別phaseの区別がないため過程の不整合candidateとする。矛盾の解消方法を推測しない"
+    },
+    {
+      "id": "continuity-process-transition-explicit-resume-is-coherent",
+      "language": "ja",
+      "mode": "review",
+      "expected_behavior": "no-change",
+      "input": "workerは接続が失われた時点でjobの実行を停止します。接続が復旧した後、checkpointから同じjobの実行を再開します。",
+      "must_preserve": ["接続が失われた時点", "停止", "接続が復旧した後", "checkpoint", "再開"],
+      "must_not_claim": ["停止中も実行が続く", "停止と再開が矛盾する"],
+      "expected": "同じ主体・動作・対象でも停止条件と後続の再開条件が時系列で明示されているため、境界上の整合した遷移としてno-changeとする"
+    },
+    {
+      "id": "continuity-process-transition-context-allows-safe-actors",
+      "language": "ja",
+      "mode": "revise-safe",
+      "expected_behavior": "change",
+      "input": "gatewayは新規requestを受け付け、workerは受付済みrequestを処理します。障害時は受付を停止します。受付済みrequestの処理は完了まで続けます。",
+      "must_preserve": ["gateway", "新規request", "worker", "受付済みrequest", "障害時", "完了まで"],
+      "must_not_add": ["すべての処理を停止", "requestを破棄", "自動復旧", "障害時もworkerは処理を続ける"],
+      "expected": "前文で動作と主体の対応が一意に示されているため、『障害時はgatewayが受付を停止します。workerは受付済みrequestの処理を完了まで続けます』と各文の主体だけを局所的に明示できる。二文を結合して『障害時』の条件をworkerの継続処理へ広げず、停止・継続のscopeや順序を変えない"
+    },
+    {
+      "id": "continuity-process-transition-ambiguous-actors-are-not-invented",
+      "language": "ja",
+      "mode": "revise-safe",
+      "expected_behavior": "no-change",
+      "input": "controllerとworkerがjobを処理します。障害時は処理を止めます。確認は続けます。",
+      "must_preserve": ["controller", "worker", "job", "障害時", "処理を止めます", "確認は続けます"],
+      "must_not_add": ["controllerが処理を止める", "workerが確認を続ける", "jobの受付だけを止める"],
+      "expected": "二つのactorのどちらがどの動作を止め、誰が何を確認し続けるかを一意に戻せないため本文を推測で明確化しない。不足する主体・動作・対象を本文外の要確認として示す"
+    },
+    {
+      "id": "continuity-process-transition-controller-and-process-actor-differ",
+      "language": "ja",
+      "mode": "review",
+      "expected_behavior": "no-change",
+      "input": "operatorはgatewayの新規request受付を停止します。gatewayはhealth checkの送信を続けます。",
+      "must_preserve": ["operator", "gateway", "新規request受付", "停止", "health check", "送信を続けます"],
+      "must_not_claim": ["operatorの動作が停止する", "gatewayの全動作が停止する", "停止と継続が矛盾する"],
+      "expected": "状態変化を起こすoperator、受付動作が止まるgateway、継続するgatewayのhealth check送信を区別する。文法上の主語を停止する過程のactorと誤認せずno-changeとする"
     }
   ]
 }

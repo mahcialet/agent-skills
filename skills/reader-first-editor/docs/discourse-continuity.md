@@ -33,6 +33,7 @@
 - この段落が前段、見出し、文書目的のどれを受けるのか
 - なぜ、この位置でこの話題を扱うのか
 - 新しい製品名、actor、component、data store、scopeを今導入する理由
+- 誰・何のどの動作が止まり、その間またはその後に誰・何のどの動作が続くのか
 - 次に何を説明するのか
 
 確認では、文書の入口と各eligible blockを先にinventory化する。各blockについてrole、anchor、
@@ -72,6 +73,17 @@ blockは削除対象ではなくcandidateである。bridge不足、前提不足
 一文で説明できるか確認し、actorの役割、述語、問い、評価軸、条件、scopeの切替えを見る。配置理由が
 後続段落を読んで初めて分かる場合は、理由が後置されたcandidateとして残す。後続情報が関係を一意に
 示す場合だけ、その情報を前へ移すか短いbridgeへ使い、複数の解釈があれば本文を補わない。
+
+## 止まる動作と続く動作を区別する
+
+停止、待機、継続、再開などが書かれている場合は、状態変化を起こす主体、動作が変わる主体、動作、
+対象、状態が変わる条件・時点を対応付ける。一つの動作が止まったことを、過程全体や同じ主体の全動作が
+止まったことへ広げない。状態変化を起こす主体と、実際に動作が止まる主体を混同しない。
+
+たとえば「gatewayが新規requestの受付を止め、workerが受付済みrequestの処理を続ける」は、異なる
+主体・動作・対象を記述しており、停止と継続の語が並んでいても矛盾ではない。一方、同じ主体・動作・
+対象が再開条件なしに停止後も続く記述や、省略された主体と動作を前段から一意に戻せない記述は
+candidateにする。もっともらしい実装を推測して主体や処理を補わない。
 
 ## 修正可能性
 
@@ -129,7 +141,8 @@ python3 scripts/review_coverage.py new-report \
 変わらない。candidateは既存reportへlocation付きで記録し、`finding`、`excluded`、`unresolved` に
 分類する。no-changeは `excluded` と理由、情報不足は `unresolved` と不足内容を残す。
 
-現行toolはparagraph edge、role、anchor、relation、`why_here` の全件確認を機械検証しない。schema
+現行toolはparagraph edge、role、anchor、relation、`why_here`、過程の主体・動作・状態遷移の全件確認を
+機械検証しない。schema
 validationの成功を、全段落のつながりを確認した証拠として扱わない。未確認block、非対応形式、
 独立したfresh-reader passを使えなかった範囲は `partial` または `not-checked` とlimitationsへ残す。
 

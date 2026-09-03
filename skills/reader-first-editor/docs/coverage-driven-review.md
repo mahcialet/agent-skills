@@ -43,7 +43,7 @@
 4. 全chunkの記録を使い、文書全体の用語、定義、モダリティ、参照、pacing、局所整合性を
    cross-chunk passで確認する。
    話題のつながりを対象にした場合は、入口、section間の移動、初出概念、文書目的から外れたblock、
-   改稿による新しいgapも確認する。
+   blockをまたぐ過程の停止・継続・再開、改稿による新しいgapも確認する。
 5. repository evidenceが必要なcandidateだけ、対象文書の参照や識別子から範囲を広げて確認する。
 6. candidateを `finding`、`excluded`、`unresolved` に分類し、重複を統合する。
 7. 全candidateを保持した後でseverityと対応優先度を決める。
