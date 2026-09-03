@@ -154,10 +154,10 @@
       "language": "ja",
       "mode": "review",
       "expected_behavior": "review-only",
-      "input": "# 接続手順\n\nleaseを更新してから接続します。更新に失敗した場合は処理を中止します。",
+      "input": "改稿担当とは別のcontextが、改稿後の本文だけを初見確認する。渡されるのは、改稿後本文『# 接続手順\\n\\nleaseを更新してから接続します。更新に失敗した場合は処理を中止します。』、想定読者『初めて接続を設定する運用担当者』、文書目的『接続前の更新手順を説明する』、必要なtechnical context『接続clientは導入済み』だけである。改稿理由、元のcontinuity ledger、変更箇所のhint、期待する答えは渡されない。",
       "must_preserve": ["lease", "更新", "接続", "中止"],
-      "must_not_claim": ["leaseは既に定義済み", "改稿者が知っているため明確"],
-      "expected": "改稿理由や内部ledgerを使わず本文だけを初見で読み、leaseの役割と取得条件が未定義であることをcontinuity candidateとして検出する"
+      "must_not_claim": ["leaseは既に定義済み", "改稿者が知っているため明確", "改稿を完了した", "変更箇所のhintを使った"],
+      "expected": "改稿担当から独立したcontextが許可された4種類の情報だけで改稿後本文を冒頭から読み、leaseの役割と取得条件が未定義という新しいcontinuity gapを検出する。gapが残るため改稿完了とはせず、元のledger、変更箇所、期待解を使って補完しない"
     },
     {
       "id": "continuity-same-agent-fresh-reader-is-partial",
@@ -236,6 +236,66 @@
       "expected_evidence_types": ["DOC↔DOC"],
       "must_not_claim": ["通常reviewでもADRを自動探索する", "ADRがないならRedisは無関係"],
       "expected": "repository-reviewが明示されたためADRの記述をrelationの証拠として扱えるが、確認したsourceとlocationを示し、根拠不在を無関係判定へ変えない"
+    },
+    {
+      "id": "continuity-release-note-items-are-independent",
+      "language": "ja",
+      "mode": "review",
+      "expected_behavior": "no-change",
+      "input": "# Release notes\n\n## 1.4.0\n\n- `/v2/users` endpointを追加しました。\n- `E_CONNRESET`発生時のretryを修正しました。\n- Linux arm64をsupportしました。",
+      "must_preserve": ["1.4.0", "`/v2/users`", "`E_CONNRESET`", "Linux arm64"],
+      "must_not_claim": ["各itemを前のitemへ接続する", "一つの物語へ並べ替える", "bridgeを追加する"],
+      "expected": "release note itemはversion見出しの下で独立してよく、直前itemとの因果や連続したstoryを要求せずno-changeとする"
+    },
+    {
+      "id": "continuity-technical-literal-name-first-is-no-change",
+      "language": "ja",
+      "mode": "review",
+      "expected_behavior": "no-change",
+      "input": "# 接続error\n\n`E_CONNRESET` は、peerによって接続がresetされたときに返るerrorです。再試行前に接続状態を確認してください。",
+      "must_preserve": ["`E_CONNRESET`", "peer", "reset", "再試行前"],
+      "must_not_claim": ["一般語の説明を先に追加する", "error identifierを後ろへ移す", "名前先行は準備不足"],
+      "expected": "検索対象となるtechnical literalを名前から導入し直後に役割を説明しているため、説明順を機械的に入れ替えずno-changeとする"
+    },
+    {
+      "id": "continuity-local-reorder-preserves-scope",
+      "language": "ja",
+      "mode": "revise-safe",
+      "expected_behavior": "change",
+      "input": "送信先はaccountの登録emailです。認証失敗時はemailで通知します。",
+      "must_preserve": ["accountの登録email", "認証失敗時", "emailで通知"],
+      "must_not_add": ["すべての失敗", "管理者", "即時"],
+      "expected": "近接する2文を『認証失敗時はemailで通知します。送信先はaccountの登録emailです。』の順へ並べ替え、通知目的から送信先へ進む流れを明確にする。条件、scope、時系列を追加・変更しない安全なlocal-reorderとして扱う"
+    },
+    {
+      "id": "continuity-checked-zero-preserves-excluded-candidate",
+      "language": "ja",
+      "mode": "review",
+      "expected_behavior": "no-change",
+      "expected_coverage_statuses": ["checked"],
+      "input": "continuity inventoryの対象 `guide.md:8` には、`## API options`見出しの下に独立したoption itemがあります。全eligible blockとglobal flowを確認済みで、初期candidate IDは `DC-001` です。",
+      "must_not_claim": ["未確認", "candidate記録を削除する", "findingを作る"],
+      "expected": "`DC-001`とlocation `guide.md:8`を保持し、見出し下で独立してよいitemとしてresolutionをexcluded/no-change、reasonをindependent-under-headingとする。continuity dimensionはchecked / 0 findingsと記録し、candidate 0件やnot-checkedと混同しない"
+    },
+    {
+      "id": "continuity-unavailable-scope-is-not-checked",
+      "language": "ja",
+      "mode": "review",
+      "expected_behavior": "review-only",
+      "expected_coverage_statuses": ["not-checked"],
+      "input": "本文は `guide.md:1-10` だけ提供され、continuity inventoryには対象範囲として `appendix.md:1-20` も記載されています。appendixの内容は取得できません。",
+      "must_not_claim": ["appendixも確認した", "checked / 0 findings", "問題なし"],
+      "expected": "取得できない `appendix.md:1-20` のcontinuity coverageをnot-checkedとし、未確認理由と範囲を残す。review済みでcandidateがなかった状態やpartialな確認と混同しない"
+    },
+    {
+      "id": "continuity-reviewed-gap-remains-unresolved",
+      "language": "ja",
+      "mode": "review",
+      "expected_behavior": "review-only",
+      "expected_coverage_statuses": ["checked"],
+      "input": "continuity inventoryの `guide.md:14` でRedisが初めて現れます。前段は認証失敗を説明しますが、Redisをここで扱う目的を本文や指定contextから確認できません。candidate IDは `DC-002` です。",
+      "must_not_claim": ["Redisは不要", "token保存が目的", "not-checked", "改稿済み"],
+      "expected": "eligible block自体は確認したためcontinuity coverageをcheckedとしつつ、`DC-002`とlocation `guide.md:14`を保持してresolutionをunresolvedとする。不足する目的を創作せず、checked、finding 0件、excluded、resolvedを同義にしない"
     },
     {
       "id": "continuity-local-reorder-must-preserve-scope",
