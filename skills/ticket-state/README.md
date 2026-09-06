@@ -28,16 +28,37 @@ python3 scripts/validate_content.py
 
 ## 設定と状態
 
-`assets/config.example.toml` をrepo外のprivateな場所へコピーし、実値を設定します。
+設定と状態はrepo外へ置き、Agent CLIを起動するshellから保存先とAPI keyをexportします。Bashでの
+最小例は次のとおりです。
 
-- 既定設定: `${XDG_CONFIG_HOME:-~/.config}/agent-skills/ticket-state/config.toml`
-- 既定状態: `${XDG_STATE_HOME:-~/.local/state}/agent-skills/ticket-state/<workspace-id>/`
-- 明示指定: `--config`、`--work-dir`、`--workspace-id`
+```bash
+export XDG_CONFIG_HOME="${XDG_CONFIG_HOME:-${HOME}/.config}"
+export XDG_STATE_HOME="${XDG_STATE_HOME:-${HOME}/.local/state}"
 
-API keyは `api_key_env` が指す環境変数だけから読みます。値をTOML、CLI引数、request、proposal、
-diff、ログへ書かないでください。project内の `--work-dir` はGitでignore済みの場合だけ使えます。
-状態directoryとartifactはprivate permissionで作成されます。同じOS userがconfig・コード・環境変数を
-変更できる場合、CLIは強制的なsecurity boundaryではありません。
+install -d -m 700 "${XDG_CONFIG_HOME}/agent-skills/ticket-state"
+install -d -m 700 "${XDG_STATE_HOME}/agent-skills/ticket-state"
+
+read -rsp 'Backlog API key: ' BACKLOG_API_KEY
+printf '\n'
+export BACKLOG_API_KEY
+
+# export後の同じshellから起動すると、子processのAgent CLIへ環境変数が継承される
+codex
+```
+
+既定の設定ファイルは`${XDG_CONFIG_HOME}/agent-skills/ticket-state/config.toml`、状態は
+`${XDG_STATE_HOME}/agent-skills/ticket-state/<workspace-id>/`です。API keyの値はconfigへ書かず、
+`api_key_env = "BACKLOG_API_KEY"`のように環境変数名だけを指定します。すでに起動中のAgent CLIには
+後からexportした値が届かないため、一度終了して同じshellから起動し直してください。
+
+configのコピー、Backlog/Redmine別の記入例、read疎通確認、状態の確認、よくあるエラーは
+[初回セットアップ](references/getting-started.md)を参照してください。`--config`、`--work-dir`、
+`--workspace-id`で既定値を明示的に上書きする方法も説明しています。
+
+API keyをTOML、CLI引数、request、proposal、diff、ログへ書かないでください。project内の
+`--work-dir`はGitでignore済みの場合だけ使えます。状態directoryとartifactには取得したticket本文も
+保存されるため、privateな領域として扱ってください。同じOS userがconfig・コード・環境変数を変更
+できる場合、CLIは強制的なsecurity boundaryではありません。
 
 実キーを使わないpublic CLI evalでは `--fixture examples/fixtures/backlog.json` を指定できます。
 fixture transportはmanifestに完全一致するHTTPS GETだけを返し、mutationを常に拒否します。通常運用の

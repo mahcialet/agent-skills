@@ -37,6 +37,7 @@ REQUIRED_FILES = {
     "references/state-and-recovery.md",
     "references/templates-and-merge.md",
     "references/provider-capabilities.md",
+    "references/getting-started.md",
     "scripts/ticket_state.py",
 }
 REQUIRED_SUITES = {"positive", "negative", "safety", "portability"}
