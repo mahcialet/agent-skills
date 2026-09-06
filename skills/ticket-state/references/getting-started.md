@@ -144,7 +144,8 @@ workspace_id = "monorepo-profile-b"
 
 `profile_a`と`profile_b`は、同じconfig.tomlの`[profiles.profile_a]`と`[profiles.profile_b]`で定義する。
 それぞれ異なるinstance、project、format、write allowlistを持てる。bindingが選ぶのはprofileと状態の
-workspaceであり、ticket自体は依頼またはrequestで引き続き明示する。
+workspaceであり、ticket自体は選ばない。CLIではticketを引き続き明示する。Agentとの会話では、依頼中の
+明示値、または今回の作業の正本として参照中のdesign doc等にある単一のtarget metadataから解決できる。
 
 CLIはcurrent directoryから親へ辿り、最初に見つけた`.git`のdirectoryをrepository rootとする。
 登録rootはsymlinkを解決した絶対pathで比較する。Git remote URLやrepository名は判定に使わないため、
@@ -207,7 +208,8 @@ export後に、普段使うAgent CLIを同じterminalから起動する。Codex�
 codex
 ```
 
-起動後は、最初にrepository bindingとreadだけを確認する。ticketはbindingから推測しないため明示する。
+起動後は、最初にrepository bindingとreadだけを確認する。ticketはbindingから推測しないため、この例では
+依頼で明示する。
 
 ```text
 $ticket-stateを使い、current Git repositoryのcontextを確認してから、
@@ -306,4 +308,5 @@ unset REDMINE_API_KEY
 
 状態directoryは監査と再開の記録なので、API keyをunsetする流れで一緒に削除しない。
 
-セットアップ後の各commandの選び方と実行例は、[コマンドリファレンス](command-reference.md)を参照する。
+セットアップ後の通常の依頼方法は[Agentとの使い方](using-with-agent.md)を参照する。CLI commandの引数や
+直接実行による切り分けが必要な場合は、[コマンドリファレンス](command-reference.md)を参照する。

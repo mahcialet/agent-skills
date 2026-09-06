@@ -61,6 +61,10 @@ configのコピー、Backlog/Redmine別の記入例、read疎通確認、状態�
 [初回セットアップ](references/getting-started.md)を参照してください。`--config`、`--work-dir`、
 `--workspace-id`で既定値を明示的に上書きする方法も説明しています。
 
+セットアップ後は、通常、利用者がCLIを直接操作する必要はありません。Agentへ対象ticket、してほしいこと、
+停止位置を自然言語で伝えれば利用できます。初回の段階的な確認方法と依頼文の例は
+[Agentとの使い方](references/using-with-agent.md)を参照してください。
+
 API keyをTOML、CLI引数、request、proposal、diff、ログへ書かないでください。project内の
 `--work-dir`はGitでignore済みの場合だけ使えます。状態directoryとartifactには取得したticket本文も
 保存されるため、privateな領域として扱ってください。同じOS userがconfig・コード・環境変数を変更
@@ -75,7 +79,10 @@ offline cacheやwrite simulationとして使わないでください。
 `examples/update-state.request.json` を参照してください。`visibility_confirmed: true` と
 `source_visibility: public-only` は、private note等を意図せず公開しないための明示的な確認です。
 current repositoryにbindingがある場合はrequestの`profile`を省略でき、CLIが解決した値をproposalへ
-固定します。bindingがない場合は従来どおり`profile`が必須で、ticketは常に省略できません。
+固定します。bindingがない場合は従来どおり`profile`が必須で、CLI requestの`ticket`は常に省略
+できません。ユーザーが番号を指定していなくても、今回の作業対象として参照中のdesign doc等に単一の
+`Ticket: TEST-1`のようなtarget metadataがあれば、Agentがそこから解決してrequestへ明示できます。
+複数候補や関連ticketへの言及しかない場合は、Agentが確認せずに選びません。
 Goal/Constraintsを変更する場合は `protected_change_approval` に人間のreviewerと理由が必要です。
 templateを使う場合は、profileの `template` とrequestの `template_id` に承認済み32文字IDを指定し、
 `template validate` が返す `artifact_sha256` をrequestの `template_sha256` に固定します。candidateや
@@ -86,10 +93,12 @@ profileにtemplateがなく、空のdescriptionを更新する場合は、確認
 既存構造はdefaultへ自動変換せず、明示templateの不備をdefaultで迂回しません。適用条件とplaceholderは
 `references/templates-and-merge.md`を参照してください。
 
-## Commands
+## AgentとCLI commands
 
-具体的な使い分け、remote read/writeの有無、global option、全commandの実行例は
-[コマンドリファレンス](references/command-reference.md)を参照してください。
+通常、利用者がcommand名を選ぶ必要はありません。Agentへの依頼と内部commandの対応は
+[Agentとの使い方](references/using-with-agent.md)を参照してください。CLIを使った切り分けや、各commandの
+remote read/write、引数、実行例が必要な場合は[コマンドリファレンス](references/command-reference.md)を
+参照してください。
 
 ```text
 context              current Git repositoryのprofileとworkspaceを解決

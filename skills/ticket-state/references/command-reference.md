@@ -1,7 +1,8 @@
 # コマンドリファレンス
 
-この文書は、`ticket-state` CLIを直接実行するときの引き方をまとめる。初回のconfig作成、repository
-binding、API keyのexportがまだなら、先に[初回セットアップ](getting-started.md)を完了する。
+この文書は、Agentが内部で選ぶcommandの確認と、問題切り分けで`ticket-state` CLIを直接実行するときの
+引き方をまとめる。通常の依頼方法は[Agentとの使い方](using-with-agent.md)を参照する。初回のconfig作成、
+repository binding、API keyのexportがまだなら、先に[初回セットアップ](getting-started.md)を完了する。
 
 ## 基本形
 
@@ -128,7 +129,8 @@ Backlogでは通常`PROJECT-123`形式、Redmineでは数値issue IDを指定す
 Request JSONは[`assets/proposal.schema.json`](../assets/proposal.schema.json)に従う。基本例は
 [`examples/update-state.request.json`](../examples/update-state.request.json)にある。
 Requestの`operation`と実行するcommandは一致させる。repository bindingがある場合だけ`profile`を省略
-できるが、`ticket`は常に明示する。
+できるが、`ticket`は常に明示する。Agentがdesign doc等からtargetを一意に解決した場合も、解決済みの値を
+requestの`ticket`へ入れる。
 
 ### `prepare`
 
