@@ -3,6 +3,9 @@
 この手順では、ticket-state Skillをインストール済みのBash環境で、設定と状態をrepo外へ置き、
 API keyをファイルへ保存せずにAgent CLIへ渡す。最初の疎通確認はreadだけを実行し、remoteを更新しない。
 
+手順1で読み込みの流れを確認し、手順2～6でSkill、保存先、接続先、repository binding、API keyを設定する。
+手順7以降でAgent CLIを起動してreadを確認し、最後に必要なticketだけへwrite allowlistを設定する。
+
 ## 1. 読み込みの流れ
 
 環境変数は、exportしたshellから後で起動したprocessへ継承される。
@@ -145,7 +148,8 @@ workspace_id = "monorepo-profile-b"
 `profile_a`と`profile_b`は、同じconfig.tomlの`[profiles.profile_a]`と`[profiles.profile_b]`で定義する。
 それぞれ異なるinstance、project、format、write allowlistを持てる。bindingが選ぶのはprofileと状態の
 workspaceであり、ticket自体は選ばない。CLIではticketを引き続き明示する。Agentとの会話では、依頼中の
-明示値、または今回の作業の正本として参照中のdesign doc等にある単一のtarget metadataから解決できる。
+明示値を使う。依頼にticketがない場合でも、今回の作業対象として実際に参照しているdesign doc等に単一の
+target metadataがあれば、Agentはそこから解決できる。
 
 CLIはcurrent directoryから親へ辿り、最初に見つけた`.git`のdirectoryをrepository rootとする。
 登録rootはsymlinkを解決した絶対pathで比較する。Git remote URLやrepository名は判定に使わないため、
@@ -308,5 +312,5 @@ unset REDMINE_API_KEY
 
 状態directoryは監査と再開の記録なので、API keyをunsetする流れで一緒に削除しない。
 
-セットアップ後の通常の依頼方法は[Agentとの使い方](using-with-agent.md)を参照する。CLI commandの引数や
-直接実行による切り分けが必要な場合は、[コマンドリファレンス](command-reference.md)を参照する。
+セットアップが完了したら、[Agentとの使い方](using-with-agent.md)へ進む。CLI commandの引数を確認する場合や
+直接実行で問題を切り分ける場合は、[コマンドリファレンス](command-reference.md)を参照する。

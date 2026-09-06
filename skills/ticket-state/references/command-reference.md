@@ -1,8 +1,9 @@
 # コマンドリファレンス
 
-この文書は、Agentが内部で選ぶcommandの確認と、問題切り分けで`ticket-state` CLIを直接実行するときの
-引き方をまとめる。通常の依頼方法は[Agentとの使い方](using-with-agent.md)を参照する。初回のconfig作成、
-repository binding、API keyのexportがまだなら、先に[初回セットアップ](getting-started.md)を完了する。
+この文書は、Agentが内部で選ぶcommandを確認する場合と、問題切り分けで`ticket-state` CLIを直接実行する
+場合に使う。通常、利用者がcommandを直接選ぶ必要はない。Agentへの依頼方法は
+[Agentとの使い方](using-with-agent.md)を参照する。初回のconfig作成、repository binding、API keyのexportが
+まだなら、先に[初回セットアップ](getting-started.md)を完了する。
 
 ## 基本形
 
@@ -366,8 +367,9 @@ DBが参照しているartifactの欠落や改ざんを直すコマンドでは�
 
 ### `template extract`
 
-指定した既存ticketだけを読み、共通構造のlocal candidateを作る。Ticketはspace区切りで1件以上指定する。
-Candidateは自動採用されない。
+指定した既存ticketだけを読み、見出し、順序、構造上の例外、evidence hashを記録したlocal candidateを
+作る。Ticket本文を複製した雛形は作らない。Ticketはspace区切りで1件以上指定する。Candidateは自動採用
+されない。
 
 ```bash
 python3 "${ticket_state_skill_dir}/scripts/ticket_state.py" \
@@ -375,8 +377,8 @@ python3 "${ticket_state_skill_dir}/scripts/ticket_state.py" \
   template extract --profile backlog_test --tickets TEST-1 TEST-2 TEST-3
 ```
 
-Repository bindingを使う場合は`--profile`を省略できる。1件だけならevidence不足、順序が揃わなければreview
-待ちになることがある。
+Repository bindingを使う場合は`--profile`を省略できる。1件だけなら`NEEDS_MORE_EVIDENCE`、複数ticketの
+見出し順が揃わなければ`NEEDS_REVIEW`になる。
 
 ### `template validate`
 

@@ -29,8 +29,15 @@ python3 scripts/validate_content.py
 
 ## 設定と状態
 
-設定と状態はrepo外へ置き、Agent CLIを起動するshellから保存先とAPI keyをexportします。Bashでの
-最小例は次のとおりです。
+設定と状態はrepo外へ置きます。初めて設定する場合は、configのコピー、Backlog/Redmine別の記入例、
+read疎通確認、状態の確認、よくあるエラーを説明した
+[初回セットアップ](references/getting-started.md)から進めてください。
+
+セットアップ後は、通常、利用者がCLIを直接操作する必要はありません。Agentへ対象ticket、してほしいこと、
+停止位置を自然言語で伝えます。初回の段階的な確認方法と依頼文の例は
+[Agentとの使い方](references/using-with-agent.md)を参照してください。
+
+Agent CLIを起動するshellから保存先とAPI keyをexportします。Bashでの最小例は次のとおりです。
 
 ```bash
 export XDG_CONFIG_HOME="${XDG_CONFIG_HOME:-${HOME}/.config}"
@@ -57,13 +64,8 @@ codex
 完全一致で選ぶため、cloneごとに別の接続先と状態を使えます。共有リポジトリの`AGENTS.md`やtracked
 fileへ個人設定を追加する必要はありません。bindingがなければprofileを自動推測しません。
 
-configのコピー、Backlog/Redmine別の記入例、read疎通確認、状態の確認、よくあるエラーは
-[初回セットアップ](references/getting-started.md)を参照してください。`--config`、`--work-dir`、
-`--workspace-id`で既定値を明示的に上書きする方法も説明しています。
-
-セットアップ後は、通常、利用者がCLIを直接操作する必要はありません。Agentへ対象ticket、してほしいこと、
-停止位置を自然言語で伝えれば利用できます。初回の段階的な確認方法と依頼文の例は
-[Agentとの使い方](references/using-with-agent.md)を参照してください。
+既定値を使わない場合は、`--config`、`--work-dir`、`--workspace-id`で明示的に上書きできます。指定方法は
+[初回セットアップ](references/getting-started.md)で説明しています。
 
 API keyをTOML、CLI引数、request、proposal、diff、ログへ書かないでください。project内の
 `--work-dir`はGitでignore済みの場合だけ使えます。状態directoryとartifactには取得したticket本文も
@@ -78,11 +80,13 @@ offline cacheやwrite simulationとして使わないでください。
 
 `examples/update-state.request.json` を参照してください。`visibility_confirmed: true` と
 `source_visibility: public-only` は、private note等を意図せず公開しないための明示的な確認です。
+
 current repositoryにbindingがある場合はrequestの`profile`を省略でき、CLIが解決した値をproposalへ
 固定します。bindingがない場合は従来どおり`profile`が必須で、CLI requestの`ticket`は常に省略
 できません。ユーザーが番号を指定していなくても、今回の作業対象として参照中のdesign doc等に単一の
 `Ticket: TEST-1`のようなtarget metadataがあれば、Agentがそこから解決してrequestへ明示できます。
 複数候補や関連ticketへの言及しかない場合は、Agentが確認せずに選びません。
+
 Goal/Constraintsを変更する場合は `protected_change_approval` に人間のreviewerと理由が必要です。
 templateを使う場合は、profileの `template` とrequestの `template_id` に承認済み32文字IDを指定し、
 `template validate` が返す `artifact_sha256` をrequestの `template_sha256` に固定します。candidateや

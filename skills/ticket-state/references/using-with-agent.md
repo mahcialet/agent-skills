@@ -10,8 +10,8 @@
 
 依頼では、次の3点が分かればよい。
 
-1. **対象ticket**: `TEST-1`やRedmineのissue IDなど。依頼に書かなくても、今回の作業の正本として参照中の
-   design doc等に一意のtarget metadataがあればAgentが解決できる。
+1. **対象ticket**: `TEST-1`やRedmineのissue IDなど。依頼に書かなくても、今回の作業対象として実際に
+   参照しているdesign doc等に一意のtarget metadataがあればAgentが解決できる。
 2. **してほしいこと**: 読み取り、descriptionとsnapshotの更新、snapshotだけ、補足commentだけ、など。
 3. **今回の停止位置**: 読み取りだけ、更新案とdiffまで、remoteへの適用まで、のいずれか。
 
@@ -56,7 +56,7 @@ Agentから、解決したprofile、workspace、ticket identity、読み取り�
 
 ### 2. 更新案とdiffまで作る
 
-次に、remoteへ書かず、local proposalを作る。
+次に、remoteへ書かず、local proposalとdiffを保存する。
 
 ```text
 $ticket-stateを使ってticket TEST-1の最新状態を読み、今回の作業結果を
@@ -70,8 +70,8 @@ GoalとConstraintsは変更しません。diffを見せるところまで進め�
 - 次はstagingでread-only疎通確認
 ```
 
-Agentは最新remoteを基にrequestを組み立て、dry-runまたは`prepare`でproposalを保存する。結果では少なく
-とも次を確認する。
+Agentは最新remoteを基にrequestを組み立て、remote mutationを行わない方法でproposalを保存する。利用者は
+結果のうち、少なくとも次を確認する。
 
 - 対象profileとticket
 - Descriptionと予定commentのdiff
@@ -150,6 +150,23 @@ $ticket-stateでTEST-1の更新案とdiffを作り、remoteへは適用せず保
 権限が不足していてもproposal ID、必要permission、再開方法を報告してください。
 ```
 
+### 既存ticketからtemplate候補を作る
+
+`template extract`が作るのは、ticket本文を複製した雛形ではない。指定したticketから見出し、順序、
+構造上の例外、evidence hashを抽出したlocal candidateである。Candidateは自動承認されず、remoteも
+更新しない。
+
+共通構造を調べる場合は、複数の代表的なticketを指定する。
+
+```text
+$ticket-stateでTEST-1、TEST-2、TEST-3を読み、template candidateを作ってください。
+共通見出し、順序の違い、例外、candidateの保存先を報告してください。
+remoteの更新とtemplateの承認はしないでください。
+```
+
+正式な原型が1件だけ決まっている場合もcandidateを作成できる。ただし、sampleが1件なら結果は
+`NEEDS_MORE_EVIDENCE`になる。内容、用途、例外を人間が確認した後だけ、別の依頼で承認する。
+
 ## 依頼とAgent内部のcommand対応
 
 利用者がcommand名を指定する必要はないが、Agentの動きを確認したい場合は次を目安にする。
@@ -192,8 +209,8 @@ $ticket-stateでTEST-1の更新案とdiffを作り、remoteへは適用せず保
 
 ### Ticket番号を毎回入力する必要があると思ってしまう
 
-今回の作業の正本として参照中のdesign doc等に`Ticket: TEST-1`のような単一のtarget metadataがあれば、
-Agentはその値を使える。ユーザーの依頼に別の番号があればそちらを優先する。
+今回の作業対象として実際に参照しているdesign doc等に`Ticket: TEST-1`のような単一のtarget metadataが
+あれば、Agentはその値を使える。ユーザーの依頼に別の番号があればそちらを優先する。
 
 Repository bindingが選ぶのはprofileとworkspaceだけであり、ticketではない。Branch名、関連ticketの一覧、
 例示、repo全体の検索結果からは選ばず、一意に解決できなければAgentが確認する。
