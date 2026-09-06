@@ -88,6 +88,9 @@ profileにtemplateがなく、空のdescriptionを更新する場合は、確認
 
 ## Commands
 
+具体的な使い分け、remote read/writeの有無、global option、全commandの実行例は
+[コマンドリファレンス](references/command-reference.md)を参照してください。
+
 ```text
 context              current Git repositoryのprofileとworkspaceを解決
 read                 最新ticketと必要なcomments/journalsを取得

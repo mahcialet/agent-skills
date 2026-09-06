@@ -305,3 +305,5 @@ unset REDMINE_API_KEY
 ```
 
 状態directoryは監査と再開の記録なので、API keyをunsetする流れで一緒に削除しない。
+
+セットアップ後の各commandの選び方と実行例は、[コマンドリファレンス](command-reference.md)を参照する。
