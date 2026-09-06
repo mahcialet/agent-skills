@@ -17,7 +17,7 @@
 | GitHub Copilot CLI | 1.0.82 | 正式名で長文coverage、関係candidate、DB局所整合性、Skill検証dataの証拠除外を確認 | 一時リポジトリへSkillを実コピーして確認 |
 | GitHub Copilot CLI | 1.0.82 | project scopeから正式名で `adversarial-pr-review` を起動し、review contractとapproval境界を確認 | `write`、`shell`、URL accessを許可しない単一のsynthetic tenant越境ケースで確認 |
 | GitHub Copilot CLI | 1.0.81 | project scopeから正式名で `adversarial-pr-review` を起動 | 複数domainを一度に扱う長いreviewは最終版で未確認 |
-| Python runtime | 3.13 | `ticket-state` のstandalone CLI、fixture/mockによるBacklog/Redmine adapter、local state/recovery | live APIとCodex/Copilot CLIからの正式起動は未確認 |
+| Python runtime | 3.13 | `ticket-state` のstandalone CLI、fixture/mockによるBacklog/Redmine adapter、local state/recovery | Codex/Copilot CLIからの正式起動は未確認。providerのlive確認範囲は下記を参照 |
 
 以下では、仕様の参照先、実機確認の経緯、受入監査、既知の制約を順に記録する。同じhostでも、
 version、scope、同名Skillの有無など、実行条件が異なる結果を同一視しない。
@@ -52,8 +52,16 @@ CodexとCopilotが共通して使う挙動は、各 `skills/<skill-name>/SKILL.m
   確認した。
 - Skill全体をrepo外の一時directoryへコピーし、別CWD・repository rootなし・追加PYTHONPATHなしで
   `--help`、content validator、mock dry-runが動くことを自動testで確認する。
-- Backlog/Redmineの実instance、API key、実ticketへは接続していない。provider/plugin固有markup、
-  visibility、size limit、rate limit、複数PC協調、server-side CASは未検証である。
+- 実Backlog（API v2、サービスversion未取得）でread、preview、権限・未確認時の停止、名前なしの
+  確認記録、本文＋snapshot、snapshot単独、通常コメント、本文復元、NO_CHANGE、template抽出・検証を
+  確認した。HTTP 429後は待機して本文復元まで完了したが、その後の古い案の再検証と追加prepareは
+  接続エラーで未完了。障害復旧用操作（reconcile / recover-local等）とtemplate承認は実機未実施である。
+- 非公開の閉域テスト環境上のRedmine 2.6.10、3.0.7、3.1.7、3.2.9、3.3.9、3.4.13、4.0.9、
+  4.1.7、4.2.10、5.0.12、5.1.12、6.0.11、6.1.4、7.0.1で、HTTPS read、permission gate、dry-run、
+  公開comment、descriptionとsnapshotの更新、stale base拒否をlive確認した。
+- 上記はPR #6とprovider検証記録の確認範囲であり、全経路のlive検証を意味しない。
+  実運用instance固有のplugin・proxy・markup・visibility・size limit、rate limit全般、複数PC協調、
+  server-side CASは未検証である。資格情報・接続先・実環境の監査記録はリポジトリに含めない。
 - `agents/openai.yaml` は発見を許可するが、remote mutationはtrusted configのticket単位allowlist、
   明示された更新command、最新remoteの再検証をすべて通す。implicitな発見をwrite許可として扱わない。
 

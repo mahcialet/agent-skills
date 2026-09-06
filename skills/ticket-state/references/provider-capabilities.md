@@ -2,7 +2,9 @@
 
 確認日: 2026-09-06。公式公開APIの基本契約をfixture/mockで検証し、非公開の閉域テスト環境で
 Redmine 2.6.10、3.0.7、3.1.7、3.2.9、3.3.9、3.4.13、4.0.9、4.1.7、4.2.10、
-5.0.12、5.1.12、6.0.11、6.1.4、7.0.1をlive検証した。実運用instanceは未検証である。
+5.0.12、5.1.12、6.0.11、6.1.4、7.0.1をlive検証した。実Backlog API v2も限定的にread/writeを
+確認した（サービスversion未取得）。確認した操作と未完了・未実施の範囲は[README](../README.md#実装状態)を
+参照する。Redmineの実運用instanceと、providerごとのinstance固有拡張は未検証である。
 plugin、version、role、markup設定により結果が異なる場合はunknownとして安全停止する。
 
 ## Backlog

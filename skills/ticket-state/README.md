@@ -13,10 +13,17 @@ descriptionとCurrent State Snapshotコメントを反映し、書けない場�
 - mock検証済み: BacklogとRedmineのread/update/comment、RO、dry-run、stale base、permission取消、
   timeout後のreconcile、partial result、process間local concurrency、secret非URL送信、Redmineの
   `private_notes: false`、中断後のDRAFT/receipt復旧、local artifact/DB破損検出。
-- live検証済み: 非公開の閉域テスト環境上のRedmine 2.6.10～7.0.1（各minor系列）で、HTTPS read、
+- live検証済み（Backlog API v2、サービスversion未取得）: read、preview、権限・未確認時の停止、
+  名前なしの確認記録、本文＋snapshot、snapshot単独、通常コメント、本文復元、NO_CHANGE、
+  template抽出・検証。HTTP 429発生後は待機して本文復元まで完了した。
+- live検証済み（Redmine）: 非公開の閉域テスト環境上のRedmine 2.6.10～7.0.1（各minor系列）で、HTTPS read、
   permission gate、dry-run、公開comment、descriptionとsnapshotの更新、stale base拒否。
-- 未検証: 実Backlog、実運用instance固有のplugin・proxy・visibility・上限、複数PC間の協調、
-  server-side CAS。live credentialsや実運用チケットへの接続はこのリポジトリに含みません。
+- live未完了（Backlog）: 復元後の古い案の再検証と追加prepareは接続エラーで未完了。
+  障害復旧用操作（reconcile / recover-local等）とtemplate承認は実機未実施。429後の待機・復元は、
+  これらの復旧操作やrate limit全般の検証を意味しない。
+- 未検証: 実運用instance固有のplugin・proxy・visibility・上限、複数PC間の協調、server-side CAS。
+  Redmineの確認version一覧は[provider capabilities](references/provider-capabilities.md)を参照。
+  live credentials・接続先・実環境の監査記録はこのリポジトリに含みません。
 
 ## 必要環境
 
