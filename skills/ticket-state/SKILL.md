@@ -55,7 +55,20 @@ CLI optionはsubcommandより前に置く。API keyの値を引数、request、�
 要求する。description更新を成功させるための権限が足りない場合、コメントだけへ自動縮小せず、
 別の明示されたproposalとして扱う。
 
-## Template候補
+## Template
+
+profileに承認済みtemplateが設定されていれば、それだけを使う。設定がなく、ticket descriptionが
+空の状態で更新を求められた場合は、確認済みmarkupに対応する内蔵defaultを読む。空ではないが定型構造を
+持たないdescriptionへdefault構造を追加するのは、ユーザーが構造の初期化を明示した場合だけにする。
+
+- Markdown: `assets/default-ticket.markdown.txt`
+- Textile: `assets/default-ticket.textile.txt`
+- Backlog記法: `assets/default-ticket.backlog.txt`
+
+既存の見出し構造やpreambleをdefaultへ自動変換せず、見出し追加も暗黙に行わない。`未設定`の
+placeholderは確認済みの事実だけで置き換え、該当なしを確認できた項目だけ`なし`へ変更する。
+目的または制約を追加・変更するrequestには通常どおりhuman review情報を要求する。内蔵defaultは
+profile固有の承認済みartifactではないため、requestへ`template_id`や`template_sha256`を捏造しない。
 
 `template extract` は指定ticketだけを読み、local candidateを生成する。candidateを実行中に
 自動採用しない。根拠と例外を人間が確認した後だけ `template approve` で別artifactへ固定する。

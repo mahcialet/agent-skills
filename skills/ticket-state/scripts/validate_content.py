@@ -15,7 +15,8 @@ SCRIPTS = SKILL_ROOT / "scripts"
 if str(SCRIPTS) not in sys.path:
     sys.path.insert(0, str(SCRIPTS))
 
-from ticket_state.templates import SNAPSHOT_FIELDS
+from ticket_state.errors import UnsafeContentError
+from ticket_state.templates import SNAPSHOT_FIELDS, SNAPSHOT_LABELS, sections
 
 REQUIRED_FILES = {
     "SKILL.md",
@@ -23,6 +24,9 @@ REQUIRED_FILES = {
     "NOTICE.md",
     "agents/openai.yaml",
     "assets/config.example.toml",
+    "assets/default-ticket.backlog.txt",
+    "assets/default-ticket.markdown.txt",
+    "assets/default-ticket.textile.txt",
     "assets/proposal.schema.json",
     "assets/template.schema.json",
     "examples/update-state.request.json",
@@ -40,9 +44,11 @@ REQUIRED_CASE_IDS = {
     "normal-read-prepare-apply",
     "explicit-snapshot-only",
     "template-candidate",
+    "default-template-empty-description",
     "no-ticket-creation",
     "no-related-cascade",
     "no-status-change",
+    "default-template-preserves-existing-structure",
     "read-only-persists-proposal",
     "dry-run-zero-mutation",
     "ticket-cannot-escalate",
@@ -55,6 +61,7 @@ REQUIRED_CASE_IDS = {
     "missing-source-hash",
     "conflicting-template-samples",
     "unread-child-not-complete",
+    "configured-template-no-default-bypass",
     "standalone-copy",
     "shared-host-contract",
     "cwd-independent",
@@ -125,6 +132,27 @@ def validate() -> list[str]:
                 errors.append(
                     "template.schema.json: candidate/approved relational conditions are required"
                 )
+
+    expected_default_headings = [SNAPSHOT_LABELS[field] for field in SNAPSHOT_FIELDS]
+    for markup in ("markdown", "textile", "backlog"):
+        path = SKILL_ROOT / "assets" / f"default-ticket.{markup}.txt"
+        try:
+            text = path.read_text(encoding="utf-8")
+            headings = [
+                section.title
+                for section in sections(text, markup)
+                if section.title != "__preamble__"
+            ]
+            if headings != expected_default_headings:
+                errors.append(
+                    f"{path.name}: headings must match the snapshot contract in order"
+                )
+            if text.count("未設定") != len(SNAPSHOT_FIELDS):
+                errors.append(f"{path.name}: every default value must start as 未設定")
+            if not text.endswith("\n"):
+                errors.append(f"{path.name}: must end with a newline")
+        except (OSError, UnsafeContentError) as exc:
+            errors.append(f"{path.name}: invalid default template: {exc}")
 
     example = _load_json(SKILL_ROOT / "examples" / "update-state.request.json")
     if not isinstance(example, dict):

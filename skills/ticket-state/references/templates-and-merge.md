@@ -21,6 +21,25 @@ constraints、progress、blockers、unresolved_issues、next_actions、verificat
 change summary、固定時刻、opaque operation markerを付ける。`@` はzero-width spaceで中和し、意図しない
 mention再発火を避ける。visibilityを確認できない内容は投稿しない。
 
+## Built-in default
+
+profileにtemplate IDがない場合の初期構造として、SkillはMarkdown、Textile、Backlog記法のdefaultを
+`assets/default-ticket.*.txt`に同梱する。各variantはsnapshot contractと同じ9項目を同じ順序で持つ。
+これはticket-state固有の`SNAPSHOT_FIELDS`とlabelから設計した配布assetであり、local corpusや特定の
+Backlog/Redmine instanceから昇格したtemplateではない。
+
+defaultは、profile templateがなく空のdescriptionを更新するときに使う。空ではないが定型構造のない
+descriptionへ構造を追加するには、ユーザーの明示指示を必要とする。既存の見出し、preamble、provider
+macro、自由記述をdefaultへ自動移行しない。profileに承認済みtemplateが設定されている場合はそちらを
+優先し、欠落・ID不一致・hash不一致をdefault fallbackで迂回しない。
+
+default適用時も`edited_sections`へ変更対象と`__structure__`を明示し、目的/制約の追加または変更には
+`protected_change_approval`を要求する。全placeholderは`未設定`から始め、推測で埋めない。
+該当なしを確認できた項目だけ`なし`へ変更する。
+
+このfallback ruleは人間が要求した汎用初期構造として追加した。再配布する見出し、順序、既定値、
+適用条件の変更は挙動変更として、支持例・反例・境界例と明示的なhuman reviewを必要とする。
+
 ## Template lifecycle
 
 `template extract` は明示targetだけを読み、見出し頻度・順序・例外・evidence hashをlocal candidateへ

@@ -8,7 +8,7 @@ descriptionとCurrent State Snapshotコメントを反映し、書けない場�
 
 - 実装済み: trusted config、project/instance/ticket identity、ticket単位allowlist、read、proposal、
   immutable revision、SQLite history、diff、dry-run、combined update、再取得検証、revalidate、
-  reconcile、template candidate/approval分離。
+  reconcile、template candidate/approval分離、template未設定時の内蔵default。
 - mock検証済み: BacklogとRedmineのread/update/comment、RO、dry-run、stale base、permission取消、
   timeout後のreconcile、partial result、process間local concurrency、secret非URL送信、Redmineの
   `private_notes: false`、中断後のDRAFT/receipt復旧、local artifact/DB破損検出。
@@ -51,6 +51,11 @@ Goal/Constraintsを変更する場合は `protected_change_approval` に人間�
 templateを使う場合は、profileの `template` とrequestの `template_id` に承認済み32文字IDを指定し、
 `template validate` が返す `artifact_sha256` をrequestの `template_sha256` に固定します。candidateや
 hash不一致のtemplateは更新へ使えません。
+
+profileにtemplateがなく、空のdescriptionを更新する場合は、確認した記法に対応する
+`assets/default-ticket.*.txt`を使います。内容があるdescriptionの構造追加には明示指示を必要とし、
+既存構造はdefaultへ自動変換せず、明示templateの不備をdefaultで迂回しません。適用条件とplaceholderは
+`references/templates-and-merge.md`を参照してください。
 
 ## Commands
 

@@ -12,6 +12,7 @@ from ticket_state.templates import (
     approve_template,
     extract_template_candidate,
     render_snapshot,
+    sections,
     validate_edit_scope,
     validate_template,
 )
@@ -20,6 +21,70 @@ from helpers import snapshot
 
 
 class TemplateAndMarkupTests(unittest.TestCase):
+    def test_packaged_default_templates_share_snapshot_structure(self) -> None:
+        skill_root = Path(__file__).resolve().parents[1]
+        expected = [
+            "目的",
+            "現在地",
+            "決定事項",
+            "制約",
+            "進捗",
+            "Blockers",
+            "未解決事項",
+            "次の行動",
+            "検証状態",
+        ]
+        for markup in ("markdown", "textile", "backlog"):
+            with self.subTest(markup=markup):
+                path = skill_root / "assets" / f"default-ticket.{markup}.txt"
+                text = path.read_text(encoding="utf-8")
+                headings = [
+                    item.title
+                    for item in sections(text, markup)
+                    if item.title != "__preamble__"
+                ]
+                self.assertEqual(expected, headings)
+                self.assertEqual(len(expected), text.count("未設定"))
+                self.assertTrue(text.endswith("\n"))
+
+    def test_default_template_initialization_keeps_protected_review_gate(self) -> None:
+        skill_root = Path(__file__).resolve().parents[1]
+        edited_sections = [
+            "目的",
+            "現在地",
+            "決定事項",
+            "制約",
+            "進捗",
+            "Blockers",
+            "未解決事項",
+            "次の行動",
+            "検証状態",
+            "__structure__",
+        ]
+        for markup in ("markdown", "textile", "backlog"):
+            with self.subTest(markup=markup):
+                proposed = (
+                    skill_root / "assets" / f"default-ticket.{markup}.txt"
+                ).read_text(encoding="utf-8")
+                with self.assertRaises(UnsafeContentError):
+                    validate_edit_scope(
+                        "",
+                        proposed,
+                        markup=markup,
+                        edited_sections=edited_sections,
+                        protected_change_approval=None,
+                    )
+                validate_edit_scope(
+                    "",
+                    proposed,
+                    markup=markup,
+                    edited_sections=edited_sections,
+                    protected_change_approval={
+                        "reviewed_by": "human",
+                        "reason": "初期構造を確認",
+                    },
+                )
+
     def test_edit_scope_preserves_unrelated_sections_and_code_blocks(self) -> None:
         base = "# Current State\nold\n\n# Notes\n```md\n# not a heading\n```\nkeep\n"
         proposed = base.replace("old", "new", 1)
