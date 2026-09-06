@@ -132,8 +132,7 @@ def validate_edit_scope(
     *,
     markup: str,
     edited_sections: list[str],
-    protected_change_approval: dict[str, Any] | None,
-) -> None:
+) -> set[str]:
     base_sections = sections(base, markup)
     proposed_sections = sections(proposed, markup)
     for label, values in (("base", base_sections), ("proposed", proposed_sections)):
@@ -155,12 +154,7 @@ def validate_edit_scope(
     if undeclared:
         raise UnsafeContentError(f"description changed outside edited_sections: {', '.join(undeclared)}")
     protected = changed & PROTECTED_TITLES
-    if protected:
-        approval = protected_change_approval or {}
-        if not isinstance(approval.get("reviewed_by"), str) or not approval.get("reviewed_by", "").strip():
-            raise UnsafeContentError("protected Goal/Constraints changes require reviewed_by")
-        if not isinstance(approval.get("reason"), str) or not approval.get("reason", "").strip():
-            raise UnsafeContentError("protected Goal/Constraints changes require a reason")
+    return protected
 
 
 def _safe_text(value: Any) -> str:

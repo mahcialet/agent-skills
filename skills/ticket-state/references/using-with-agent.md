@@ -95,6 +95,16 @@ $ticket-stateのproposal 0123456789abcdefについて、もう一度対象とdif
 Agentが`APPLIED`を返し、descriptionと公開commentをremoteから再取得して確認できたことを確認する。
 `PENDING_PERMISSION`、`NEEDS_REMERGE`、`NEEDS_REVIEW`なら未反映であり、その理由を解消してから次へ進む。
 
+## 反映前の確認
+
+Agentが「TEST-1の進捗と検証結果を更新し、公開コメントを1件追加します。反映してよいですか？」と
+示したら、「はい」「お願いします」で進められる。名前・定型文・hashを入力する必要はない。同じ
+具体的操作を既に明示許可していれば、Agentは繰り返し確認しない。目的・制約の変更も同じ確認へ含める。
+
+Agentが確認対象と返答に基づきprivateな履歴を記録する。確認者情報をticket本文・コメント・共有repoへ
+転載しない。案やremoteが変わった場合は変更点を確認し、元の返答で変更後の案を自動適用しない。
+対話の支持例・反例・境界例は[確認の例](../examples/confirmation.md)を参照する。
+
 ## 慣れた後の依頼例
 
 接続先、markup、公開範囲、allowlistの動作を確認できた後は、コマンドを意識せずに依頼できる。

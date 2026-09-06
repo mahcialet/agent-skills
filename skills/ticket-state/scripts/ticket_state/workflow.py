@@ -49,6 +49,7 @@ REQUIRED_PERMISSIONS = {
 NONTERMINAL_APPLY_STATES = {
     "READY",
     "PENDING_PERMISSION",
+    "NEEDS_REVIEW",
 }
 
 
@@ -162,7 +163,6 @@ class TicketStateService:
                 "base_description_sha256",
                 "proposed_description",
                 "edited_sections",
-                "protected_change_approval",
                 "change_summary",
                 "snapshot",
                 "snapshot_description_sha256",
@@ -244,17 +244,17 @@ class TicketStateService:
         proposed_description: str | None
         comment: str
         snapshot_value: dict[str, Any] | None = None
+        protected_sections: set[str] = set()
         if operation == "update-state":
             proposed_description = request["proposed_description"]
             if request["snapshot_description_sha256"] != sha256_text(proposed_description):
                 raise UnsafeContentError("snapshot is not bound to the exact proposed description")
             if not stale_input:
-                validate_edit_scope(
+                protected_sections = validate_edit_scope(
                     record.description,
                     proposed_description,
                     markup=record.markup,
                     edited_sections=request.get("edited_sections", []),
-                    protected_change_approval=request.get("protected_change_approval"),
                 )
             if stale_input:
                 snapshot_value = request["snapshot"]
@@ -304,6 +304,10 @@ class TicketStateService:
                 raise UnsafeContentError("comment exceeds the conservative 60000-byte limit")
             state, reason = self._initial_state(adapter, profile.concurrency, missing, comment_only=True)
 
+        confirmation_required = bool(protected_sections)
+        if state == "READY" and confirmation_required:
+            state = "NEEDS_REVIEW"
+            reason = "protected changes require confirmation of the prepared revision"
         description_after = record.description if proposed_description is None else proposed_description
         description_diff = unified_diff(
             record.description,
@@ -321,6 +325,8 @@ class TicketStateService:
         }
         metadata = {
             "schema_version": 1,
+            "protected_sections": sorted(protected_sections),
+            "confirmation_required": confirmation_required,
             "profile": profile_name,
             "operation": operation,
             "operation_id": operation_id,
@@ -575,6 +581,13 @@ class TicketStateService:
                     mode="dry-run" if dry_run else "execute",
                 )
                 return self._proposal_result(updated, mode="dry-run" if dry_run else "execute", mutation_count=0)
+            if self._confirmation_missing(locked_proposal, metadata):
+                updated = self.store.transition(
+                    proposal_id, "NEEDS_REVIEW", event="CONTENT_CONFIRMATION_REQUIRED",
+                    reason="confirm the protected changes in this revision before applying",
+                    mode="dry-run" if dry_run else "execute",
+                )
+                return self._proposal_result(updated, mode="dry-run" if dry_run else "execute", mutation_count=0)
             if dry_run:
                 updated = self.store.transition(
                     proposal_id,
@@ -710,6 +723,11 @@ class TicketStateService:
                 "approval_reusable": False,
             }
         )
+        if old_metadata.get("protected_sections"):
+            old_metadata["confirmation_required"] = True
+            if state == "READY":
+                state = "NEEDS_REVIEW"
+                reason = "confirm the protected changes in the new revision"
         artifacts = {
             "metadata.json": _json_bytes(old_metadata),
             "base.json": _json_bytes(current.as_dict()),
@@ -873,6 +891,9 @@ class TicketStateService:
                 missing=missing,
                 capabilities=adapter.capabilities.as_dict(),
             )
+        if state == "READY" and self._confirmation_missing(proposal, metadata):
+            state = "NEEDS_REVIEW"
+            reason = "confirm the protected changes in this revision before applying"
         updated = self.store.transition(
             proposal_id,
             state,
@@ -964,6 +985,11 @@ class TicketStateService:
     def template_approve(self, path: Path, *, approved_by: str, reason: str) -> dict[str, Any]:
         return approve_template(path, store=self.store, approved_by=approved_by, reason=reason)
 
+    def _confirmation_missing(self, proposal: dict[str, Any], metadata: dict[str, Any]) -> bool:
+        return bool(metadata.get("confirmation_required")) and not self.store.approvals(
+            proposal["proposal_id"], proposal["current_revision"]
+        )
+
     def _proposal_result(
         self,
         proposal: dict[str, Any],
@@ -993,7 +1019,10 @@ class TicketStateService:
             "would_write": (
                 proposal["state"] == "READY"
                 and set(proposal["required_permissions"]) <= granted
+                and not self._confirmation_missing(proposal, revision_metadata)
             ),
+            "confirmation_required": self._confirmation_missing(proposal, revision_metadata),
+            "protected_sections": revision_metadata.get("protected_sections", []),
             "required_permissions": proposal["required_permissions"],
             "profile": proposal["profile_name"],
             "identity": proposal["identity"],

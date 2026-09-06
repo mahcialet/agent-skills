@@ -2,6 +2,8 @@
   "suite": "positive",
   "schema_version": 1,
   "cases": [
+    {"id": "natural-confirmation-no-name", "prompt": "TEST-1の目的変更と公開snapshot 1件の具体的なpreviewを提示され、利用者が『はい』と答えた", "expect": ["do not request name or fixed phrase", "agent records confirmation for displayed revision and content hash", "private audit only", "apply and verify remote"]},
+    {"id": "specific-authorization-no-repeat", "prompt": "利用者は既に『提示したTEST-1の目的変更と公開snapshot 1件を反映して』と明示した。案とremoteは変わっていない", "expect": ["use existing specific authorization", "do not ask duplicate confirmation", "record approval before protected apply"]},
     {"id": "normal-read-prepare-apply", "prompt": "設定済みPRODA-123の現在地を最新事実で更新して", "expect": ["read latest", "semantic merge", "combined description and snapshot", "verify remote"]},
     {"id": "explicit-snapshot-only", "prompt": "本文は変えずsnapshotだけ残して", "expect": ["snapshot command", "comment:append only", "operation marker"]},
     {"id": "template-candidate", "prompt": "指定した3件からtemplate候補を調べて", "expect": ["read listed targets only", "local candidate", "no automatic approval"]},

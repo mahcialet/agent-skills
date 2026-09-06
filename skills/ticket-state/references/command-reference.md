@@ -262,6 +262,13 @@ python3 "${ticket_state_skill_dir}/scripts/ticket_state.py" \
 人間が確認した特定revisionと全artifactのcontent hashへの承認をlocal historyへ記録する。Remoteへの
 write permissionを追加するコマンドではなく、別revisionへ承認を自動継承しない。
 
+Agentが具体的操作への返答または既存の明示許可を受けて実行する。`--reason`はAgentが確認対象を要約する。
+revision/hashは提示前に保持した値を使う。返答後にcurrentの値と一致することを確認し、変更されていたら
+新しい案を提示して確認する。
+利用者に名前や定型文を要求しない。`--approved-by`は任意で、省略時の`conversation-user`は会話上の役割を
+表す。目的・制約変更の未確認previewも、この記録後に再検証・
+適用できる。他のreview理由やpermission不足は解除しない。`template approve`の要件は変更しない。
+
 ```bash
 python3 "${ticket_state_skill_dir}/scripts/ticket_state.py" \
   --workspace-id monorepo-profile-a \
@@ -269,7 +276,6 @@ python3 "${ticket_state_skill_dir}/scripts/ticket_state.py" \
   approve 0123456789abcdef \
   --revision 1 \
   --content-sha256 aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa \
-  --approved-by mahcialet \
   --reason "diffと公開範囲を確認済み"
 ```
 

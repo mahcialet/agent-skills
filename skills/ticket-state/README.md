@@ -87,7 +87,9 @@ current repositoryにbindingがある場合はrequestの`profile`を省略でき
 `Ticket: TEST-1`のようなtarget metadataがあれば、Agentがそこから解決してrequestへ明示できます。
 複数候補や関連ticketへの言及しかない場合は、Agentが確認せずに選びません。
 
-Goal/Constraintsを変更する場合は `protected_change_approval` に人間のreviewerと理由が必要です。
+Goal/Constraintsの変更も事前の承認者情報なしでpreviewを作れます。実反映前に具体的内容への確認を
+current revisionへ記録します。Request内の`protected_change_approval`は廃止され、指定すると入力エラーに
+なります。確認はpreview後の`approve`へ集約します。
 templateを使う場合は、profileの `template` とrequestの `template_id` に承認済み32文字IDを指定し、
 `template validate` が返す `artifact_sha256` をrequestの `template_sha256` に固定します。candidateや
 hash不一致のtemplateは更新へ使えません。
@@ -130,9 +132,13 @@ template approve     人間確認済みcandidateを別artifactへ固定
 します。必要なGETは実行し、local proposal、diff、予定payload、historyは保存します。
 dry-run後にallowlistが変わっても自動適用されません。
 
-人間が特定diffを承認する場合、`show`のcurrent revisionと`content_sha256`を確認し、
-`approve <proposal-id> --revision <n> --content-sha256 <hash> --approved-by <name> --reason <reason>`
-で記録します。承認はwrite permissionの代わりではありません。再mergeでrevision/hashが変わると、旧承認は
+Agentが対象と更新内容を示し、利用者は「はい」だけで確認できます。同じ具体的操作への許可が既にあれば
+重複確認しません。Agentが提示前に`show`のrevisionと`content_sha256`を保持し、返答後も同じ値であることを
+確認してから、その提示済みの値で
+`approve <proposal-id> --revision <n> --content-sha256 <hash> --reason <summary>`
+でprivate履歴へ記録します。名前の入力は不要です。`--approved-by`は任意で
+残し、省略時の`conversation-user`は会話上の役割を表します。確認者情報は公開payloadに含めません。
+承認はwrite permissionの代わりではありません。再mergeでrevision/hashが変わると、旧承認は
 履歴に残りますがcurrent revisionの承認として表示されません。
 
 ## Stateと終了結果

@@ -1,6 +1,9 @@
 from __future__ import annotations
 
 import os
+import json
+import subprocess
+import sys
 import tempfile
 import unittest
 from concurrent.futures import ThreadPoolExecutor
@@ -22,15 +25,188 @@ class WorkflowTests(unittest.TestCase):
         self.root = Path(self.temp.name)
         self.config_path = self.root / "config.toml"
         write_config(self.config_path)
-        self.env = patch.dict(os.environ, {"BACKLOG_TEST_KEY": "backlog-secret", "REDMINE_TEST_KEY": "redmine-secret"})
+        self.env = patch.dict(
+            os.environ,
+            {
+                "BACKLOG_TEST_KEY": "backlog-secret",
+                "REDMINE_TEST_KEY": "redmine-secret",
+            },
+        )
         self.env.start()
         self.transport = FakeTrackerTransport()
         self.store = ProposalStore(self.root / "state", workspace_id="demo")
-        self.service = TicketStateService(load_config(self.config_path), self.store, self.transport)
+        self.service = TicketStateService(
+            load_config(self.config_path), self.store, self.transport
+        )
 
     def tearDown(self) -> None:
         self.env.stop()
         self.temp.cleanup()
+
+    def protected_request(self) -> dict[str, object]:
+        self.transport.backlog_description = "# Goal\nold goal\n\n# Constraints\nkeep\n"
+        request = update_request()
+        proposed = self.transport.backlog_description.replace("old goal", "new goal")
+        request.update(
+            base_description_sha256=sha256_text(self.transport.backlog_description),
+            proposed_description=proposed,
+            edited_sections=["Goal"],
+            snapshot_description_sha256=sha256_text(proposed),
+        )
+        return request
+
+    def confirm(self, proposal_id: str) -> dict[str, object]:
+        revision = self.store.get_revision(proposal_id)
+        return self.store.record_approval(
+            proposal_id,
+            revision=self.store.get_proposal(proposal_id)["current_revision"],
+            content_sha256=revision["content_sha256"],
+            reason="提示した目的の変更とコメント投稿への返答「はい」",
+        )
+
+    def test_protected_preview_and_apply_wait_for_conversation_confirmation(
+        self,
+    ) -> None:
+        result = self.service.update(
+            self.protected_request(), "update-state", dry_run=True
+        )
+        proposal_id = result["proposal_id"]
+        self.assertEqual("NEEDS_REVIEW", result["state"])
+        self.assertTrue(result["confirmation_required"])
+        self.assertIn("goal", result["protected_sections"])
+        self.assertIn("+new goal", Path(result["description_diff_path"]).read_text())
+        denied = self.service.apply(proposal_id, dry_run=False)
+        self.assertEqual("NEEDS_REVIEW", denied["state"])
+        self.assertEqual(0, self.transport.mutation_requests)
+        approval = self.confirm(proposal_id)
+        self.assertEqual("conversation-user", approval["approved_by"])
+        ready = self.service.revalidate(proposal_id)
+        self.assertEqual("READY", ready["state"])
+        self.assertFalse(ready["confirmation_required"])
+        self.assertEqual(1, ready["proposal_revision"])
+        self.assertEqual(
+            "APPLIED", self.service.apply(proposal_id, dry_run=False)["state"]
+        )
+        self.assertEqual(1, self.transport.mutation_requests)
+        for request in self.transport.requests:
+            if request.is_mutation:
+                payload = (request.body or b"").decode()
+                for private_value in (
+                    "conversation-user",
+                    "approved_by",
+                    "reviewed_by",
+                    "CONTENT_REVISION_APPROVED",
+                ):
+                    self.assertNotIn(private_value, payload)
+        reopened = ProposalStore(self.root / "state", workspace_id="demo")
+        self.assertEqual(approval, reopened.approvals(proposal_id)[0])
+        self.assertTrue(reopened.audit()["valid"])
+
+    def test_confirmation_does_not_grant_write_permission_or_strict_cas(self) -> None:
+        for options, expected in (
+            ({"backlog_permissions": '["comment:append"]'}, "PENDING_PERMISSION"),
+            ({"concurrency": "strict"}, "NEEDS_REVIEW"),
+        ):
+            with self.subTest(options=options):
+                write_config(self.config_path, **options)
+                service = TicketStateService(
+                    load_config(self.config_path), self.store, self.transport
+                )
+                prepared = service.prepare(self.protected_request())
+                self.confirm(prepared["proposal_id"])
+                self.assertEqual(
+                    expected,
+                    service.apply(prepared["proposal_id"], dry_run=False)["state"],
+                )
+                self.assertEqual(0, self.transport.mutation_requests)
+
+    def test_permission_revision_requires_fresh_protected_confirmation(self) -> None:
+        write_config(self.config_path, backlog_permissions='["comment:append"]')
+        service = TicketStateService(
+            load_config(self.config_path), self.store, self.transport
+        )
+        prepared = service.prepare(self.protected_request())
+        proposal_id = prepared["proposal_id"]
+        self.confirm(proposal_id)
+        write_config(self.config_path)
+        writable = TicketStateService(
+            load_config(self.config_path), self.store, self.transport
+        )
+        revised = writable.revalidate(proposal_id)
+        self.assertEqual(2, revised["proposal_revision"])
+        self.assertEqual("NEEDS_REVIEW", revised["state"])
+        self.assertTrue(revised["confirmation_required"])
+        self.assertEqual([], self.store.approvals(proposal_id))
+        self.assertEqual(1, len(self.store.approvals(proposal_id, 1)))
+        self.assertEqual(
+            "NEEDS_REVIEW", writable.apply(proposal_id, dry_run=False)["state"]
+        )
+        self.assertEqual(0, self.transport.mutation_requests)
+        self.confirm(proposal_id)
+        self.assertEqual("APPLIED", writable.apply(proposal_id, dry_run=False)["state"])
+
+    def test_remote_change_after_protected_confirmation_blocks_apply(self) -> None:
+        prepared = self.service.prepare(self.protected_request())
+        self.confirm(prepared["proposal_id"])
+        self.transport.backlog_comments.append(
+            {"id": 1, "content": "new decision", "created": "now"}
+        )
+        result = self.service.apply(prepared["proposal_id"], dry_run=False)
+        self.assertEqual("NEEDS_REMERGE", result["state"])
+        self.assertEqual([], self.store.approvals(prepared["proposal_id"]))
+        self.assertEqual(0, self.transport.mutation_requests)
+
+    def test_inline_protected_review_cannot_bypass_proposal_confirmation(self) -> None:
+        request = self.protected_request()
+        request["protected_change_approval"] = {
+            "reviewed_by": "fictional-reviewer",
+            "reason": "confirmed goal",
+        }
+        with self.assertRaises(UnsafeContentError):
+            self.service.prepare(request)
+        self.assertEqual([], self.store.list_pending())
+        self.assertEqual(0, self.transport.mutation_requests)
+
+    def test_cli_approve_accepts_confirmation_without_name_and_legacy_name(
+        self,
+    ) -> None:
+        prepared = self.service.prepare(self.protected_request())
+        proposal_id = prepared["proposal_id"]
+        revision = self.store.get_revision(proposal_id)
+        cli = Path(__file__).resolve().parents[1] / "scripts" / "ticket_state.py"
+        for name in (None, "fictional-reviewer"):
+            with self.subTest(name=name):
+                command = [
+                    sys.executable,
+                    str(cli),
+                    "--config",
+                    str(self.config_path),
+                    "--work-dir",
+                    str(self.root / "state"),
+                    "--workspace-id",
+                    "demo",
+                    "--json",
+                    "approve",
+                    proposal_id,
+                    "--revision",
+                    "1",
+                    "--content-sha256",
+                    revision["content_sha256"],
+                    "--reason",
+                    "ユーザーが提示内容に同意",
+                ]
+                if name:
+                    command.extend(["--approved-by", name])
+                result = subprocess.run(
+                    command, capture_output=True, text=True, check=False
+                )
+                self.assertEqual(0, result.returncode, result.stdout + result.stderr)
+                self.assertEqual(
+                    name or "conversation-user",
+                    json.loads(result.stdout)["approved_by"],
+                )
+        self.assertEqual(0, self.transport.mutation_requests)
+        self.assertEqual(2, len(self.store.approvals(proposal_id)))
 
     def test_writable_dry_run_persists_exact_diff_and_sends_no_mutation(self) -> None:
         result = self.service.update(update_request(), "update-state", dry_run=True)

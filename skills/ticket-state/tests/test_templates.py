@@ -21,6 +21,35 @@ from helpers import snapshot
 
 
 class TemplateAndMarkupTests(unittest.TestCase):
+    def test_deferred_protected_review_returns_changes_but_retains_scope_checks(
+        self,
+    ) -> None:
+        base = "# Goal\nold\n\n# Notes\nkeep\n"
+        proposed = base.replace("old", "new")
+        self.assertEqual(
+            {"goal"},
+            validate_edit_scope(
+                base,
+                proposed,
+                markup="markdown",
+                edited_sections=["Goal"],
+            ),
+        )
+        with self.assertRaises(UnsafeContentError):
+            validate_edit_scope(
+                base,
+                proposed.replace("keep", "unexpected change"),
+                markup="markdown",
+                edited_sections=["Goal"],
+            )
+        with self.assertRaises(UnsafeContentError):
+            validate_edit_scope(
+                base,
+                proposed + "\n# Goal\nduplicate\n",
+                markup="markdown",
+                edited_sections=["Goal", "__structure__"],
+            )
+
     def test_packaged_default_templates_share_snapshot_structure(self) -> None:
         skill_root = Path(__file__).resolve().parents[1]
         expected = [
@@ -47,7 +76,7 @@ class TemplateAndMarkupTests(unittest.TestCase):
                 self.assertEqual(len(expected), text.count("未設定"))
                 self.assertTrue(text.endswith("\n"))
 
-    def test_default_template_initialization_keeps_protected_review_gate(self) -> None:
+    def test_default_template_initialization_detects_protected_changes(self) -> None:
         skill_root = Path(__file__).resolve().parents[1]
         edited_sections = [
             "目的",
@@ -66,24 +95,13 @@ class TemplateAndMarkupTests(unittest.TestCase):
                 proposed = (
                     skill_root / "assets" / f"default-ticket.{markup}.txt"
                 ).read_text(encoding="utf-8")
-                with self.assertRaises(UnsafeContentError):
-                    validate_edit_scope(
-                        "",
-                        proposed,
-                        markup=markup,
-                        edited_sections=edited_sections,
-                        protected_change_approval=None,
-                    )
-                validate_edit_scope(
+                protected = validate_edit_scope(
                     "",
                     proposed,
                     markup=markup,
                     edited_sections=edited_sections,
-                    protected_change_approval={
-                        "reviewed_by": "human",
-                        "reason": "初期構造を確認",
-                    },
                 )
+                self.assertTrue(protected)
 
     def test_edit_scope_preserves_unrelated_sections_and_code_blocks(self) -> None:
         base = "# Current State\nold\n\n# Notes\n```md\n# not a heading\n```\nkeep\n"
@@ -93,7 +111,6 @@ class TemplateAndMarkupTests(unittest.TestCase):
             proposed,
             markup="markdown",
             edited_sections=["Current State"],
-            protected_change_approval=None,
         )
         with self.assertRaises(UnsafeContentError):
             validate_edit_scope(
@@ -101,26 +118,25 @@ class TemplateAndMarkupTests(unittest.TestCase):
                 proposed.replace("keep", "changed"),
                 markup="markdown",
                 edited_sections=["Current State"],
-                protected_change_approval=None,
             )
 
-    def test_duplicate_headings_and_protected_change_require_review(self) -> None:
+    def test_duplicate_headings_rejected_and_protected_change_detected(self) -> None:
         with self.assertRaises(UnsafeContentError):
             validate_edit_scope(
                 "# Goal\na\n# Goal\nb\n",
                 "# Goal\nc\n# Goal\nb\n",
                 markup="markdown",
                 edited_sections=["Goal"],
-                protected_change_approval={"reviewed_by": "human", "reason": "approved"},
             )
-        with self.assertRaises(UnsafeContentError):
+        self.assertEqual(
+            {"goal"},
             validate_edit_scope(
                 "# Goal\na\n",
                 "# Goal\nb\n",
                 markup="markdown",
                 edited_sections=["Goal"],
-                protected_change_approval=None,
-            )
+            ),
+        )
 
     def test_provider_code_blocks_do_not_create_editable_sections(self) -> None:
         samples = (
@@ -145,7 +161,6 @@ class TemplateAndMarkupTests(unittest.TestCase):
                     proposed,
                     markup=markup,
                     edited_sections=["Current State"],
-                    protected_change_approval=None,
                 )
                 with self.assertRaises(UnsafeContentError):
                     validate_edit_scope(
@@ -153,18 +168,18 @@ class TemplateAndMarkupTests(unittest.TestCase):
                         proposed.replace("inside", "changed"),
                         markup=markup,
                         edited_sections=["Current State"],
-                        protected_change_approval=None,
                     )
 
     def test_markdown_closing_atx_goal_is_still_protected(self) -> None:
-        with self.assertRaises(UnsafeContentError):
+        self.assertEqual(
+            {"goal"},
             validate_edit_scope(
                 "# Goal #\na\n",
                 "# Goal #\nb\n",
                 markup="markdown",
                 edited_sections=["Goal"],
-                protected_change_approval=None,
-            )
+            ),
+        )
 
     def test_markdown_setext_goal_is_still_protected(self) -> None:
         with self.assertRaises(UnsafeContentError):
@@ -173,7 +188,6 @@ class TemplateAndMarkupTests(unittest.TestCase):
                 "Goal\n====\nb\n\nProgress\n--------\nnew\n",
                 markup="markdown",
                 edited_sections=["Progress"],
-                protected_change_approval=None,
             )
 
     def test_markdown_raw_html_code_block_is_refused(self) -> None:
@@ -183,7 +197,6 @@ class TemplateAndMarkupTests(unittest.TestCase):
                 "# Current State\nnew\n<pre>\n# Goal\ninside\n</pre>\n",
                 markup="markdown",
                 edited_sections=["Current State"],
-                protected_change_approval=None,
             )
 
     def test_snapshot_is_complete_and_mentions_are_neutralized(self) -> None:

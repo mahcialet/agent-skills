@@ -32,6 +32,7 @@ REQUIRED_FILES = {
     "examples/update-state.request.json",
     "examples/read-only-result.json",
     "examples/recovery.md",
+    "examples/confirmation.md",
     "references/workflow.md",
     "references/command-reference.md",
     "references/permissions-and-secrets.md",
@@ -44,6 +45,14 @@ REQUIRED_FILES = {
 }
 REQUIRED_SUITES = {"positive", "negative", "safety", "portability"}
 REQUIRED_CASE_IDS = {
+    "natural-confirmation-no-name",
+    "specific-authorization-no-repeat",
+    "unrelated-yes-is-not-confirmation",
+    "refused-or-unanswered-preview",
+    "protected-preview-without-reviewer",
+    "changed-revision-needs-confirmation",
+    "confirmation-does-not-grant-permission",
+    "confirmation-metadata-stays-private",
     "normal-read-prepare-apply",
     "explicit-snapshot-only",
     "template-candidate",

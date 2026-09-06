@@ -13,15 +13,6 @@
     "base_description_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
     "proposed_description": {"type": "string"},
     "edited_sections": {"type": "array", "items": {"type": "string", "minLength": 1}, "uniqueItems": true},
-    "protected_change_approval": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["reviewed_by", "reason"],
-      "properties": {
-        "reviewed_by": {"type": "string", "minLength": 1},
-        "reason": {"type": "string", "minLength": 1}
-      }
-    },
     "change_summary": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}},
     "snapshot": {"$ref": "#/$defs/snapshot"},
     "snapshot_description_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},

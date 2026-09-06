@@ -19,8 +19,10 @@ revisionとreceiptはimmutableで、再検証により内容が変わると新re
 SQLiteが正本で、proposal.mdは初回の人間向けsummaryである。履歴は削除せずREJECTED/SUPERSEDEDで
 処理済みにできる。
 
-人間のcontent approvalを記録する場合はproposal ID、revision、全artifactのcontent hash、approver、
-理由へbindingする。別revisionへ自動継承せず、write permissionの代わりにも使わない。
+人間のcontent approvalを記録する場合はproposal ID、revision、全artifactのcontent hash、時刻、
+確認内容の要約へbindingする。名前は必須ではなく、省略時の`conversation-user`は会話上の役割である。
+確認を別revisionへ自動継承せず、write permissionの
+代わりにも使わない。監査metadataはprivate workspaceに保持し、公開本文・コメントやリポジトリへ転載しない。
 
 ## State
 

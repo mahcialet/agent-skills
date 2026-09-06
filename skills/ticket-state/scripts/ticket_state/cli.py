@@ -92,7 +92,8 @@ def _parser() -> argparse.ArgumentParser:
     approve_content.add_argument("proposal_id")
     approve_content.add_argument("--revision", type=int, required=True)
     approve_content.add_argument("--content-sha256", required=True)
-    approve_content.add_argument("--approved-by", required=True)
+    approve_content.add_argument("--approved-by", default="conversation-user",
+                                 help="任意の確認者名。省略時は会話のユーザーという役割を記録し、本人識別はしない")
     approve_content.add_argument("--reason", required=True)
     revalidate = commands.add_parser("revalidate", help="remoteと権限を再検証する")
     revalidate.add_argument("proposal_id")
@@ -202,6 +203,8 @@ def _print_text(result: Any, command: str) -> None:
             print("remoteは更新していません。")
             print(f"必要な権限: {result.get('missing_permissions') or result.get('required_permissions')}")
             print("許可後もrevalidateまたはapplyで最新ticketと権限を再検証してください。")
+        if result.get("confirmation_required"):
+            print("目的・制約の変更案を確認してください。確認者名の入力は不要です。")
         if result.get("proposal_path"):
             print(f"保存先: {result['proposal_path']}")
         if result.get("description_diff_path"):
@@ -324,6 +327,8 @@ def main(argv: Sequence[str] | None = None) -> int:
                     "required_permissions": proposal["required_permissions"],
                     "granted_permissions": metadata.get("granted_permissions", []),
                     "missing_permissions": metadata.get("missing_permissions", []),
+                    "protected_sections": metadata.get("protected_sections", []),
+                    "confirmation_required": bool(metadata.get("confirmation_required")) and not store.approvals(args.proposal_id),
                     "description_diff": store.read_artifact(args.proposal_id, "description.diff").decode("utf-8"),
                     "comment_diff": store.read_artifact(args.proposal_id, "comment.diff").decode("utf-8"),
                     "proposed_comment": store.read_artifact(args.proposal_id, "proposed-comment.txt").decode("utf-8"),

@@ -37,7 +37,7 @@ ALLOWED_TRANSITIONS: dict[str, set[str]] = {
     "DRAFT": {"PREPARED", "REJECTED", "SUPERSEDED"},
     "PREPARED": {"PENDING_PERMISSION", "NEEDS_REVIEW", "NEEDS_REMERGE", "READY", "NO_CHANGE", "REJECTED", "SUPERSEDED"},
     "PENDING_PERMISSION": {"PENDING_PERMISSION", "READY", "NEEDS_REMERGE", "NEEDS_REVIEW", "REJECTED", "SUPERSEDED"},
-    "NEEDS_REVIEW": {"NEEDS_REVIEW", "READY", "NEEDS_REMERGE", "REJECTED", "SUPERSEDED"},
+    "NEEDS_REVIEW": {"NEEDS_REVIEW", "PENDING_PERMISSION", "READY", "NEEDS_REMERGE", "REJECTED", "SUPERSEDED"},
     "NEEDS_REMERGE": {"NEEDS_REMERGE", "READY", "REJECTED", "SUPERSEDED"},
     "READY": {"READY", "PENDING_PERMISSION", "NEEDS_REMERGE", "NEEDS_REVIEW", "APPLYING", "REJECTED", "SUPERSEDED"},
     "APPLYING": {"VERIFYING", "UNKNOWN_REMOTE_RESULT", "PARTIAL_APPLIED", "FAILED"},
@@ -716,7 +716,7 @@ class ProposalStore:
         *,
         revision: int,
         content_sha256: str,
-        approved_by: str,
+        approved_by: str = "conversation-user",
         reason: str,
     ) -> dict[str, Any]:
         _validate_id(proposal_id, "proposal ID")

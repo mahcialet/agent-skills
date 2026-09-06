@@ -8,7 +8,7 @@ Constraints、受け入れ条件、意思決定、未解決事項を保持する
 - markup別のsection境界と重複見出し。
 - `edited_sections` 外の変更。
 - section順序変更に必要な `__structure__` 宣言。
-- Goal/目的/Constraints/制約の変更に必要なhuman review情報。
+- Goal/目的/Constraints/制約の変更検出と、実反映時のcurrent revisionへの確認記録。
 - base description hash、template ID/hash、予定payload hash。
 
 曖昧なら全文置換や文字列置換で補完せずNEEDS_REVIEW/NEEDS_REMERGEへ止める。code block、table、list、
@@ -34,7 +34,8 @@ macro、自由記述をdefaultへ自動移行しない。profileに承認済みt
 優先し、欠落・ID不一致・hash不一致をdefault fallbackで迂回しない。
 
 default適用時も`edited_sections`へ変更対象と`__structure__`を明示し、目的/制約の追加または変更には
-`protected_change_approval`を要求する。全placeholderは`未設定`から始め、推測で埋めない。
+previewを保存して、実反映前に具体的な変更への確認を記録する。廃止された`protected_change_approval`は
+requestへ含めず、承認者名を要求しない。全placeholderは`未設定`から始め、推測で埋めない。
 該当なしを確認できた項目だけ`なし`へ変更する。
 
 このfallback ruleは人間が要求した汎用初期構造として追加した。再配布する見出し、順序、既定値、

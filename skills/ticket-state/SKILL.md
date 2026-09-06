@@ -30,13 +30,23 @@ Backlog/Redmineのチケット本文を共有状態の正本として扱う。�
 
 1. 最新descriptionのhash、更新後description、変更対象section、今回の変更、構造化snapshotを
    `assets/proposal.schema.json` に従うrequest JSONへ記録する。
-2. Agentが意味を保ったmergeを作る。重複見出し、曖昧なsection境界、Goal/Constraintsの変更、
-   template不一致は [templates and merge](references/templates-and-merge.md) に従って止める。
+2. Agentが意味を保ったmergeを作る。重複見出し、曖昧なsection境界、template不一致は
+   [templates and merge](references/templates-and-merge.md) に従って止める。Goal/Constraintsの変更は
+   確認前でもpreviewを保存できるが、実反映にはその変更への確認を必要とする。
 3. ユーザーがpreviewを求めた場合は `update-state --dry-run` を使う。`--dry-run` は必要なreadと
    local proposal/diff/journalを保存するが、remote mutation requestを必ず0件にする。
-4. 通常反映では `update-state`、保存済み案では `apply <proposal-id>` を使う。CLIを経由せず
+4. `show`で提示するrevision/hashを取得して保持し、対象、変更内容、公開コメント数、戻せない影響を
+   短く示す。Goal/Constraintsを変更するなら
+   その内容も含める。同じ具体的操作への許可がまだなければ「反映してよいですか？」と確認し、
+   「はい」「お願いします」で進める。承認者名・定型文・hashの入力を要求しない。同じ操作への明示許可が
+   既にあれば重複確認しない。返答後もrevision/hashが提示した値と同じか確認し、その値へ
+   `approve --reason ...`で記録する。変わっていた場合は新しい案を示して確認する。
+   詳細と確認の有効範囲は [workflow](references/workflow.md) を参照する。
+5. Previewや確認記録を作った場合は、同じproposalを`apply <proposal-id>`で反映する。目的・制約の変更は
+   `prepare`またはdry-run、`show`/`diff`、`approve`、同じproposalの`apply`の順に進める。
+   目的・制約の確認が不要で、具体的操作が許可済みの通常更新は`update-state`で直接反映できる。CLIを経由せず
    raw HTTP、汎用curl、provider固有CLIでpolicyを迂回しない。
-5. 結果が `APPLIED` になるまで、ローカル保存とremote反映を同一transactionと表現しない。
+6. 結果が `APPLIED` になるまで、ローカル保存とremote反映を同一transactionと表現しない。
    `UNKNOWN_REMOTE_RESULT` と `PARTIAL_APPLIED` は再送せず `reconcile` する。
 
 ```bash
@@ -73,7 +83,7 @@ profileに承認済みtemplateが設定されていれば、それだけを使�
 
 既存の見出し構造やpreambleをdefaultへ自動変換せず、見出し追加も暗黙に行わない。`未設定`の
 placeholderは確認済みの事実だけで置き換え、該当なしを確認できた項目だけ`なし`へ変更する。
-目的または制約を追加・変更するrequestには通常どおりhuman review情報を要求する。内蔵defaultは
+目的または制約を追加・変更する場合もpreview後の具体的内容への確認を実反映前に記録する。内蔵defaultは
 profile固有の承認済みartifactではないため、requestへ`template_id`や`template_sha256`を捏造しない。
 
 `template extract` は指定ticketだけを読み、local candidateを生成する。candidateを実行中に
