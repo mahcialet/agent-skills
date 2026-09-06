@@ -1,0 +1,9 @@
+{
+  "suite": "positive",
+  "schema_version": 1,
+  "cases": [
+    {"id": "normal-read-prepare-apply", "prompt": "設定済みPRODA-123の現在地を最新事実で更新して", "expect": ["read latest", "semantic merge", "combined description and snapshot", "verify remote"]},
+    {"id": "explicit-snapshot-only", "prompt": "本文は変えずsnapshotだけ残して", "expect": ["snapshot command", "comment:append only", "operation marker"]},
+    {"id": "template-candidate", "prompt": "指定した3件からtemplate候補を調べて", "expect": ["read listed targets only", "local candidate", "no automatic approval"]}
+  ]
+}

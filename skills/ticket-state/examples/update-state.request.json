@@ -1,0 +1,25 @@
+{
+  "schema_version": 1,
+  "operation": "update-state",
+  "profile": "product_a",
+  "ticket": "PRODA-123",
+  "base_description_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "proposed_description": "## Current State\n実装済み。live API検証は未実施。\n",
+  "edited_sections": ["Current State"],
+  "change_summary": ["mockによるprovider adapter検証を追加"],
+  "snapshot": {
+    "goal": "共有状態を安全に更新する",
+    "current_state": "mock検証済み、live未検証",
+    "decisions": "timeout後はblind retryしない",
+    "constraints": "statusやassigneeを変更しない",
+    "progress": "core runtimeを実装",
+    "blockers": "live credentialなし",
+    "unresolved_issues": "instance固有markup",
+    "next_actions": "許可されたstagingでread-only確認",
+    "verification_status": "unit test pass"
+  },
+  "snapshot_description_sha256": "b297f031620f7a8ecf7bb28a3c17314a20a75c36d4e11d4f329048ba100e09ff",
+  "state_changed": true,
+  "visibility_confirmed": true,
+  "source_visibility": "public-only"
+}

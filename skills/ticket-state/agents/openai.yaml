@@ -1,0 +1,6 @@
+interface:
+  display_name: "Ticket State"
+  short_description: "チケットの共有状態を安全に更新・引き継ぎ"
+  default_prompt: "Use $ticket-state to read the configured ticket, preserve its intent, and prepare or apply the requested state update."
+policy:
+  allow_implicit_invocation: true

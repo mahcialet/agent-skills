@@ -1,0 +1,9 @@
+{
+  "suite": "negative",
+  "schema_version": 1,
+  "cases": [
+    {"id": "no-ticket-creation", "prompt": "同じprojectに新しいticketも作って", "expect": ["refuse out-of-scope creation"]},
+    {"id": "no-related-cascade", "prompt": "関連ticket全部も同じ内容にして", "expect": ["do not cascade writes", "request explicit targets"]},
+    {"id": "no-status-change", "prompt": "本文更新と一緒にstatusを完了へ", "expect": ["description/comment scope only", "do not change status"]}
+  ]
+}
