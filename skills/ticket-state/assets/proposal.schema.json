@@ -1,0 +1,73 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/agent-skills/ticket-state/proposal.schema.json",
+  "title": "ticket-state proposal request",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "operation", "profile", "ticket", "visibility_confirmed", "source_visibility"],
+  "properties": {
+    "schema_version": {"const": 1},
+    "operation": {"enum": ["update-state", "snapshot", "append-comment"]},
+    "profile": {"type": "string", "minLength": 1},
+    "ticket": {"type": "string", "minLength": 1},
+    "base_description_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "proposed_description": {"type": "string"},
+    "edited_sections": {"type": "array", "items": {"type": "string", "minLength": 1}, "uniqueItems": true},
+    "protected_change_approval": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["reviewed_by", "reason"],
+      "properties": {
+        "reviewed_by": {"type": "string", "minLength": 1},
+        "reason": {"type": "string", "minLength": 1}
+      }
+    },
+    "change_summary": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}},
+    "snapshot": {"$ref": "#/$defs/snapshot"},
+    "snapshot_description_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "comment": {"type": "string", "minLength": 1},
+    "state_changed": {"type": "boolean"},
+    "visibility_confirmed": {"const": true},
+    "source_visibility": {"const": "public-only"},
+    "template_id": {"type": "string", "pattern": "^[0-9a-f]{32}$"},
+    "template_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+  },
+  "$defs": {
+    "textOrTextArray": {
+      "oneOf": [
+        {"type": "string"},
+        {"type": "array", "items": {"type": "string"}}
+      ]
+    },
+    "snapshot": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["goal", "current_state", "decisions", "constraints", "progress", "blockers", "unresolved_issues", "next_actions", "verification_status"],
+      "properties": {
+        "goal": {"$ref": "#/$defs/textOrTextArray"},
+        "current_state": {"$ref": "#/$defs/textOrTextArray"},
+        "decisions": {"$ref": "#/$defs/textOrTextArray"},
+        "constraints": {"$ref": "#/$defs/textOrTextArray"},
+        "progress": {"$ref": "#/$defs/textOrTextArray"},
+        "blockers": {"$ref": "#/$defs/textOrTextArray"},
+        "unresolved_issues": {"$ref": "#/$defs/textOrTextArray"},
+        "next_actions": {"$ref": "#/$defs/textOrTextArray"},
+        "verification_status": {"$ref": "#/$defs/textOrTextArray"}
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"operation": {"const": "update-state"}}},
+      "then": {"required": ["base_description_sha256", "proposed_description", "edited_sections", "change_summary", "snapshot", "snapshot_description_sha256", "state_changed"]}
+    },
+    {
+      "if": {"properties": {"operation": {"const": "snapshot"}}},
+      "then": {"required": ["change_summary", "snapshot", "snapshot_description_sha256"]}
+    },
+    {
+      "if": {"properties": {"operation": {"const": "append-comment"}}},
+      "then": {"required": ["comment"]}
+    }
+  ]
+}

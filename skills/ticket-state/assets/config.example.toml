@@ -1,0 +1,33 @@
+schema_version = 1
+
+[instances.backlog_work]
+provider = "backlog"
+base_url = "https://example.backlog.com"
+api_key_env = "BACKLOG_API_KEY"
+
+[instances.redmine_work]
+provider = "redmine"
+base_url = "https://redmine.example.invalid/redmine"
+api_key_env = "REDMINE_API_KEY"
+
+[profiles.product_a]
+instance = "backlog_work"
+project_id = 123
+project_key = "PRODA"
+read_scope = "project"
+format = "markdown"
+concurrency = "best_effort"
+
+[profiles.product_a.write_allowlist]
+"PRODA-123" = ["description:write", "comment:append"]
+"PRODA-127" = ["comment:append"]
+
+[profiles.infrastructure]
+instance = "redmine_work"
+project_id = 17
+read_scope = "project"
+format = "textile"
+concurrency = "strict"
+
+[profiles.infrastructure.write_allowlist]
+"4821" = ["description:write", "comment:append"]

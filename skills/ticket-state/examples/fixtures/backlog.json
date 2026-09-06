@@ -1,0 +1,32 @@
+{
+  "schema_version": 1,
+  "responses": [
+    {
+      "method": "GET",
+      "url": "https://example.backlog.com/api/v2/issues/PRODA-123",
+      "status": 200,
+      "headers": {"Content-Type": "application/json"},
+      "body": {
+        "id": 5001,
+        "issueKey": "PRODA-123",
+        "projectId": 123,
+        "description": "## Current State\n未着手。\n\n## Notes\n保持する。\n",
+        "updated": "2026-09-06T00:00:00Z"
+      }
+    },
+    {
+      "method": "GET",
+      "url": "https://example.backlog.com/api/v2/projects/123",
+      "status": 200,
+      "headers": {"Content-Type": "application/json"},
+      "body": {"id": 123, "projectKey": "PRODA", "textFormattingRule": "markdown"}
+    },
+    {
+      "method": "GET",
+      "url": "https://example.backlog.com/api/v2/issues/PRODA-123/comments?count=100&order=desc",
+      "status": 200,
+      "headers": {"Content-Type": "application/json"},
+      "body": []
+    }
+  ]
+}
