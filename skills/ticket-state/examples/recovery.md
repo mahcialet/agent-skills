@@ -10,7 +10,15 @@ stale案、変更sectionをAgentが意味比較する。新proposalを作った�
 
 mutation送信後のtimeoutはUNKNOWN_REMOTE_RESULTになる。同じPUT/PATCHを再送せず、
 `reconcile <id>` で固定operation markerとdescription hashを確認する。両方確認できた場合だけAPPLIED、
-片方だけならPARTIAL_APPLIEDのまま人間へ返す。
+意図した変更の片方だけ確認できればPARTIAL_APPLIEDのまま人間へ返す。本文を変えないsnapshotで
+コメントが見つからなければ、本文一致だけを反映の証拠にせずUNKNOWN_REMOTE_RESULTにする。
+本文がbaseと同じupdate-stateでも同様である。変更した本文だけが一致する場合は部分反映の証拠になる。
+
+送信後の確認readでproject/identity変更や設定済みsecretを検出した場合もUNKNOWN_REMOTE_RESULTとして
+記録し、安全でない本文・例外詳細は保存しない。安全に読み取れる状態へ戻ってからreconcileし、再送せず
+同じoperationの結果を確認する。送信前のidentity/secret検査失敗を反映済みと推測する規則ではない。
+
+これらは反映結果の証拠に関するレビュー指摘に基づく修正例であり、local corpusからの一般化ではない。
 
 ## Read-only
 

@@ -126,6 +126,33 @@ def _normalized_title(value: str) -> str:
     return " ".join(value.casefold().split())
 
 
+def _protected_title(value: str, markup: str) -> str:
+    """Normalize whole-title decorations only for the protected-content gate.
+
+    Section identity and edit scope retain the original decorated title. This
+    deliberately does not infer semantic aliases or strip arbitrary punctuation.
+    """
+    title = _normalized_title(value)
+    if markup == "markdown":
+        title = re.sub(r"\s+\{#[\w-]+\}$", "", title)
+    delimiters = {
+        "markdown": ("**", "__", "~~", "*", "_", "`"),
+        "textile": ("**", "__", "*", "_", "@", "-", "+", "%"),
+        "backlog": ("'''", "''", "%%"),
+    }[markup]
+    while True:
+        for delimiter in delimiters:
+            if (
+                len(title) > 2 * len(delimiter)
+                and title.startswith(delimiter)
+                and title.endswith(delimiter)
+            ):
+                title = title[len(delimiter):-len(delimiter)].strip()
+                break
+        else:
+            return title
+
+
 def validate_edit_scope(
     base: str,
     proposed: str,
@@ -153,7 +180,7 @@ def validate_edit_scope(
     undeclared = sorted(changed - allowed)
     if undeclared:
         raise UnsafeContentError(f"description changed outside edited_sections: {', '.join(undeclared)}")
-    protected = changed & PROTECTED_TITLES
+    protected = {_protected_title(title, markup) for title in changed} & PROTECTED_TITLES
     return protected
 
 

@@ -20,6 +20,21 @@ from ticket_state.workflow import TicketStateService
 
 
 class WorkflowTests(unittest.TestCase):
+    def test_formatted_goal_requires_revision_confirmation_before_mutation(self) -> None:
+        for heading in ("**Goal**", "Goal {#goal}", "__制約__"):
+            with self.subTest(heading=heading):
+                self.transport.backlog_description = f"# {heading}\nold\n"
+                request = update_request()
+                request["base_description_sha256"] = sha256_text(self.transport.backlog_description)
+                request["proposed_description"] = f"# {heading}\nnew\n"
+                request["snapshot_description_sha256"] = sha256_text(request["proposed_description"])
+                request["edited_sections"] = [heading]
+                prepared = self.service.prepare(request)
+                self.assertEqual("NEEDS_REVIEW", prepared["state"])
+                result = self.service.apply(prepared["proposal_id"], dry_run=False)
+                self.assertEqual("NEEDS_REVIEW", result["state"])
+                self.assertEqual(0, self.transport.mutation_requests)
+
     def setUp(self) -> None:
         self.temp = tempfile.TemporaryDirectory()
         self.root = Path(self.temp.name)

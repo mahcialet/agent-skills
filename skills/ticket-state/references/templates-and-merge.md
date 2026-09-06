@@ -14,6 +14,10 @@ Constraints、受け入れ条件、意思決定、未解決事項を保持する
 曖昧なら全文置換や文字列置換で補完せずNEEDS_REVIEW/NEEDS_REMERGEへ止める。code block、table、list、
 inline code、link、image、quote、provider固有macroを無関係なsectionで書き換えない。
 
+保護見出しの判定では見出し全体の対応済み強調・コード装飾とMarkdownの末尾`{#id}`を除いて比較する。
+`# **Goal**`、`# Goal {#goal}`もGoal変更として確認する。見出し原文、`edited_sections`の指定、無関係な
+sectionはそのまま保持する。似た別名を意味で推測して同じ見出しにはしない。
+
 ## Snapshot
 
 snapshotは本文の再要約ではなく更新後の構造化入力から生成する。goal、current_state、decisions、
@@ -50,3 +54,12 @@ approvedにならず、更新実行中のtemplateを切り替えない。
 人間が候補と例外を確認し、用途とversionを判断した場合だけ `template approve` を実行する。approved
 artifactはcandidate hash、approver、理由、時刻を持つ。local観察を人間のreviewなしにcore ruleや
 再配布templateへ昇格しない。
+
+選択したapproved artifactの`required_candidate: true`見出しは必須とし、本文に存在する既知の見出しは
+artifactの順序に従う。任意見出しの省略、前置き、独自見出しの追加は許容するが、重複見出しは曖昧として
+拒否する。update-stateは更新後の本文を、snapshot/commentは維持する最新本文をprepare・apply・revalidate
+で検査する。空または不適合なbaseから適合する本文へ修復する更新は可能で、編集範囲と確認の検査も適用する。
+
+装飾見出しとtemplate構造の検査はレビュー指摘に基づく契約の補強である。支持例は適合本文・装飾Goal、
+反例は必須見出し欠落・順序違反、境界例は任意見出し省略・独自見出し・空baseの修復とし、テストとevalで
+固定する。Local corpusの観察結果からcore ruleへ昇格したものではない。

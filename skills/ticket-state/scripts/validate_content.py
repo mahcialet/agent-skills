@@ -45,6 +45,10 @@ REQUIRED_FILES = {
 }
 REQUIRED_SUITES = {"positive", "negative", "safety", "portability"}
 REQUIRED_CASE_IDS = {
+    "decorated-goal-needs-confirmation",
+    "selected-template-enforces-structure",
+    "verification-safety-failure-is-unknown",
+    "unchanged-description-is-not-partial-evidence",
     "natural-confirmation-no-name",
     "specific-authorization-no-repeat",
     "unrelated-yes-is-not-confirmation",

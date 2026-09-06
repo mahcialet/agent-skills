@@ -35,6 +35,7 @@ from .templates import (
     approve_template,
     extract_template_candidate,
     render_snapshot,
+    sections,
     validate_edit_scope,
     validate_template,
 )
@@ -233,6 +234,10 @@ class TicketStateService:
         normalized = normalize_target(profile, request["ticket"])
         adapter = self._adapter(profile_name)
         record = self._assert_record_safe(adapter.read_ticket(normalized))
+        self._validate_selected_template(
+            profile.template, profile.markup, request,
+            description=request.get("proposed_description", record.description),
+        )
         requested_hash = request.get("base_description_sha256")
         stale_input = requested_hash is not None and requested_hash != record.description_sha256
         required = list(REQUIRED_PERMISSIONS[operation])
@@ -369,6 +374,8 @@ class TicketStateService:
         configured_template: str | None,
         expected_markup: str,
         request: dict[str, Any],
+        *,
+        description: str | None = None,
     ) -> None:
         template_id = request.get("template_id")
         template_hash = request.get("template_sha256")
@@ -395,6 +402,19 @@ class TicketStateService:
             raise UnsafeContentError("approved template markup does not match the target profile")
         if sha256_text(data) != template_hash:
             raise UnsafeContentError("approved template artifact hash does not match selection")
+        if description is not None:
+            expected = [item["title"].strip().casefold() for item in value["headings"]]
+            observed = [item.title.strip().casefold() for item in sections(description, expected_markup)
+                        if item.title != "__preamble__"]
+            if len(set(expected)) != len(expected) or len(set(observed)) != len(observed):
+                raise UnsafeContentError("selected template structure has ambiguous duplicate headings")
+            required = {item["title"].strip().casefold() for item in value["headings"]
+                        if item["required_candidate"]}
+            if not required <= set(observed):
+                raise UnsafeContentError("description is missing required selected template headings")
+            known = set(expected)
+            if [title for title in observed if title in known] != [title for title in expected if title in observed]:
+                raise UnsafeContentError("description headings do not follow selected template order")
 
     @staticmethod
     def _initial_state(
@@ -528,6 +548,10 @@ class TicketStateService:
                 adapter.read_ticket(plan.identity.ticket_id)
             )
             self._assert_same_identity(plan.identity, current.identity)
+            self._validate_selected_template(
+                profile.template, profile.markup, self._load_request(proposal_id),
+                description=plan.description if plan.description is not None else current.description,
+            )
             if (
                 current.description_sha256 != metadata["base_description_sha256"]
                 or ticket_context_sha256(current) != metadata["base_context_sha256"]
@@ -786,13 +810,14 @@ class TicketStateService:
                 and marker in comment_evidence.content
                 and comment_evidence.visibility == "public"
             )
-        except RemoteError as exc:
+        except (RemoteError, IdentityError, UnsafeContentError) as exc:
             updated = self.store.transition(
                 proposal_id,
                 "UNKNOWN_REMOTE_RESULT",
                 event="VERIFICATION_INCOMPLETE",
-                reason=str(exc),
-                data={"status": exc.status},
+                reason=(str(exc) if isinstance(exc, RemoteError)
+                        else "verification could not safely confirm remote identity/content"),
+                data={"status": getattr(exc, "status", None), "error_code": exc.code},
             )
             return self._proposal_result(updated, mode="execute", mutation_count=mutation_count)
         if description_ok and comment_ok:
@@ -819,7 +844,14 @@ class TicketStateService:
                 data={"receipt_path": str(receipt_path)},
             )
             return self._proposal_result(updated, mode="execute", mutation_count=mutation_count, outcome="APPLIED")
-        if plan.operation in {"update-state", "snapshot"} and (description_ok or comment_ok):
+        description_changed = (
+            plan.description is not None
+            and sha256_text(plan.description)
+            != self.store.get_revision(proposal_id)["metadata"]["base_description_sha256"]
+        )
+        if plan.operation in {"update-state", "snapshot"} and (
+            (description_changed and description_ok) or comment_ok
+        ):
             state = "PARTIAL_APPLIED"
             event = "PARTIAL_REMOTE_RESULT"
         else:
@@ -830,7 +862,7 @@ class TicketStateService:
             state,
             event=event,
             reason="remote description/comment evidence was incomplete",
-            data={"description_ok": description_ok, "comment_ok": comment_ok},
+            data={"description_ok": description_ok, "description_changed": description_changed, "comment_ok": comment_ok},
         )
         return self._proposal_result(updated, mode="execute", mutation_count=mutation_count)
 
@@ -857,6 +889,10 @@ class TicketStateService:
             )
         remote = self._assert_record_safe(adapter.read_ticket(plan.identity.ticket_id))
         self._assert_same_identity(plan.identity, remote.identity)
+        self._validate_selected_template(
+            profile.template, profile.markup, self._load_request(proposal_id),
+            description=plan.description if plan.description is not None else remote.description,
+        )
         if (
             remote.description_sha256 != metadata["base_description_sha256"]
             or ticket_context_sha256(remote) != metadata["base_context_sha256"]

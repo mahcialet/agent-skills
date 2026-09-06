@@ -21,6 +21,73 @@ from helpers import snapshot
 
 
 class TemplateAndMarkupTests(unittest.TestCase):
+    def test_formatted_protected_headings_are_detected_without_changing_scope(self) -> None:
+        cases = (
+            ("markdown", "# **Goal**", "**Goal**", "goal"),
+            ("markdown", "# Goal {#goal}", "Goal {#goal}", "goal"),
+            ("markdown", "# ***Constraints*** {#limits}", "***Constraints*** {#limits}", "constraints"),
+            ("markdown", "__目的__\n====", "__目的__", "目的"),
+            ("markdown", "# `制約`", "`制約`", "制約"),
+            ("textile", "h1. *Constraints*", "*Constraints*", "constraints"),
+            ("backlog", "* ''制約''", "''制約''", "制約"),
+        )
+        for markup, heading, title, protected in cases:
+            with self.subTest(markup=markup, heading=heading):
+                base = heading + "\nold\n"
+                proposed = heading + "\nnew\n"
+                self.assertEqual(title, sections(base, markup)[1].title)
+                self.assertEqual(
+                    {protected},
+                    validate_edit_scope(base, proposed, markup=markup, edited_sections=[title]),
+                )
+                with self.assertRaises(UnsafeContentError):
+                    validate_edit_scope(base, proposed, markup=markup, edited_sections=[protected])
+
+    def test_protected_matching_does_not_match_partial_titles_or_code_contents(self) -> None:
+        for title in ("**Goal status**", "Goals", "Constraints discussion", "Goal {invalid}"):
+            with self.subTest(title=title):
+                base = f"# {title}\nold\n"
+                self.assertEqual(
+                    set(),
+                    validate_edit_scope(base, base.replace("old", "new"), markup="markdown", edited_sections=[title]),
+                )
+        base = "# Notes\n```md\n# **Goal**\nold\n```\n"
+        self.assertEqual(
+            set(),
+            validate_edit_scope(base, base.replace("old", "new"), markup="markdown", edited_sections=["Notes"]),
+        )
+
+    def test_protected_heading_format_change_and_removal_are_detected(self) -> None:
+        self.assertEqual(
+            {"goal"},
+            validate_edit_scope(
+                "# **Goal**\nold\n", "# Goal {#goal}\nold\n",
+                markup="markdown", edited_sections=["**Goal**", "Goal {#goal}", "__structure__"],
+            ),
+        )
+        self.assertEqual(
+            {"goal"},
+            validate_edit_scope(
+                "# **Goal**\nold\n", "",
+                markup="markdown", edited_sections=["**Goal**", "__structure__"],
+            ),
+        )
+        self.assertEqual(
+            {"constraints"},
+            validate_edit_scope(
+                "", "# **Constraints**\nnew\n",
+                markup="markdown", edited_sections=["**Constraints**", "__structure__"],
+            ),
+        )
+        base = "# **Goal**\nkeep\n# Notes\nold\n"
+        self.assertEqual(
+            set(),
+            validate_edit_scope(
+                base, base.replace("old", "new"),
+                markup="markdown", edited_sections=["Notes"],
+            ),
+        )
+
     def test_deferred_protected_review_returns_changes_but_retains_scope_checks(
         self,
     ) -> None:

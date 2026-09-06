@@ -46,6 +46,9 @@ PENDING_PERMISSIONは許可後に`revalidate`、stale baseはAgentが最新descr
 UNKNOWN_REMOTE_RESULT/PARTIAL_APPLIED/APPLYING/VERIFYINGは `reconcile` で固定marker、payload hash、
 description hashを照合する。結果が確認できても、snapshot不足ならAPPLIEDにしない。確認できない場合も
 同じwriteを再送しない。
+送信後のidentity不一致・secret検出で確認readを安全に扱えない場合もUNKNOWN_REMOTE_RESULTへ記録する。
+本文が元から同じだけでは部分反映の証拠にしない。PARTIAL_APPLIEDには、変更した本文または送信した
+コメントの一致が必要である。
 
 artifact作成後・SQLite commit前のcrashでorphanが検出された場合、通常openは安全停止する。内容を
 確認したうえで `recover-local --reason ...` を明示実行すると、orphanをworkspace内のprivateな
