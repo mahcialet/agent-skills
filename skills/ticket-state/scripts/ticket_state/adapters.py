@@ -8,7 +8,7 @@ from typing import Any
 from urllib.parse import quote, urlencode, urlsplit
 
 from .config import ProfileConfig, canonical_identity, require_permissions
-from .errors import IdentityError, PermissionDenied, RemoteError, UnsafeContentError
+from .errors import IdentityError, PermissionDenied, RemoteError, StaleContextError, UnsafeContentError
 from .model import (
     MutationPlan,
     ProviderCapabilities,
@@ -128,7 +128,7 @@ class BaseAdapter:
         if fresh.provider_ticket_numeric_id != plan.provider_ticket_numeric_id:
             raise IdentityError("mutation boundary numeric ticket mapping changed")
         if not plan.base_context_sha256 or ticket_context_sha256(fresh) != plan.base_context_sha256:
-            raise PermissionDenied("mutation boundary remote context changed; remerge is required")
+            raise StaleContextError(fresh)
         aliases = (fresh.provider_ticket_numeric_id,) if fresh.provider_ticket_numeric_id else ()
         require_permissions(self.profile, fresh.identity, set(expected_permissions), aliases)
         if plan.operation == "update-state":

@@ -17,6 +17,8 @@ inline code、link、image、quote、provider固有macroを無関係なsection�
 保護見出しの判定では見出し全体の対応済み強調・コード装飾とMarkdownの末尾`{#id}`を除いて比較する。
 `# **Goal**`、`# Goal {#goal}`もGoal変更として確認する。見出し原文、`edited_sections`の指定、無関係な
 sectionはそのまま保持する。似た別名を意味で推測して同じ見出しにはしない。
+Backlogのコード範囲は`{code}`または`{code:言語}`で始まり、`{/code}`で終わる。コード内の見出しを
+sectionとして抽出しない。開始タグを終了タグとして扱わず、閉じタグ欠落は安全停止する。
 
 ## Snapshot
 
@@ -50,6 +52,7 @@ requestへ含めず、承認者名を要求しない。全placeholderは`未設�
 `template extract` は明示targetだけを読み、見出し頻度・順序・例外・evidence hashをlocal candidateへ
 保存する。1件だけならNEEDS_MORE_EVIDENCE、順序不整合ならNEEDS_REVIEWになる。candidateは自動で
 approvedにならず、更新実行中のtemplateを切り替えない。
+同一sample内で大文字小文字・空白を正規化した見出しが重複する場合は、candidate保存前に拒否する。
 
 人間が候補と例外を確認し、用途とversionを判断した場合だけ `template approve` を実行する。approved
 artifactはcandidate hash、approver、理由、時刻を持つ。local観察を人間のreviewなしにcore ruleや
@@ -59,6 +62,8 @@ artifactはcandidate hash、approver、理由、時刻を持つ。local観察を
 artifactの順序に従う。任意見出しの省略、前置き、独自見出しの追加は許容するが、重複見出しは曖昧として
 拒否する。update-stateは更新後の本文を、snapshot/commentは維持する最新本文をprepare・apply・revalidate
 で検査する。空または不適合なbaseから適合する本文へ修復する更新は可能で、編集範囲と確認の検査も適用する。
+requestのtemplate ID/hashだけでは選択できない。trusted profileにtemplateが設定され、同じIDを指定した
+場合だけ使用できる。別projectで承認済みという理由だけでprofileの選択を迂回しない。
 
 装飾見出しとtemplate構造の検査はレビュー指摘に基づく契約の補強である。支持例は適合本文・装飾Goal、
 反例は必須見出し欠落・順序違反、境界例は任意見出し省略・独自見出し・空baseの修復とし、テストとevalで

@@ -100,6 +100,21 @@ class SelectedTemplateTests(unittest.TestCase):
                 self.assertEqual([], self.store.list_pending())
                 self.assertEqual(0, self.transport.mutation_requests)
 
+    def test_request_cannot_select_template_without_profile_selection(self) -> None:
+        self.config_path.write_text(
+            self.config_path.read_text().replace(f'template = "{self.selection["template_id"]}"', ""),
+            encoding="utf-8",
+        )
+        service = TicketStateService(load_config(self.config_path), self.store, self.transport)
+        for selection in (self.selection, {"template_sha256": self.selection["template_sha256"]}):
+            with self.subTest(selection=selection):
+                request = update_request()
+                request.update(selection)
+                with self.assertRaises(UnsafeContentError):
+                    service.prepare(request)
+                self.assertEqual([], self.store.list_pending())
+                self.assertEqual(0, self.transport.mutation_requests)
+
     def test_update_can_initialize_or_repair_nonconforming_base(self) -> None:
         for base in ("", "# Current State\nold\n", "# Notes\nkeep\n\n# Current State\nold\n"):
             with self.subTest(base=base):

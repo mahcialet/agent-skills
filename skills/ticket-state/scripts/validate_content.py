@@ -45,6 +45,12 @@ REQUIRED_FILES = {
 }
 REQUIRED_SUITES = {"positive", "negative", "safety", "portability"}
 REQUIRED_CASE_IDS = {
+    "receipt-evidence-tamper",
+    "shared-work-dir-permissions",
+    "boundary-prewrite-refusal",
+    "request-cannot-select-unconfigured-template",
+    "duplicate-template-headings",
+    "backlog-code-boundary",
     "decorated-goal-needs-confirmation",
     "selected-template-enforces-structure",
     "verification-safety-failure-is-unknown",

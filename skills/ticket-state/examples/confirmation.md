@@ -43,3 +43,10 @@ apply <proposal-id>
 選択したtemplateが`Current State`、`Notes`の順序を必須とする場合、片方の欠落や逆順の案は受け付けない。
 両方を順序どおり含む案は、前置き・独自見出しを保持したまま使える。任意見出しは省略可能である。
 空のbaseを適合本文に初期化する案も検査対象になり、目的・制約を追加する場合はその変更への確認が必要となる。
+
+profileにtemplate設定がない場合、別projectで承認済みのartifactをrequestのID/hashだけで指定することは
+できない。profileで選択したartifactと一致する場合だけ使える。template候補抽出でも、同一sample内の
+`Notes`と`notes`のような重複は拒否する。異なるsampleに同じ見出しがあることは通常の支持例である。
+
+Backlog記法の`{code}`（言語指定付きなら`{code:java}`）から`{/code}`までの見出し風の行はコードとして
+保持する。閉じタグの後の見出しは通常のsectionとして検査し、閉じタグ欠落は曖昧として止める。

@@ -16,6 +16,7 @@ from .errors import (
     IdentityError,
     PermissionDenied,
     RemoteError,
+    StaleContextError,
     StateError,
     StorageError,
     UnsafeContentError,
@@ -381,6 +382,8 @@ class TicketStateService:
         template_hash = request.get("template_sha256")
         if configured_template is not None and template_id != configured_template:
             raise UnsafeContentError("request must select the approved template configured for this profile")
+        if configured_template is None and ("template_id" in request or "template_sha256" in request):
+            raise UnsafeContentError("template fields require explicit profile template selection")
         if template_id is None:
             return
         if not isinstance(template_id, str) or not re.fullmatch(r"[0-9a-f]{32}", template_id):
@@ -641,6 +644,26 @@ class TicketStateService:
             )
             try:
                 adapter.apply(plan, dry_run=False)
+            except StaleContextError as exc:
+                try:
+                    self._assert_record_safe(exc.record)
+                except UnsafeContentError:
+                    updated = self.store.transition(
+                        proposal_id, "FAILED", event="MUTATION_BOUNDARY_REFUSED",
+                        reason="prewrite content safety check failed",
+                        data={"remote_mutation_requests": 0, "error_code": "NEEDS_REVIEW"},
+                    )
+                    return self._proposal_result(updated, mode="execute", mutation_count=0)
+                return self._record_stale_revision(
+                    proposal_id, self.store.get_proposal(proposal_id), exc.record, str(exc),
+                )
+            except UnsafeContentError as exc:
+                updated = self.store.transition(
+                    proposal_id, "FAILED", event="MUTATION_BOUNDARY_REFUSED",
+                    reason="prewrite content safety check failed",
+                    data={"remote_mutation_requests": 0, "error_code": exc.code},
+                )
+                return self._proposal_result(updated, mode="execute", mutation_count=0)
             except (PermissionDenied, IdentityError) as exc:
                 updated = self.store.transition(
                     proposal_id,
@@ -786,10 +809,6 @@ class TicketStateService:
         mutation_count: int,
     ) -> dict[str, Any]:
         try:
-            remote = self._assert_record_safe(
-                adapter.read_ticket(plan.identity.ticket_id)
-            )
-            self._assert_same_identity(plan.identity, remote.identity)
             marker = f"ticket-state/{plan.operation_id}"
             comment_evidence = adapter.find_comment(plan.identity.ticket_id, plan.comment)
             final_remote = self._assert_record_safe(

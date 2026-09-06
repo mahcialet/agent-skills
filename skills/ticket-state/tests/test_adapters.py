@@ -63,6 +63,8 @@ class AdapterTests(unittest.TestCase):
         write_config(self.config_path, backlog_permissions='["comment:append"]')
         config = load_config(self.config_path)
         profile = config.profile("backlog")
+        adapter = make_adapter(profile, self.transport)
+        remote = adapter.read_ticket("PROJ-1")
         plan = MutationPlan(
             "update-state",
             canonical_identity(profile, "PROJ-1"),
@@ -72,9 +74,10 @@ class AdapterTests(unittest.TestCase):
             "a" * 32,
             "b" * 64,
             "101",
+            ticket_context_sha256(remote),
         )
         with self.assertRaises(PermissionDenied):
-            make_adapter(profile, self.transport).apply(plan, dry_run=False)
+            adapter.apply(plan, dry_run=False)
         self.assertEqual(0, self.transport.mutation_requests)
 
     def test_mutation_boundary_refuses_strict_update_without_cas(self) -> None:

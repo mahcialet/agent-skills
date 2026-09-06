@@ -40,7 +40,7 @@ ALLOWED_TRANSITIONS: dict[str, set[str]] = {
     "NEEDS_REVIEW": {"NEEDS_REVIEW", "PENDING_PERMISSION", "READY", "NEEDS_REMERGE", "REJECTED", "SUPERSEDED"},
     "NEEDS_REMERGE": {"NEEDS_REMERGE", "READY", "REJECTED", "SUPERSEDED"},
     "READY": {"READY", "PENDING_PERMISSION", "NEEDS_REMERGE", "NEEDS_REVIEW", "APPLYING", "REJECTED", "SUPERSEDED"},
-    "APPLYING": {"VERIFYING", "UNKNOWN_REMOTE_RESULT", "PARTIAL_APPLIED", "FAILED"},
+    "APPLYING": {"VERIFYING", "UNKNOWN_REMOTE_RESULT", "PARTIAL_APPLIED", "FAILED", "NEEDS_REMERGE"},
     "VERIFYING": {"APPLIED", "UNKNOWN_REMOTE_RESULT", "PARTIAL_APPLIED", "FAILED"},
     "UNKNOWN_REMOTE_RESULT": {"UNKNOWN_REMOTE_RESULT", "VERIFYING", "APPLIED", "PARTIAL_APPLIED", "REJECTED", "SUPERSEDED"},
     "PARTIAL_APPLIED": {"PARTIAL_APPLIED", "VERIFYING", "APPLIED", "REJECTED", "SUPERSEDED"},
@@ -89,12 +89,13 @@ def _fsync_directory(path: Path) -> None:
         raise StorageError(f"cannot durably persist state directory: {path}") from exc
 
 
-def _assert_private_root(path: Path) -> None:
+def _assert_private_root(path: Path, *, preserve_existing_mode: bool = False) -> None:
     if path.is_symlink():
         raise StorageError("work directory must not be a symlink")
     existed = path.exists()
     path.mkdir(mode=0o700, parents=True, exist_ok=True)
-    _chmod(path, 0o700)
+    if not existed or not preserve_existing_mode:
+        _chmod(path, 0o700)
     if not existed:
         _fsync_directory(path.parent)
 
@@ -227,7 +228,7 @@ class ProposalStore:
         self.root = root.resolve(strict=False)
         self.workspace_id = workspace_id
         self.workspace = self.root / workspace_id
-        _assert_private_root(self.root)
+        _assert_private_root(self.root, preserve_existing_mode=True)
         _assert_private_root(self.workspace)
         for name in ("proposals", "receipts", "locks", "templates", "recovery"):
             directory = self.workspace / name
@@ -805,6 +806,21 @@ class ProposalStore:
             if existing_comparable != new_comparable:
                 raise StorageError("existing receipt does not match recovered remote evidence")
             return path
+        # Persist independent evidence before the file, so a crash never leaves an
+        # unauditable receipt. A missing file is recoverable in VERIFYING.
+        evidence = {key: value for key, value in receipt.items()
+                    if key not in {"verified_at", "remote_retrieved_at"}}
+        evidence_hash = sha256_json(evidence)
+        proposal = self.get_proposal(receipt["proposal_id"])
+        previous = [event["data"] for event in self.history(receipt["proposal_id"])
+                    if event["event"] == "REMOTE_RECEIPT_EVIDENCE"]
+        expected = {"operation_id": operation_id, "receipt_sha256": evidence_hash}
+        if previous and any(item != expected for item in previous):
+            raise StorageError("receipt differs from previously recorded remote evidence")
+        if not previous:
+            self.transition(receipt["proposal_id"], proposal["state"],
+                            event="REMOTE_RECEIPT_EVIDENCE", data=expected,
+                            reason=proposal["reason"])
         atomic_write(path, data, root=self.workspace)
         return path
 
@@ -910,7 +926,7 @@ class ProposalStore:
                 "SELECT proposal_id, revision, metadata_json, content_sha256 FROM revisions"
             ).fetchall()
             event_rows = connection.execute(
-                "SELECT state, data_json FROM events"
+                "SELECT proposal_id, event, state, data_json FROM events"
             ).fetchall()
             approval_rows = connection.execute(
                 "SELECT proposal_id, revision, content_sha256 FROM approvals"
@@ -1022,6 +1038,43 @@ class ProposalStore:
                 or receipt.get("result") != "APPLIED"
             ):
                 raise StorageError("remote receipt does not match proposal state")
+            proposal_id = proposal_row["proposal_id"]
+            payload = _decode_json(
+                self.read_artifact(proposal_id, "planned-payload.json"),
+                "receipt planned payload", dict,
+            )
+            if (sha256_json(payload) != proposal_row["payload_sha256"]
+                    or receipt.get("identity") != payload.get("identity")
+                    or receipt.get("identity") != _decode_json(
+                        proposal_row["identity_json"], "proposal identity", dict)
+                    or receipt.get("comment_marker") != f"ticket-state/{operation_id}"
+                    or receipt.get("comment_sha256") != sha256_bytes(
+                        self.read_artifact(proposal_id, "proposed-comment.txt"))
+                    or not isinstance(receipt.get("comment_id"), str)
+                    or not receipt["comment_id"].strip()):
+                raise StorageError("remote receipt does not match immutable proposal evidence")
+            description_hash = receipt.get("description_sha256")
+            if not isinstance(description_hash, str) or not re.fullmatch(r"[0-9a-f]{64}", description_hash):
+                raise StorageError("remote receipt description hash is invalid")
+            if payload.get("operation") == "update-state":
+                expected_description = sha256_bytes(self.read_artifact(proposal_id, "proposed-description.txt"))
+            elif payload.get("operation") == "snapshot":
+                intent = _decode_json(self.read_artifact(proposal_id, "intent.json"), "receipt intent", dict)
+                expected_description = intent.get("snapshot_description_sha256")
+            else:
+                expected_description = description_hash
+            if description_hash != expected_description:
+                raise StorageError("remote receipt description does not match immutable proposal")
+            evidence = {key: value for key, value in receipt.items()
+                        if key not in {"verified_at", "remote_retrieved_at"}}
+            expected_evidence = {"operation_id": operation_id, "receipt_sha256": sha256_json(evidence)}
+            recorded_evidence = [
+                _decode_json(event["data_json"], "remote receipt evidence", dict)
+                for event in event_rows
+                if event["proposal_id"] == proposal_id and event["event"] == "REMOTE_RECEIPT_EVIDENCE"
+            ]
+            if not recorded_evidence or any(item != expected_evidence for item in recorded_evidence):
+                raise StorageError("remote receipt does not match recorded verification evidence")
             receipt_ids.add(operation_id)
         for row in proposal_rows:
             if row["state"] == "APPLIED" and row["operation_id"] not in receipt_ids:

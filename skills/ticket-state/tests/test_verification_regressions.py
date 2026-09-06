@@ -89,7 +89,7 @@ class VerificationRegressionTests(unittest.TestCase):
         }
 
     def test_unsafe_verification_is_persisted_and_reconciles_without_resend(self) -> None:
-        for profile, positions in (("backlog", (1, 2)), ("redmine", (1, 2, 3))):
+        for profile, positions in (("backlog", (1,)), ("redmine", (1, 2))):
             for kind in ("identity", "secret"):
                 for position in positions:
                     with self.subTest(profile=profile, kind=kind, position=position):
@@ -111,6 +111,15 @@ class VerificationRegressionTests(unittest.TestCase):
                         self.assertEqual("APPLIED", service.reconcile(proposal_id)["state"])
                         self.assertEqual(1, transport.mutation_requests)
                         self.assertTrue(store.audit()["valid"])
+
+    def test_success_uses_only_comment_lookup_then_final_ticket_read(self) -> None:
+        for profile, expected_issue_reads in (("backlog", 1), ("redmine", 2)):
+            with self.subTest(profile=profile):
+                service, _, transport = self.service(f"read-count-{profile}")
+                result = service.update(update_request(profile=profile), "update-state", dry_run=False)
+                self.assertEqual("APPLIED", result["state"])
+                self.assertEqual(expected_issue_reads, transport.post_mutation_reads)
+                self.assertEqual(1, transport.mutation_requests)
 
     def test_missing_comment_with_unchanged_description_is_unknown(self) -> None:
         for operation in ("snapshot", "update-state"):

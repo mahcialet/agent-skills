@@ -106,9 +106,11 @@ def sections(text: str, markup: str) -> list[Section]:
                 fence_token = "</pre>" if "<pre" in lowered else "</code>"
             if fenced and fence_token in lowered:
                 fenced = False
-        elif markup == "backlog" and re.match(r"^\{code(?::[^}]*)?\}\s*$", stripped):
-            fenced = not fenced
-            fence_token = "{code}"
+        elif markup == "backlog":
+            if not fenced and re.match(r"^\{code(?::[^}]*)?\}\s*$", stripped):
+                fenced = True
+            elif fenced and re.match(r"^\{/code\}\s*$", stripped):
+                fenced = False
         match = None if fenced else _heading_match(line.rstrip("\r\n"), markup)
         if match:
             result.append(Section(title, "".join(buffer)))
@@ -256,6 +258,10 @@ def extract_template_candidate(
     evidence: list[dict[str, Any]] = []
     for identity, retrieved_at, description in samples:
         observed = [item.title for item in sections(description, markup) if item.title != "__preamble__"]
+        normalized = Counter(_normalized_title(title) for title in observed)
+        duplicates = sorted(title for title, count in normalized.items() if count > 1)
+        if duplicates:
+            raise UnsafeContentError(f"template sample contains duplicate headings: {', '.join(duplicates)}")
         orders.append(observed)
         evidence.append(
             {

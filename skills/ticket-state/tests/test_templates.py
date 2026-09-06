@@ -217,7 +217,7 @@ class TemplateAndMarkupTests(unittest.TestCase):
             ),
             (
                 "backlog",
-                "* Current State\nold\n* Notes\n{code}\n* Current State\ninside\n{code}\nkeep\n",
+                "* Current State\nold\n* Notes\n{code}\n* Current State\ninside\n{/code}\nkeep\n",
             ),
         )
         for markup, base in samples:
@@ -236,6 +236,55 @@ class TemplateAndMarkupTests(unittest.TestCase):
                         markup=markup,
                         edited_sections=["Current State"],
                     )
+
+    def test_backlog_code_blocks_close_only_with_end_tag(self) -> None:
+        for opener in ("{code}", "{code:java}"):
+            with self.subTest(opener=opener):
+                base = f"* Notes\n{opener}\n{{code}}\n* Goal\ninside\n{{/code}}\n* Goal\nold\n"
+                self.assertEqual(
+                    ["__preamble__", "Notes", "Goal"],
+                    [item.title for item in sections(base, "backlog")],
+                )
+                self.assertEqual(
+                    {"goal"},
+                    validate_edit_scope(
+                        base, base.replace("old", "new"),
+                        markup="backlog", edited_sections=["Goal"],
+                    ),
+                )
+                with self.assertRaises(UnsafeContentError):
+                    validate_edit_scope(
+                        base, base.replace("inside", "changed"),
+                        markup="backlog", edited_sections=["Goal"],
+                    )
+        for source in ("{code}\nbody\n", "{code}\nbody\n{code}\n", "{code:java}\nbody\n"):
+            with self.subTest(source=source), self.assertRaisesRegex(UnsafeContentError, "unterminated"):
+                sections(source, "backlog")
+
+    def test_extraction_rejects_duplicate_normalized_headings_without_artifacts(self) -> None:
+        for markup, prefix in (("markdown", "#"), ("textile", "h1."), ("backlog", "*")):
+            for duplicate in ("Current State", "CURRENT STATE", "Current   State"):
+                with self.subTest(markup=markup, duplicate=duplicate), tempfile.TemporaryDirectory() as directory:
+                    store = ProposalStore(Path(directory) / "state", workspace_id="demo")
+                    initial_files = set(store.workspace.rglob("*.json"))
+                    for count in (1, 2):
+                        samples = [
+                            ({"ticket_id": f"P-{number}"}, "now", f"{prefix} Current State\na\n{prefix} {duplicate}\nb\n")
+                            for number in range(count)
+                        ]
+                        with self.assertRaisesRegex(UnsafeContentError, "duplicate headings"):
+                            extract_template_candidate(samples, markup=markup, store=store)
+                        self.assertEqual(initial_files, set(store.workspace.rglob("*.json")))
+
+    def test_extraction_preserves_distinct_decorated_headings_and_ignores_code(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            store = ProposalStore(Path(directory) / "state", workspace_id="demo")
+            candidate = extract_template_candidate(
+                [({}, "now", "# Goal\na\n# **Goal**\nb\n```md\n# Goal\n```\n")],
+                markup="markdown", store=store,
+            )
+            self.assertEqual(["Goal", "**Goal**"], [item["title"] for item in candidate["headings"]])
+            self.assertEqual("NEEDS_MORE_EVIDENCE", candidate["status"])
 
     def test_markdown_closing_atx_goal_is_still_protected(self) -> None:
         self.assertEqual(

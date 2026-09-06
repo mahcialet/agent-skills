@@ -17,6 +17,16 @@ class IdentityError(TicketStateError):
     code = "IDENTITY_ERROR"
 
 
+class StaleContextError(TicketStateError):
+    """The last prewrite read no longer matches the approved context."""
+
+    code = "STALE_CONTEXT"
+
+    def __init__(self, record) -> None:
+        super().__init__("mutation boundary remote context changed; remerge is required")
+        self.record = record
+
+
 class PermissionDenied(TicketStateError):
     code = "PERMISSION_DENIED"
 
