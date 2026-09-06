@@ -9,9 +9,10 @@
 |---|---|---|
 | `reader-first-editor` | 日本語・英語の文章を、一度で理解しやすく、内容を変えずに整える | 原文やファイルを変更しない文章レビュー |
 | `adversarial-pr-review` | 差分外の証拠とA0〜A4によるPR・diff review | GitHub上の状態やファイルを変更しないコードレビュー |
+| `ticket-state` | Backlog・Redmineの共有状態を読み、更新案・diff・snapshotを保存して反映する | trusted allowlistとremote再検証を通し、書けなくてもproposalを保存 |
 
 以下の例では、最初に `skill_name` を設定する。コマンド例では
-`reader-first-editor` を使うが、`adversarial-pr-review` も指定できる。
+`reader-first-editor` を使うが、`adversarial-pr-review` または `ticket-state` も指定できる。
 
 | 目的 | 推奨方法 | 特徴 |
 |---|---|---|
@@ -49,7 +50,7 @@ GitHub CLI 2.97.0で、`skills/*/SKILL.md` の検出、CodexとGitHub Copilotへ
 推奨する。
 
 ```bash
-skill_name=reader-first-editor # adversarial-pr-reviewも指定可能
+skill_name=reader-first-editor # adversarial-pr-review、ticket-stateも指定可能
 
 # Codexで、すべてのprojectから使えるようにする
 gh skill install mahcialet/agent-skills "${skill_name}" \
@@ -108,7 +109,7 @@ Usage: ./scripts/install-local.sh <skill-name> \
 
 | option | 既定値 | 意味 |
 |---|---|---|
-| `<skill-name>` | なし | `reader-first-editor` または `adversarial-pr-review` |
+| `<skill-name>` | なし | `reader-first-editor`、`adversarial-pr-review`、または `ticket-state` |
 | `--scope` | `project` | `user` scopeまたは`project` scopeを選ぶ |
 | `--agent` | `codex` | 対象ホストを明示する |
 | `--link` | 無効 | コピーではなくシンボリックリンクを作る |

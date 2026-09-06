@@ -1,0 +1,10 @@
+{
+  "schema_version": 1,
+  "mode": "dry-run",
+  "outcome": "PENDING_PERMISSION",
+  "state": "PENDING_PERMISSION",
+  "remote_mutation_requests": 0,
+  "would_write": false,
+  "required_permissions": ["description:write", "comment:append"],
+  "reason": "missing permissions: description:write"
+}

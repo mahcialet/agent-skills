@@ -19,6 +19,12 @@ Codex、GitHub Copilot、およびオープンなAgent Skills形式に対応す�
 |---|:---:|:---:|---|---|---|---|
 | [adversarial-pr-review](skills/adversarial-pr-review/README.md) | ✓ | ✓ | ja, en | experimental | 差分外の証拠探索とA0〜A4の敵対性レベルでPR・diffをレビューする | [MIT + notices](skills/adversarial-pr-review/NOTICE.md) |
 
+### Project Management
+
+| Skill | Codex | Copilot | Languages | Stability | Description | License |
+|---|:---:|:---:|---|---|---|---|
+| [ticket-state](skills/ticket-state/README.md) | ✓ | ✓ | ja, en | experimental | Backlog・Redmineの共有状態を安全に読み、更新案・差分・snapshotを保存、再検証、反映する | [MIT + notices](skills/ticket-state/NOTICE.md) |
+
 <!-- END GENERATED SKILL CATALOG -->
 
 各Skillを使える場面、利用時に守る制約、第三者由来要素の出典・著作者表示とライセンス通知は、
@@ -29,7 +35,7 @@ Codex、GitHub Copilot、およびオープンなAgent Skills形式に対応す�
 GitHub CLI 2.97以降は、このリポジトリの `skills/*/SKILL.md` を検出できます。
 
 ```bash
-skill_name=reader-first-editor # adversarial-pr-reviewも指定可能
+skill_name=reader-first-editor # adversarial-pr-review、ticket-stateも指定可能
 gh skill install mahcialet/agent-skills "${skill_name}" --agent codex --scope user
 gh skill install mahcialet/agent-skills "${skill_name}" --agent github-copilot --scope user
 ```
@@ -49,9 +55,27 @@ gh skill install mahcialet/agent-skills "${skill_name}" --agent github-copilot -
 
 ## 検証
 
+ローカルで初めて検証するときは、開発ツールを専用のvirtual environmentへ導入します。
+
+```bash
+./scripts/bootstrap-dev.sh
+```
+
+Codex Cloudはルートの `requirements.txt` を検出して、PyYAMLとRuffを自動セットアップ
+できます。Skillを単体でインストールした環境にはこれらを要求せず、Skillのruntime依存と
+リポジトリの開発依存を分離しています。
+
+CodexのSkill Creatorに付属する `quick_validate.py` は、virtual environmentのPythonで
+実行します。
+
+```bash
+.venv/bin/python /path/to/quick_validate.py skills/<name>
+```
+
 PRを作る前に `./scripts/validate-skills.sh` を実行してください。複数のホストで使うための
 frontmatter、Skill内の参照先、NOTICE、テスト用fixture、カタログに食い違いがないかを
-確認します。利用可能な場合、CIは `gh skill publish --dry-run` も実行します。
+確認します。Pythonコードは `.venv/bin/ruff check .` で検査します。利用可能な場合、CIは
+`gh skill publish --dry-run` も実行します。
 
 ## License
 

@@ -1,5 +1,6 @@
 .codex/
 .tokensave/
 .reader-first-editor/
+.venv/
 __pycache__/
 *.pyc

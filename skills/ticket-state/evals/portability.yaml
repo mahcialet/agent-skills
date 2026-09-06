@@ -1,0 +1,9 @@
+{
+  "suite": "portability",
+  "schema_version": 1,
+  "cases": [
+    {"id": "standalone-copy", "prompt": "repo外へSkill全体をcopyして別CWDから起動", "expect": ["help succeeds", "no parent imports", "state only in work-dir"]},
+    {"id": "shared-host-contract", "prompt": "CodexとCopilot CLIから利用", "expect": ["same SKILL.md", "same runtime CLI", "no provider-specific duplicate"]},
+    {"id": "cwd-independent", "prompt": "Skill root以外のCWDからvalidatorを実行", "expect": ["paths resolve from script", "no repository-root dependency"]}
+  ]
+}
