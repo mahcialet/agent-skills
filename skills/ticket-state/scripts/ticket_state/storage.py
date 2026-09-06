@@ -15,7 +15,7 @@ from pathlib import Path
 from typing import Any, Iterator
 
 from .errors import StateError, StorageError
-from .model import sha256_json, sha256_text, stable_json, utc_now
+from .model import sha256_bytes, sha256_json, sha256_text, stable_json, utc_now
 
 ID_RE = re.compile(r"^[0-9a-f]{32}$")
 TERMINAL_STATES = {"APPLIED", "NO_CHANGE", "REJECTED", "SUPERSEDED"}
@@ -445,7 +445,9 @@ class ProposalStore:
             proposal_markdown.encode("utf-8"),
             root=self.workspace,
         )
-        content_hash = sha256_json({name: sha256_text(value.decode("utf-8")) for name, value in sorted(artifacts.items())})
+        content_hash = sha256_json(
+            {name: sha256_bytes(value) for name, value in sorted(artifacts.items())}
+        )
         now = summary["created_at"]
         connection = self._connect()
         try:
@@ -520,7 +522,9 @@ class ProposalStore:
             if not re.fullmatch(r"[a-z0-9][a-z0-9.-]*", name):
                 raise StorageError("unsafe artifact name")
             atomic_write(revision_dir / name, data, root=self.workspace)
-        content_hash = sha256_json({name: sha256_text(value.decode("utf-8")) for name, value in sorted(artifacts.items())})
+        content_hash = sha256_json(
+            {name: sha256_bytes(value) for name, value in sorted(artifacts.items())}
+        )
         now = utc_now()
         connection = self._connect()
         try:
@@ -872,10 +876,10 @@ class ProposalStore:
             if artifact.is_symlink() or not artifact.is_file():
                 raise StorageError("proposal revision contains an unsafe artifact")
             try:
-                text = artifact.read_text(encoding="utf-8")
-            except (OSError, UnicodeDecodeError) as exc:
+                value = artifact.read_bytes()
+            except OSError as exc:
                 raise StorageError("proposal revision artifact is unreadable") from exc
-            hashes[artifact.name] = sha256_text(text)
+            hashes[artifact.name] = sha256_bytes(value)
         return sha256_json(hashes)
 
     def audit(self) -> dict[str, Any]:

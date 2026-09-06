@@ -130,6 +130,32 @@ class StorageTests(unittest.TestCase):
             atomic_write(path, b'{"changed":true}\n')
         self.assertEqual(b'{"schema_version":1}\n', path.read_bytes())
 
+    def test_crlf_revision_artifact_hash_is_byte_stable(self) -> None:
+        proposal = self.store.create_proposal(
+            profile_name="redmine",
+            operation="append-comment",
+            identity={
+                "provider": "redmine",
+                "base_url": "https://redmine.example.invalid",
+                "project_id": 20,
+                "ticket_id": "7",
+            },
+            state="PENDING_PERMISSION",
+            required_permissions=["comment:append"],
+            reason="read only",
+            artifacts={
+                "metadata.json": b'{"schema_version":1}\n',
+                "proposed-description.txt": b"first\r\nsecond\r\n",
+            },
+            metadata={"schema_version": 1},
+        )
+
+        reopened = ProposalStore(self.root / "state", workspace_id="demo")
+        self.assertEqual(
+            b"first\r\nsecond\r\n",
+            reopened.read_artifact(str(proposal["proposal_id"]), "proposed-description.txt"),
+        )
+
     def test_invalid_state_transition_is_rejected(self) -> None:
         proposal = self._create()
         self.store.transition(proposal["proposal_id"], "REJECTED", event="TEST")
