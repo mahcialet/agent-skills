@@ -3,6 +3,8 @@
 ## 保存構造
 
 状態は配布Skillやtrusted configと分離し、privateなworkspaceに保存する。
+DRAFT/PREPAREDからの復旧でも、最初の入力hash不一致によるNEEDS_REMERGEやNO_CHANGEの判断を失わない。
+保存baseがfreshでも入力本文がstaleだった事実を消さず、古い本文をREADYへ昇格させない。
 `--work-dir`はparent directoryであり、既存parentのpermissionを変更しない。CLIが作成するparentと
 workspace childは0700にする。
 
@@ -66,6 +68,8 @@ receiptを照合する。receipt保存後・APPLIED遷移前に停止したVERIF
 
 receiptのidentity・本文hash・comment marker/hashをimmutable revisionの計画と照合し、comment IDを含む
 非揮発の証拠全体は、receipt保存前にSQLiteへ記録した`REMOTE_RECEIPT_EVIDENCE`のhashとも照合する。
+照合時刻・取得時刻・remote_updated_atは揮発値として再利用比較から除外する。別のcomment追加等で
+更新時刻だけが進んでも、非揮発の証拠が同一なら元のreceiptを変更せずに再利用できる。
 証拠の改変・欠落を、既存receiptから新しいhashを作って自動的に正当化しない。
 
 この監査強化より前に保存されたreceiptには独立した証拠hashがないため、監査は安全停止する。

@@ -45,6 +45,8 @@ REQUIRED_FILES = {
 }
 REQUIRED_SUITES = {"positive", "negative", "safety", "portability"}
 REQUIRED_CASE_IDS = {
+    "draft-recovery-preserves-decision",
+    "receipt-volatile-update-time",
     "receipt-evidence-tamper",
     "shared-work-dir-permissions",
     "boundary-prewrite-refusal",

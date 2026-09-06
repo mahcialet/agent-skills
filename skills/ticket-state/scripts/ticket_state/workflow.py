@@ -906,6 +906,25 @@ class TicketStateService:
                 event="DRAFT_RECOVERED",
                 reason="recovered a fully persisted draft after interrupted preparation",
             )
+        if proposal["state"] == "PREPARED" and plan.operation == "update-state":
+            request = self._load_request(proposal_id)
+            recovered_state = None
+            if request["base_description_sha256"] != metadata["base_description_sha256"]:
+                recovered_state = "NEEDS_REMERGE"
+                recovered_reason = "request base hash was stale at preparation; semantic remerge is required"
+            elif (
+                metadata["proposed_description_sha256"] == metadata["base_description_sha256"]
+                and request["state_changed"] is False
+                and not plan.comment
+            ):
+                recovered_state = "NO_CHANGE"
+                recovered_reason = "description and declared state were unchanged at preparation"
+            if recovered_state is not None:
+                updated = self.store.transition(
+                    proposal_id, recovered_state, event="PREPARATION_DECISION_RECOVERED",
+                    reason=recovered_reason,
+                )
+                return self._proposal_result(updated, mode="revalidate", mutation_count=0)
         remote = self._assert_record_safe(adapter.read_ticket(plan.identity.ticket_id))
         self._assert_same_identity(plan.identity, remote.identity)
         self._validate_selected_template(

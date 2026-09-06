@@ -12,7 +12,7 @@ from unittest.mock import patch
 
 from helpers import FakeTrackerTransport, update_request, write_config
 from ticket_state.config import load_config
-from ticket_state.errors import IdentityError, StorageError, UnsafeContentError
+from ticket_state.errors import IdentityError, StateError, StorageError, UnsafeContentError
 from ticket_state.model import sha256_text
 from ticket_state.storage import ProposalStore
 from ticket_state.templates import approve_template, extract_template_candidate
@@ -569,6 +569,45 @@ class WorkflowTests(unittest.TestCase):
             "DRAFT_RECOVERED",
             [event["event"] for event in self.store.history(draft["proposal_id"])],
         )
+
+    def test_interrupted_preparation_retains_stale_and_no_change_decisions(self) -> None:
+        for decision in ("NEEDS_REMERGE", "NO_CHANGE", "READY"):
+            for crash_transition in (1, 2):
+                with self.subTest(decision=decision, crash_transition=crash_transition):
+                    transport = FakeTrackerTransport()
+                    store = ProposalStore(self.root / f"recovery-{decision}-{crash_transition}", workspace_id="demo")
+                    service = TicketStateService(load_config(self.config_path), store, transport)
+                    request = update_request()
+                    if decision == "NEEDS_REMERGE":
+                        request["base_description_sha256"] = "0" * 64
+                    elif decision == "NO_CHANGE":
+                        request["proposed_description"] = transport.backlog_description
+                        request["snapshot_description_sha256"] = sha256_text(transport.backlog_description)
+                        request["state_changed"] = False
+                    transition = store.transition
+                    calls = 0
+
+                    def crash(*args, **kwargs):
+                        nonlocal calls
+                        calls += 1
+                        if calls == crash_transition:
+                            raise StorageError("simulated interrupted preparation")
+                        return transition(*args, **kwargs)
+
+                    with patch.object(store, "transition", side_effect=crash):
+                        with self.assertRaises(StorageError):
+                            service.prepare(request)
+                    proposal = store.list_pending()[0]
+                    self.assertEqual("DRAFT" if crash_transition == 1 else "PREPARED", proposal["state"])
+                    recovered = service.revalidate(proposal["proposal_id"])
+                    self.assertEqual(decision, recovered["state"])
+                    self.assertEqual(decision == "READY", recovered["would_write"])
+                    self.assertEqual(0, transport.mutation_requests)
+                    if decision != "READY":
+                        with self.assertRaises(StateError):
+                            service.apply(proposal["proposal_id"], dry_run=False)
+                        self.assertEqual(0, transport.mutation_requests)
+                    self.assertTrue(store.audit()["valid"])
 
     def test_receipt_survives_crash_before_applied_transition(self) -> None:
         prepared = self.service.prepare(update_request())

@@ -5,6 +5,7 @@ import os
 import tempfile
 import unittest
 import sqlite3
+from dataclasses import replace
 from pathlib import Path
 from unittest.mock import patch
 
@@ -95,9 +96,45 @@ class ReceiptAuditTests(unittest.TestCase):
         reopened = ProposalStore(self.root / "state", workspace_id="demo")
         self.assertTrue(reopened.audit()["valid"])
         before = self.service.transport.mutation_requests
-        recovered = self.service.reconcile(prepared["proposal_id"])
+        recovered = self.reconcile_with_later_remote_timestamp(prepared["proposal_id"])
         self.assertEqual("APPLIED", recovered["state"])
         self.assertEqual(before, self.service.transport.mutation_requests)
+        self.assertTrue(self.store.audit()["valid"])
+
+    def reconcile_with_later_remote_timestamp(self, proposal_id: str) -> dict[str, object]:
+        adapter = self.service._adapter("backlog")
+        real_read = adapter.read_ticket
+        self.service.transport.backlog_comments.append(
+            {"id": 2, "content": "unrelated later comment", "created": "2026-09-07T00:00:00Z"}
+        )
+        with patch.object(self.service, "_adapter", return_value=adapter), patch.object(
+            adapter, "read_ticket", side_effect=lambda ticket: replace(
+                real_read(ticket), updated_at="2026-09-07T00:00:00Z"
+            )
+        ):
+            return self.service.reconcile(proposal_id)
+
+    def test_saved_receipt_recovers_after_unrelated_remote_timestamp_change(self) -> None:
+        prepared = self.service.prepare(update_request())
+        real_transition = self.store.transition
+
+        def crash_before_applied(proposal_id: str, state: str, **kwargs: object) -> dict[str, object]:
+            if state == "APPLIED":
+                raise StorageError("simulated crash after receipt before applied")
+            return real_transition(proposal_id, state, **kwargs)
+
+        with patch.object(self.store, "transition", side_effect=crash_before_applied):
+            with self.assertRaises(StorageError):
+                self.service.apply(prepared["proposal_id"], dry_run=False)
+        operation_id = self.store.get_proposal(prepared["proposal_id"])["operation_id"]
+        path = self.store.workspace / "receipts" / f"{operation_id}.json"
+        original = path.read_bytes()
+        self.assertTrue(ProposalStore(self.root / "state", workspace_id="demo").audit()["valid"])
+        before = self.service.transport.mutation_requests
+        recovered = self.reconcile_with_later_remote_timestamp(prepared["proposal_id"])
+        self.assertEqual("APPLIED", recovered["state"])
+        self.assertEqual(before, self.service.transport.mutation_requests)
+        self.assertEqual(original, path.read_bytes())
         self.assertTrue(self.store.audit()["valid"])
 
     @unittest.skipIf(os.name == "nt", "POSIX permission bits")

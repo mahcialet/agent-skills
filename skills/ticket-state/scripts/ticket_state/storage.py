@@ -57,6 +57,13 @@ def _validate_id(value: str, label: str) -> None:
         raise StorageError(f"invalid {label}")
 
 
+def _receipt_evidence(receipt: dict[str, Any]) -> dict[str, Any]:
+    # Observation/ticket timestamps may advance without changing this operation's
+    # verified effect. Keep the original receipt, but compare stable evidence.
+    return {key: value for key, value in receipt.items()
+            if key not in {"verified_at", "remote_retrieved_at", "remote_updated_at"}}
+
+
 def _decode_json(value: object, label: str, expected_type: type[Any]) -> Any:
     if not isinstance(value, (str, bytes, bytearray)):
         raise StorageError(f"{label} is not encoded JSON")
@@ -798,19 +805,13 @@ class ProposalStore:
                 existing = json.loads(path.read_text(encoding="utf-8"))
             except (OSError, json.JSONDecodeError) as exc:
                 raise StorageError("existing receipt is unreadable") from exc
-            existing_comparable = dict(existing) if isinstance(existing, dict) else {}
-            new_comparable = dict(receipt)
-            for volatile_key in ("verified_at", "remote_retrieved_at"):
-                existing_comparable.pop(volatile_key, None)
-                new_comparable.pop(volatile_key, None)
-            if existing_comparable != new_comparable:
+            existing_comparable = _receipt_evidence(existing) if isinstance(existing, dict) else {}
+            if existing_comparable != _receipt_evidence(receipt):
                 raise StorageError("existing receipt does not match recovered remote evidence")
             return path
         # Persist independent evidence before the file, so a crash never leaves an
         # unauditable receipt. A missing file is recoverable in VERIFYING.
-        evidence = {key: value for key, value in receipt.items()
-                    if key not in {"verified_at", "remote_retrieved_at"}}
-        evidence_hash = sha256_json(evidence)
+        evidence_hash = sha256_json(_receipt_evidence(receipt))
         proposal = self.get_proposal(receipt["proposal_id"])
         previous = [event["data"] for event in self.history(receipt["proposal_id"])
                     if event["event"] == "REMOTE_RECEIPT_EVIDENCE"]
@@ -1065,9 +1066,7 @@ class ProposalStore:
                 expected_description = description_hash
             if description_hash != expected_description:
                 raise StorageError("remote receipt description does not match immutable proposal")
-            evidence = {key: value for key, value in receipt.items()
-                        if key not in {"verified_at", "remote_retrieved_at"}}
-            expected_evidence = {"operation_id": operation_id, "receipt_sha256": sha256_json(evidence)}
+            expected_evidence = {"operation_id": operation_id, "receipt_sha256": sha256_json(_receipt_evidence(receipt))}
             recorded_evidence = [
                 _decode_json(event["data_json"], "remote receipt evidence", dict)
                 for event in event_rows

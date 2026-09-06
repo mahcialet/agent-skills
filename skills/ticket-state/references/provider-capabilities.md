@@ -13,6 +13,8 @@ plugin、version、role、markup設定により結果が異なる場合はunknow
 - Combined update: form-encoded `PATCH` にdescriptionとcomment。
 - Comment only: form-encoded `POST .../comments` にcontent。
 - Auth: `Backlog-API-Key` header。base URL pathは許可しない。
+  [公式認証仕様のheader例](https://developer.nulab.com/docs/backlog/auth/#request-example-request-header)
+  （2026-09-06確認）に対応方式として明記されている。query方式への変更は不要で、API keyをURLへ載せない。
 - Commentsはcount最大100、minId/maxIdを使う。total/cursor/snapshot一貫性は公開契約にない。
 
 ## Redmine
