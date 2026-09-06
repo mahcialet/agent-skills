@@ -4,7 +4,7 @@
   "title": "ticket-state proposal request",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schema_version", "operation", "profile", "ticket", "visibility_confirmed", "source_visibility"],
+  "required": ["schema_version", "operation", "ticket", "visibility_confirmed", "source_visibility"],
   "properties": {
     "schema_version": {"const": 1},
     "operation": {"enum": ["update-state", "snapshot", "append-comment"]},

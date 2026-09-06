@@ -2,7 +2,9 @@
 
 ## Readからproposalまで
 
-1. trusted configからprofile、instance、project numeric ID、ticket identifierを解決する。
+1. trusted configからprofile、instance、project numeric ID、ticket identifierを解決する。profileが
+   明示されていなければ、current Git rootとprivateなrepository bindingの完全一致から解決する。
+   bindingがなければ既定profileを推測しない。
 2. 設定済みendpointへ最小限のreadを行い、remoteのproject ID/keyを照合する。別projectの本文は
    Agentへ返さず、保存もしない。
 3. Agentは取得した最新descriptionと明示された事実から、semantic merge後の全文、変更section、

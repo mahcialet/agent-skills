@@ -17,6 +17,7 @@ PERMISSIONS = frozenset({"description:write", "comment:append"})
 ENV_NAME_RE = re.compile(r"^[A-Z_][A-Z0-9_]*$")
 BACKLOG_KEY_RE = re.compile(r"^[A-Za-z][A-Za-z0-9_]*-[1-9][0-9]*$")
 REDMINE_ID_RE = re.compile(r"^[1-9][0-9]*$")
+LOCAL_NAME_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$")
 
 
 def _normalized_base_url(raw: str) -> str:
@@ -70,16 +71,34 @@ class ProfileConfig:
 
 
 @dataclass(frozen=True, slots=True)
+class RepositoryConfig:
+    name: str
+    root: Path
+    profile: str
+    workspace_id: str
+
+
+@dataclass(frozen=True, slots=True)
 class Config:
     path: Path
     instances: dict[str, InstanceConfig]
     profiles: dict[str, ProfileConfig]
+    repositories: dict[str, RepositoryConfig]
 
     def profile(self, name: str) -> ProfileConfig:
         try:
             return self.profiles[name]
         except KeyError as exc:
             raise ConfigurationError(f"unknown profile: {name}") from exc
+
+    def repository_for_path(self, path: Path | None = None) -> RepositoryConfig | None:
+        root = discover_git_root(path)
+        if root is None:
+            return None
+        return next(
+            (repository for repository in self.repositories.values() if repository.root == root),
+            None,
+        )
 
 
 def default_config_path() -> Path:
@@ -90,6 +109,20 @@ def default_config_path() -> Path:
 def default_state_root() -> Path:
     root = Path(os.environ.get("XDG_STATE_HOME", Path.home() / ".local" / "state"))
     return root / "agent-skills" / "ticket-state"
+
+
+def discover_git_root(path: Path | None = None) -> Path | None:
+    try:
+        current = (path or Path.cwd()).resolve()
+    except OSError as exc:
+        raise ConfigurationError("cannot resolve current repository path") from exc
+    if current.is_file():
+        current = current.parent
+    for candidate in (current, *current.parents):
+        marker = candidate / ".git"
+        if marker.is_dir() or marker.is_file():
+            return candidate
+    return None
 
 
 def _only_keys(data: dict[str, Any], allowed: set[str], label: str) -> None:
@@ -104,7 +137,7 @@ def load_config(path: Path) -> Config:
             raw = tomllib.load(handle)
     except (OSError, tomllib.TOMLDecodeError) as exc:
         raise ConfigurationError(f"cannot load config {path}: {exc}") from exc
-    _only_keys(raw, {"schema_version", "instances", "profiles"}, "config")
+    _only_keys(raw, {"schema_version", "instances", "profiles", "repositories"}, "config")
     if raw.get("schema_version") != 1:
         raise ConfigurationError("config schema_version must be 1")
     raw_instances = raw.get("instances")
@@ -217,7 +250,48 @@ def load_config(path: Path) -> Config:
             write_allowlist=allowlist,
             concurrency=concurrency,
         )
-    return Config(path=path.resolve(), instances=instances, profiles=profiles)
+    raw_repositories = raw.get("repositories", {})
+    if not isinstance(raw_repositories, dict):
+        raise ConfigurationError("repositories must be a table")
+    repositories: dict[str, RepositoryConfig] = {}
+    roots: set[Path] = set()
+    for name, item in raw_repositories.items():
+        if not isinstance(name, str) or not LOCAL_NAME_RE.fullmatch(name):
+            raise ConfigurationError("repository name contains unsafe characters")
+        if not isinstance(item, dict):
+            raise ConfigurationError(f"repository {name} must be a table")
+        _only_keys(item, {"root", "profile", "workspace_id"}, f"repository {name}")
+        root_value = item.get("root")
+        if not isinstance(root_value, str) or not root_value.strip():
+            raise ConfigurationError(f"repository {name} requires root")
+        root = Path(root_value).expanduser()
+        if not root.is_absolute():
+            raise ConfigurationError(f"repository {name} root must be an absolute path")
+        try:
+            root = root.resolve(strict=False)
+        except OSError as exc:
+            raise ConfigurationError(f"repository {name} root cannot be resolved") from exc
+        if root in roots:
+            raise ConfigurationError(f"repository {name} duplicates another canonical root")
+        roots.add(root)
+        profile = item.get("profile")
+        if not isinstance(profile, str) or profile not in profiles:
+            raise ConfigurationError(f"repository {name} refers to unknown profile")
+        workspace_id = item.get("workspace_id")
+        if not isinstance(workspace_id, str) or not LOCAL_NAME_RE.fullmatch(workspace_id):
+            raise ConfigurationError(f"repository {name} has invalid workspace_id")
+        repositories[name] = RepositoryConfig(
+            name=name,
+            root=root,
+            profile=profile,
+            workspace_id=workspace_id,
+        )
+    return Config(
+        path=path.resolve(),
+        instances=instances,
+        profiles=profiles,
+        repositories=repositories,
+    )
 
 
 def _canonical_literal(provider: str, ticket: object) -> str:

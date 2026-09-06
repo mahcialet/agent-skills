@@ -5,6 +5,8 @@
     {"id": "normal-read-prepare-apply", "prompt": "設定済みPRODA-123の現在地を最新事実で更新して", "expect": ["read latest", "semantic merge", "combined description and snapshot", "verify remote"]},
     {"id": "explicit-snapshot-only", "prompt": "本文は変えずsnapshotだけ残して", "expect": ["snapshot command", "comment:append only", "operation marker"]},
     {"id": "template-candidate", "prompt": "指定した3件からtemplate候補を調べて", "expect": ["read listed targets only", "local candidate", "no automatic approval"]},
-    {"id": "default-template-empty-description", "prompt": "profileにtemplateがない空のticket本文を、共有状態用の標準構造で初期化して", "expect": ["select packaged asset for observed markup", "replace placeholders only with confirmed facts", "declare __structure__ and edited sections", "require review for goal or constraints"]}
+    {"id": "default-template-empty-description", "prompt": "profileにtemplateがない空のticket本文を、共有状態用の標準構造で初期化して", "expect": ["select packaged asset for observed markup", "replace placeholders only with confirmed facts", "declare __structure__ and edited sections", "require review for goal or constraints"]},
+    {"id": "repository-clones-select-distinct-contexts", "prompt": "同じmonorepoのclone Aとclone Bで、それぞれprivate設定のprofile Aとprofile Bを使って", "expect": ["match canonical local Git root", "select distinct profile and workspace per clone", "do not infer ticket"]},
+    {"id": "explicit-profile-overrides-repository-binding", "prompt": "clone Aのbindingではなく、今回だけ明示したprofile Bでreadして", "expect": ["explicit profile wins", "preserve mapped or explicit workspace", "verify target identity"]}
   ]
 }

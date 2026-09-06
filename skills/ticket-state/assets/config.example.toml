@@ -31,3 +31,14 @@ concurrency = "strict"
 
 [profiles.infrastructure.write_allowlist]
 "4821" = ["description:write", "comment:append"]
+
+# 任意のprivateな端末内binding。同じremoteのcloneもrootごとに分けられる。
+# [repositories.product_a_clone]
+# root = "/home/YOU/work/product-a"
+# profile = "product_a"
+# workspace_id = "product-a-clone"
+#
+# [repositories.infrastructure_clone]
+# root = "/home/YOU/work/infrastructure"
+# profile = "infrastructure"
+# workspace_id = "infrastructure-clone"

@@ -10,8 +10,15 @@ from pathlib import Path
 from typing import Any, Sequence
 
 from .adapters import make_adapter
-from .config import default_config_path, default_state_root, load_config, normalize_target
-from .errors import StorageError, TicketStateError, UnsafeContentError
+from .config import (
+    Config,
+    RepositoryConfig,
+    default_config_path,
+    default_state_root,
+    load_config,
+    normalize_target,
+)
+from .errors import ConfigurationError, StorageError, TicketStateError, UnsafeContentError
 from .model import sha256_text
 from .storage import ProposalStore
 from .templates import approve_template, validate_template
@@ -42,8 +49,10 @@ def _parser() -> argparse.ArgumentParser:
     commands = parser.add_subparsers(dest="command", required=True)
 
     read = commands.add_parser("read", help="最新チケットとcomments/journalsを読み取る")
-    read.add_argument("--profile", required=True)
+    read.add_argument("--profile")
     read.add_argument("--ticket", required=True)
+
+    commands.add_parser("context", help="current Git repositoryのprofileとworkspaceを解決する")
 
     prepare = commands.add_parser("prepare", help="requestからproposalとdiffを保存する")
     prepare.add_argument("--request", required=True, type=Path)
@@ -97,7 +106,7 @@ def _parser() -> argparse.ArgumentParser:
     template = commands.add_parser("template", help="template候補を抽出・検証・承認する")
     template_commands = template.add_subparsers(dest="template_command", required=True)
     extract = template_commands.add_parser("extract", help="既存ticketからlocal candidateだけを生成する")
-    extract.add_argument("--profile", required=True)
+    extract.add_argument("--profile")
     extract.add_argument("--tickets", nargs="+", required=True)
     validate = template_commands.add_parser("validate", help="candidate/approved templateを検証する")
     validate.add_argument("--file", type=Path, required=True)
@@ -109,10 +118,39 @@ def _parser() -> argparse.ArgumentParser:
     return parser
 
 
-def _workspace_id(value: str | None) -> str:
+def _workspace_id(
+    value: str | None,
+    repository: RepositoryConfig | None = None,
+) -> str:
     if value:
         return value
+    if repository is not None:
+        return repository.workspace_id
     return "workspace-" + sha256_text(str(Path.cwd().resolve()))[:16]
+
+
+def _profile_name(
+    value: str | None,
+    repository: RepositoryConfig | None,
+) -> str:
+    if value is not None:
+        return value
+    if repository is not None:
+        return repository.profile
+    raise ConfigurationError(
+        "profile is required when the current Git repository has no configured binding"
+    )
+
+
+def _request_with_profile(
+    request: dict[str, Any],
+    repository: RepositoryConfig | None,
+) -> dict[str, Any]:
+    if "profile" in request:
+        return request
+    resolved = dict(request)
+    resolved["profile"] = _profile_name(None, repository)
+    return resolved
 
 
 def _state_exit_code(result: dict[str, Any]) -> int:
@@ -210,16 +248,35 @@ def _contains_text(value: Any, needle: str) -> bool:
 def main(argv: Sequence[str] | None = None) -> int:
     parser = _parser()
     args = parser.parse_args(argv)
-    config = None
+    config: Config | None = None
     try:
-        workspace_id = _workspace_id(args.workspace_id)
-        transport = FixtureTransport(args.fixture) if args.fixture else UrlLibTransport()
         state_only = args.command in {"approve", "diff", "pending", "show", "history", "recover-local"} or (
             args.command == "template" and args.template_command == "approve"
         )
-        if args.command == "read":
+        config_free = args.command == "template" and args.template_command == "validate"
+        if not config_free and (
+            not state_only or (args.workspace_id is None and args.config.is_file())
+        ):
             config = load_config(args.config)
-            profile = config.profile(args.profile)
+        repository = config.repository_for_path() if config is not None else None
+        workspace_id = _workspace_id(args.workspace_id, repository)
+        transport = FixtureTransport(args.fixture) if args.fixture else UrlLibTransport()
+        if args.command == "context":
+            if config is None or repository is None:
+                raise ConfigurationError(
+                    "current Git repository has no configured repository binding"
+                )
+            result: Any = {
+                "schema_version": 1,
+                "repository": repository.name,
+                "profile": repository.profile,
+                "workspace_id": workspace_id,
+            }
+        elif args.command == "read":
+            if config is None:
+                raise ConfigurationError("read requires config")
+            profile_name = _profile_name(args.profile, repository)
+            profile = config.profile(profile_name)
             normalized = normalize_target(profile, args.ticket)
             record = make_adapter(profile, transport).read_ticket(normalized)
             if any(
@@ -229,9 +286,9 @@ def main(argv: Sequence[str] | None = None) -> int:
                 raise UnsafeContentError(
                     "remote ticket contains a configured API key value; content was not returned"
                 )
-            result: Any = {
+            result = {
                 "schema_version": 1,
-                "profile": args.profile,
+                "profile": profile_name,
                 "config_path": str(config.path),
                 "ticket": record.as_dict(),
             }
@@ -301,15 +358,18 @@ def main(argv: Sequence[str] | None = None) -> int:
                     reason=args.reason,
                 )
         else:
-            config = load_config(args.config)
+            if config is None:
+                raise ConfigurationError("command requires config")
             store = ProposalStore(args.work_dir, workspace_id=workspace_id)
             service = TicketStateService(config, store, transport)
             if args.command == "prepare":
-                result = service.prepare(load_request(args.request))
+                request = _request_with_profile(load_request(args.request), repository)
+                result = service.prepare(request)
             elif args.command in {"update-state", "snapshot", "append-comment"}:
                 if args.fixture and not args.dry_run:
                     raise TicketStateError("fixture transport can only be used with --dry-run for mutating commands")
-                result = service.update(load_request(args.request), args.command, dry_run=args.dry_run)
+                request = _request_with_profile(load_request(args.request), repository)
+                result = service.update(request, args.command, dry_run=args.dry_run)
             elif args.command == "diff":
                 result = service.diff(args.proposal_id)
             elif args.command == "apply":
@@ -323,7 +383,8 @@ def main(argv: Sequence[str] | None = None) -> int:
             elif args.command in {"reject", "supersede"}:
                 result = service.classify(args.proposal_id, args.command.upper() + ("D" if args.command == "supersede" else "ED"), reason=args.reason)
             elif args.command == "template" and args.template_command == "extract":
-                result = service.template_extract(args.profile, args.tickets)
+                profile_name = _profile_name(args.profile, repository)
+                result = service.template_extract(profile_name, args.tickets)
             else:
                 parser.error("unsupported command")
                 return 2

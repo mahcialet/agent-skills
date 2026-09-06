@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import multiprocessing
 import os
 import sqlite3
@@ -94,6 +95,78 @@ class ConfigTests(unittest.TestCase):
         profile = config.profile("backlog")
         child_or_related = canonical_identity(profile, "PROJ-2")
         self.assertEqual(frozenset(), permissions_for(profile, child_or_related))
+
+    def test_repository_bindings_distinguish_two_clone_roots(self) -> None:
+        clone_a = self.root / "clone-a"
+        clone_b = self.root / "clone-b"
+        nested_a = clone_a / "packages" / "app"
+        nested_b = clone_b / "packages" / "app"
+        for clone, nested in ((clone_a, nested_a), (clone_b, nested_b)):
+            (clone / ".git").mkdir(parents=True)
+            nested.mkdir(parents=True)
+        with self.config_path.open("a", encoding="utf-8") as handle:
+            handle.write(
+                f"""
+
+[repositories.clone_a]
+root = {json.dumps(str(clone_a))}
+profile = "backlog"
+workspace_id = "clone-a"
+
+[repositories.clone_b]
+root = {json.dumps(str(clone_b))}
+profile = "redmine"
+workspace_id = "clone-b"
+"""
+            )
+
+        config = load_config(self.config_path)
+        binding_a = config.repository_for_path(nested_a)
+        binding_b = config.repository_for_path(nested_b)
+        self.assertIsNotNone(binding_a)
+        self.assertIsNotNone(binding_b)
+        assert binding_a is not None
+        assert binding_b is not None
+        self.assertEqual(("backlog", "clone-a"), (binding_a.profile, binding_a.workspace_id))
+        self.assertEqual(("redmine", "clone-b"), (binding_b.profile, binding_b.workspace_id))
+
+    def test_repository_binding_requires_unique_absolute_root_and_known_profile(self) -> None:
+        clone = self.root / "clone"
+        clone.mkdir()
+        base = self.config_path.read_text(encoding="utf-8")
+        invalid_blocks = (
+            """
+
+[repositories.relative]
+root = "relative/path"
+profile = "backlog"
+workspace_id = "relative"
+""",
+            f"""
+
+[repositories.first]
+root = {json.dumps(str(clone))}
+profile = "backlog"
+workspace_id = "first"
+
+[repositories.second]
+root = {json.dumps(str(clone / "nested" / ".."))}
+profile = "redmine"
+workspace_id = "second"
+""",
+            f"""
+
+[repositories.unknown]
+root = {json.dumps(str(clone))}
+profile = "missing"
+workspace_id = "unknown"
+""",
+        )
+        for block in invalid_blocks:
+            with self.subTest(block=block):
+                self.config_path.write_text(base + block, encoding="utf-8")
+                with self.assertRaises(ConfigurationError):
+                    load_config(self.config_path)
 
 
 class StorageTests(unittest.TestCase):

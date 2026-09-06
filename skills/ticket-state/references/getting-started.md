@@ -12,6 +12,7 @@ Bashでexport
 └── Agent CLI
     └── ticket-state Python CLI
         ├── XDG_CONFIG_HOMEからconfig.tomlを読む
+        ├── current Git rootからprofileとworkspaceを解決する
         ├── configのapi_key_envが指す環境変数からAPI keyを読む
         └── XDG_STATE_HOMEへproposal、diff、historyを保存する
 ```
@@ -124,7 +125,50 @@ concurrency = "best_effort"
 最初は`[profiles.<name>.write_allowlist]`を置かない。この状態でもreadでき、更新要求は
 `PENDING_PERMISSION`となってremote mutationは0件になる。
 
-## 5. API keyを現在のshellへ入れる
+## 5. Git repositoryごとのprofileをprivate設定へ紐づける
+
+profile定義と同じconfig.tomlへ、端末内だけで使うrepository bindingを追加できる。`root`はcloneの
+最上位directoryを絶対pathで指定する。
+
+```toml
+[repositories.monorepo_clone_a]
+root = "/home/YOU/work/monorepo-profile-a"
+profile = "profile_a"
+workspace_id = "monorepo-profile-a"
+
+[repositories.monorepo_clone_b]
+root = "/home/YOU/work/monorepo-profile-b"
+profile = "profile_b"
+workspace_id = "monorepo-profile-b"
+```
+
+`profile_a`と`profile_b`は、同じconfig.tomlの`[profiles.profile_a]`と`[profiles.profile_b]`で定義する。
+それぞれ異なるinstance、project、format、write allowlistを持てる。bindingが選ぶのはprofileと状態の
+workspaceであり、ticket自体は依頼またはrequestで引き続き明示する。
+
+CLIはcurrent directoryから親へ辿り、最初に見つけた`.git`のdirectoryをrepository rootとする。
+登録rootはsymlinkを解決した絶対pathで比較する。Git remote URLやrepository名は判定に使わないため、
+同じmonorepoを2つのdirectoryへcloneしても、clone Aはprofile A、clone Bはprofile Bへ分離できる。
+
+bindingはXDG配下のprivate configにだけ保存する。共有リポジトリの`AGENTS.md`、`.env`、tracked fileへ
+追加しない。cloneを移動した場合は`root`を更新する。同じ実体を指すrootの重複、未知のprofile、相対path、
+不正なworkspace IDはconfiguration errorになる。
+
+clone内で解決結果を確認できる。このcommandはremote APIへ接続せず、API keyも必要としない。
+
+```bash
+cd /home/YOU/work/monorepo-profile-a
+python3 "${ticket_state_skill_dir}/scripts/ticket_state.py" --json context
+```
+
+明示した`--profile`はbindingより優先する。どちらもない場合は既定profileを推測せず停止する。
+`--workspace-id`を明示した場合もbindingのworkspace IDより優先する。
+
+このpath-based bindingは、同じremoteの複数cloneを別profileとして扱う要件から設計したもので、local
+corpusの観察結果を一般化したruleではない。解決優先順位やmatch条件の変更には、誤った接続先を選ばない
+ための支持例・反例・境界例とhuman reviewを必要とする。
+
+## 6. API keyを現在のshellへ入れる
 
 次のBash例は入力文字を画面へ表示せず、shell historyへkey本体を含むコマンドを残さない。
 
@@ -155,7 +199,7 @@ fi
 API keyを`.bashrc`、`.env`、config.toml、request JSON、CLI引数へ直接書かない。永続化が必要なら、
 利用環境で承認されたsecret managerからshell環境変数へ読み込む。
 
-## 6. Agent CLIを同じshellから起動する
+## 7. Agent CLIを同じshellから起動する
 
 export後に、普段使うAgent CLIを同じterminalから起動する。Codexの例:
 
@@ -163,31 +207,31 @@ export後に、普段使うAgent CLIを同じterminalから起動する。Codex�
 codex
 ```
 
-起動後は、最初にreadだけを依頼する。profile、workspace ID、ticketを明示すると、別projectの状態と
-混ざりにくい。
+起動後は、最初にrepository bindingとreadだけを確認する。ticketはbindingから推測しないため明示する。
 
 ```text
-$ticket-stateを使い、profile backlog_test、workspace ID backlog-test、
+$ticket-stateを使い、current Git repositoryのcontextを確認してから、
 ticket TEST-1をreadだけしてください。更新やproposal作成はしないでください。
 ```
 
 Agentは子processとしてticket-state CLIを起動するため、XDGの保存先とAPI keyを継承する。
 AgentへAPI keyの値をchatで貼り付ける必要はない。
 
-## 7. Agentを介さずreadを確認する
+## 8. Agentを介さずreadを確認する
 
 問題の切り分けでは、同じshellからPython CLIを直接実行できる。global optionは`read`より前へ置く。
 
 ```bash
 python3 "${ticket_state_skill_dir}/scripts/ticket_state.py" \
   --json \
-  read --profile backlog_test --ticket TEST-1
+  read --ticket TEST-1
 ```
 
 成功時は、選択したprofile、正規化済みticket identity、description、公開commentsなどをJSONで返す。
 readはremoteを更新せず、proposalも作らない。出力にはticket本文が含まれるため、公開ログへ転送しない。
+repository bindingを使わない場合は、従来どおり`read --profile backlog_test --ticket TEST-1`と明示する。
 
-## 8. 状態directoryを確認する
+## 9. 状態directoryを確認する
 
 更新案やdry-runを実行すると、既定では次の場所へ状態が保存される。
 
@@ -195,8 +239,8 @@ readはremoteを更新せず、proposalも作らない。出力にはticket本�
 ${XDG_STATE_HOME}/agent-skills/ticket-state/<workspace-id>/
 ```
 
-workspace IDを省略すると、実行時のcurrent working directoryから`workspace-...`というIDを生成する。
-同じ対象を別directoryから扱う場合に状態が分散しないよう、Agentへ安定したworkspace IDを明示する。
+repository bindingがあれば、その`workspace_id`を使う。bindingがなくworkspace IDも省略した場合は、
+実行時のcurrent working directoryから`workspace-...`というIDを生成する。
 
 保存済みの未反映proposalは次のように確認する。
 
@@ -221,7 +265,7 @@ python3 "${ticket_state_skill_dir}/scripts/ticket_state.py" \
 
 `--work-dir`はworkspace IDを追加する前の親directoryを指定する。
 
-## 9. 最初のwrite allowlist
+## 10. 最初のwrite allowlist
 
 readとdry-runを確認してから、書き込みを許可するticketだけをconfigへ追加する。
 
@@ -240,13 +284,14 @@ descriptionとsnapshotのcombined updateも許可する場合だけ、権限を�
 project全体やwildcardは指定できない。allowlistを変更しても、過去のdry-runを自動適用しない。
 実書き込み前に最新remote、diff、対象ticket、必要permissionを再確認する。
 
-## 10. よくあるエラー
+## 11. よくあるエラー
 
 | 表示 | 確認すること |
 |---|---|
 | `cannot load config` | `XDG_CONFIG_HOME`をexportしたshellから起動したか、config pathとpermissionが正しいか |
 | `API key environment variable ... is not set` | `api_key_env`の名前とexportした変数名が一致するか、Agentをexport後に再起動したか |
 | `unknown profile` | `[profiles.<name>]`と依頼・CLIの`--profile`が一致するか |
+| repository bindingなし | current cloneの絶対rootが`[repositories.<name>]`と一致するか |
 | identityやproject不一致 | 数値`project_id`、Backlogの`project_key`、ticket keyを推測せず確認したか |
 | format不一致 | provider側のtext formatting設定とconfigの`format`が一致するか |
 | `PENDING_PERMISSION` | write allowlistがないread-only状態では正常。remoteは更新されていない |

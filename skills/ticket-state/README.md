@@ -8,7 +8,8 @@ descriptionとCurrent State Snapshotコメントを反映し、書けない場�
 
 - 実装済み: trusted config、project/instance/ticket identity、ticket単位allowlist、read、proposal、
   immutable revision、SQLite history、diff、dry-run、combined update、再取得検証、revalidate、
-  reconcile、template candidate/approval分離、template未設定時の内蔵default。
+  reconcile、template candidate/approval分離、template未設定時の内蔵default、privateなrepository
+  rootからのprofile/workspace解決。
 - mock検証済み: BacklogとRedmineのread/update/comment、RO、dry-run、stale base、permission取消、
   timeout後のreconcile、partial result、process間local concurrency、secret非URL送信、Redmineの
   `private_notes: false`、中断後のDRAFT/receipt復旧、local artifact/DB破損検出。
@@ -51,6 +52,11 @@ codex
 `api_key_env = "BACKLOG_API_KEY"`のように環境変数名だけを指定します。すでに起動中のAgent CLIには
 後からexportした値が届かないため、一度終了して同じshellから起動し直してください。
 
+同じGit remoteから複数directoryへcloneして別profileを使う場合は、同じprivateなconfig.tomlの
+`[repositories.<name>]`へclone root、profile、workspace IDを登録します。Git remoteではなくlocal rootの
+完全一致で選ぶため、cloneごとに別の接続先と状態を使えます。共有リポジトリの`AGENTS.md`やtracked
+fileへ個人設定を追加する必要はありません。bindingがなければprofileを自動推測しません。
+
 configのコピー、Backlog/Redmine別の記入例、read疎通確認、状態の確認、よくあるエラーは
 [初回セットアップ](references/getting-started.md)を参照してください。`--config`、`--work-dir`、
 `--workspace-id`で既定値を明示的に上書きする方法も説明しています。
@@ -68,6 +74,8 @@ offline cacheやwrite simulationとして使わないでください。
 
 `examples/update-state.request.json` を参照してください。`visibility_confirmed: true` と
 `source_visibility: public-only` は、private note等を意図せず公開しないための明示的な確認です。
+current repositoryにbindingがある場合はrequestの`profile`を省略でき、CLIが解決した値をproposalへ
+固定します。bindingがない場合は従来どおり`profile`が必須で、ticketは常に省略できません。
 Goal/Constraintsを変更する場合は `protected_change_approval` に人間のreviewerと理由が必要です。
 templateを使う場合は、profileの `template` とrequestの `template_id` に承認済み32文字IDを指定し、
 `template validate` が返す `artifact_sha256` をrequestの `template_sha256` に固定します。candidateや
@@ -81,6 +89,7 @@ profileにtemplateがなく、空のdescriptionを更新する場合は、確認
 ## Commands
 
 ```text
+context              current Git repositoryのprofileとworkspaceを解決
 read                 最新ticketと必要なcomments/journalsを取得
 prepare              remoteを読み、proposal/diffだけを保存
 update-state         description + snapshotを計画・反映
