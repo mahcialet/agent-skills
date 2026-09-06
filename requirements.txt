@@ -1,0 +1,2 @@
+# Codex Cloudの自動pipセットアップと標準的な開発環境構築の入口。
+-r requirements-dev.txt

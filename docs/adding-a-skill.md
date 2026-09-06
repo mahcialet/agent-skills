@@ -20,8 +20,8 @@
 7. `catalog.json` にcategory、hosts、languages、stability、短いdescriptionを追加し、
    `./scripts/generate-catalog.py` でルートREADMEを更新する。Skill名にはfrontmatterに
    記載した値を使用する。補助metadataと値が異なる場合はgeneratorが拒否する。
-8. `./scripts/validate-skills.sh` を実行する。利用環境で `gh skill` を使える場合は、
-   `gh skill publish --dry-run` を実行する。
+8. `.venv/bin/ruff check .` と `./scripts/validate-skills.sh` を実行する。利用環境で
+   `gh skill` を使える場合は、`gh skill publish --dry-run` を実行する。
 9. [インストール手順](installation.md)に従ってモノレポ外の一時ディレクトリへSkill全体を
    コピーする。対応ホストから明示起動し、追加ファイルを読み込めることと、READMEに記載した
    既定動作・変更範囲どおりに動くことを確認する。

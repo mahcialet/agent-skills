@@ -11,9 +11,8 @@ from pathlib import Path
 from typing import Any
 
 from .adapters import BaseAdapter, make_adapter
-from .config import Config, canonical_identity, normalize_target, permissions_for
+from .config import Config, normalize_target, permissions_for
 from .errors import (
-    ConfigurationError,
     IdentityError,
     PermissionDenied,
     RemoteError,

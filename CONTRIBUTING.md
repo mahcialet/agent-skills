@@ -5,14 +5,15 @@
 
 ## 変更の基本手順
 
-1. [Skillの追加](docs/adding-a-skill.md)と `AGENTS.md` を読む。
-2. 各Skillでホスト間に共通する指示を `skills/<name>/SKILL.md` に置き、ホスト別のコピーを
+1. `./scripts/bootstrap-dev.sh` を実行して、固定された開発ツールを `.venv` へ導入する。
+2. [Skillの追加](docs/adding-a-skill.md)と `AGENTS.md` を読む。
+3. 各Skillでホスト間に共通する指示を `skills/<name>/SKILL.md` に置き、ホスト別のコピーを
    手作業で作らない。
-3. Skillが実行時に読むファイルを、Skillディレクトリ内に収める。
-4. 第三者由来要素のattribution（出典・著作者表示など）とlicense noticeを、Skillの
+4. Skillが実行時に読むファイルを、Skillディレクトリ内に収める。
+5. 第三者由来要素のattribution（出典・著作者表示など）とlicense noticeを、Skillの
    `NOTICE.md` とルートの `THIRD_PARTY_NOTICES.md` に記録する。
-5. 挙動を変更するときは、examplesと評価用fixtureを追加する。
-6. `./scripts/validate-skills.sh` と、利用可能なら
+6. 挙動を変更するときは、examplesと評価用fixtureを追加する。
+7. `.venv/bin/ruff check .`、`./scripts/validate-skills.sh` と、利用可能なら
    `gh skill publish --dry-run` を実行する。
 
 ## 文書の言語

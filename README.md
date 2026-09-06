@@ -55,9 +55,27 @@ gh skill install mahcialet/agent-skills "${skill_name}" --agent github-copilot -
 
 ## 検証
 
+ローカルで初めて検証するときは、開発ツールを専用のvirtual environmentへ導入します。
+
+```bash
+./scripts/bootstrap-dev.sh
+```
+
+Codex Cloudはルートの `requirements.txt` を検出して、PyYAMLとRuffを自動セットアップ
+できます。Skillを単体でインストールした環境にはこれらを要求せず、Skillのruntime依存と
+リポジトリの開発依存を分離しています。
+
+CodexのSkill Creatorに付属する `quick_validate.py` は、virtual environmentのPythonで
+実行します。
+
+```bash
+.venv/bin/python /path/to/quick_validate.py skills/<name>
+```
+
 PRを作る前に `./scripts/validate-skills.sh` を実行してください。複数のホストで使うための
 frontmatter、Skill内の参照先、NOTICE、テスト用fixture、カタログに食い違いがないかを
-確認します。利用可能な場合、CIは `gh skill publish --dry-run` も実行します。
+確認します。Pythonコードは `.venv/bin/ruff check .` で検査します。利用可能な場合、CIは
+`gh skill publish --dry-run` も実行します。
 
 ## License
 

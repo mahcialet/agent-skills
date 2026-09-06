@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import json
 import multiprocessing
 import os
 import sqlite3
@@ -8,7 +7,6 @@ import subprocess
 import tempfile
 import unittest
 from pathlib import Path
-from unittest.mock import patch
 
 from helpers import write_config
 from ticket_state.config import canonical_identity, load_config, normalize_target, permissions_for

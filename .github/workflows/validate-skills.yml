@@ -15,6 +15,14 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+          cache: pip
+          cache-dependency-path: |
+            requirements.txt
+            requirements-dev.txt
+      - name: Install development tools
+        run: ./scripts/bootstrap-dev.sh
+      - name: Lint Python
+        run: .venv/bin/ruff check .
       - name: Validate repository and fixtures
         run: ./scripts/validate-skills.sh
       - name: Validate with gh skill when available

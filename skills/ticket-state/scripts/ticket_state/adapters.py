@@ -13,7 +13,6 @@ from .model import (
     MutationPlan,
     ProviderCapabilities,
     RemoteComment,
-    TicketIdentity,
     TicketRecord,
     ticket_context_sha256,
     utc_now,
