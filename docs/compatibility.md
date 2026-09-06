@@ -1,7 +1,7 @@
 # 互換性
 
 この文書では、公式資料で確認した仕様、ローカル環境で実機確認した動作、
-`reader-first-editor` の受入監査、既知の制約を分けて記録する。各検証結果が示すのは、
+各Skillの受入監査、既知の制約を分けて記録する。各検証結果が示すのは、
 記載したversion、確認範囲（scope）、実行条件での動作だけであり、将来のhost versionでの
 動作は保証しない。
 
@@ -17,6 +17,7 @@
 | GitHub Copilot CLI | 1.0.82 | 正式名で長文coverage、関係candidate、DB局所整合性、Skill検証dataの証拠除外を確認 | 一時リポジトリへSkillを実コピーして確認 |
 | GitHub Copilot CLI | 1.0.82 | project scopeから正式名で `adversarial-pr-review` を起動し、review contractとapproval境界を確認 | `write`、`shell`、URL accessを許可しない単一のsynthetic tenant越境ケースで確認 |
 | GitHub Copilot CLI | 1.0.81 | project scopeから正式名で `adversarial-pr-review` を起動 | 複数domainを一度に扱う長いreviewは最終版で未確認 |
+| Python runtime | 3.13 | `ticket-state` のstandalone CLI、fixture/mockによるBacklog/Redmine adapter、local state/recovery | live APIとCodex/Copilot CLIからの正式起動は未確認 |
 
 以下では、仕様の参照先、実機確認の経緯、受入監査、既知の制約を順に記録する。同じhostでも、
 version、scope、同名Skillの有無など、実行条件が異なる結果を同一視しない。
@@ -43,9 +44,22 @@ CodexとCopilotが共通して使う挙動は、各 `skills/<skill-name>/SKILL.m
 
 ## ローカル検証状況
 
+### ticket-state
+
+- Python 3.13の標準ライブラリだけで、config/identity/policy、Backlog/Redmine adapter、SQLiteと
+  immutable revision、dry-run、combined update、再取得検証、timeout後のreconcile、partial result、
+  process間local concurrency、markup別snapshot/template、local artifact/DB/receipt監査をfixture/mockで
+  確認した。
+- Skill全体をrepo外の一時directoryへコピーし、別CWD・repository rootなし・追加PYTHONPATHなしで
+  `--help`、content validator、mock dry-runが動くことを自動testで確認する。
+- Backlog/Redmineの実instance、API key、実ticketへは接続していない。provider/plugin固有markup、
+  visibility、size limit、rate limit、複数PC協調、server-side CASは未検証である。
+- `agents/openai.yaml` は発見を許可するが、remote mutationはtrusted configのticket単位allowlist、
+  明示された更新command、最新remoteの再検証をすべて通す。implicitな発見をwrite許可として扱わない。
+
 - GitHub CLI 2.97.0: `gh skill install --help` と
   `gh skill publish --help` で上記機能を確認。`publish --dry-run` と、ローカル
-  sourceから一時ディレクトリへのコピーによるインストールに成功した。2 Skill収録後の
+  sourceから一時ディレクトリへのコピーによるインストールに成功した。3 Skill収録後の
   `publish --dry-run` も成功した。tag protection未設定のwarningは残るが、この作業では
   tag／releaseを作成していない。
 

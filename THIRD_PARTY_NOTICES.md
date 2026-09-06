@@ -37,3 +37,9 @@ for complete attribution and modification notes.
   Documents* (公用文作成の考え方), used as a cited public reference.
 - Public descriptions of ISO 24495-1 principles. The ISO standard text is not
   reproduced.
+
+## ticket-state
+
+See [`skills/ticket-state/NOTICE.md`](skills/ticket-state/NOTICE.md) for the
+official Backlog and Redmine API references used to implement the provider
+contracts. No API documentation text or third-party code is redistributed.
