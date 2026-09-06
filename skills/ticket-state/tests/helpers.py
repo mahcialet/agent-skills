@@ -118,6 +118,7 @@ class FakeTrackerTransport:
         self.change_description_after_comment_lookup = False
         self.backlog_formatting_rule = "markdown"
         self.redmine_private_notes = False
+        self.redmine_success_status = 204
 
     def send(self, request: HttpRequest) -> HttpResponse:
         self.requests.append(request)
@@ -217,7 +218,7 @@ class FakeTrackerTransport:
                         "private_notes": self.redmine_private_notes,
                     }
                 )
-            return HttpResponse(204, {}, b"")
+            return HttpResponse(self.redmine_success_status, {}, b"")
         raise AssertionError(f"unexpected Redmine request: {request.method} {path} {query}")
 
     @staticmethod

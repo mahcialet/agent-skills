@@ -12,8 +12,10 @@ descriptionとCurrent State Snapshotコメントを反映し、書けない場�
 - mock検証済み: BacklogとRedmineのread/update/comment、RO、dry-run、stale base、permission取消、
   timeout後のreconcile、partial result、process間local concurrency、secret非URL送信、Redmineの
   `private_notes: false`、中断後のDRAFT/receipt復旧、local artifact/DB破損検出。
-- 未検証: 実Backlog/Redmine、provider/plugin固有markup・visibility・上限、複数PC間の協調、
-  server-side CAS。live credentialsや実チケットへの接続はこのリポジトリに含みません。
+- live検証済み: 非公開の閉域テスト環境上のRedmine 2.6.10～7.0.1（各minor系列）で、HTTPS read、
+  permission gate、dry-run、公開comment、descriptionとsnapshotの更新、stale base拒否。
+- 未検証: 実Backlog、実運用instance固有のplugin・proxy・visibility・上限、複数PC間の協調、
+  server-side CAS。live credentialsや実運用チケットへの接続はこのリポジトリに含みません。
 
 ## 必要環境
 

@@ -286,6 +286,15 @@ class WorkflowTests(unittest.TestCase):
         self.assertEqual("1", value["comment_id"])
         self.assertEqual(metadata["comment_sha256"], value["comment_sha256"])
 
+    def test_redmine_legacy_200_update_is_verified_before_applied(self) -> None:
+        self.transport.redmine_success_status = 200
+        result = self.service.update(
+            update_request(profile="redmine"), "update-state", dry_run=False
+        )
+        self.assertEqual("APPLIED", result["state"])
+        self.assertEqual(1, result["remote_mutation_requests"])
+        self.assertEqual("h1. Current State\nnew\n\nh1. Notes\nkeep\n", self.transport.redmine_description)
+
     def test_applied_proposal_requires_immutable_receipt_for_audit(self) -> None:
         result = self.service.update(update_request(), "update-state", dry_run=False)
         operation_id = self.store.get_revision(result["proposal_id"])["metadata"]["operation_id"]

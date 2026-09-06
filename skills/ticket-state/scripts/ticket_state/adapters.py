@@ -377,7 +377,7 @@ class RedmineAdapter(BaseAdapter):
             headers=self._headers(json_body=True),
             body=body,
             is_mutation=True,
-            expected_statuses=frozenset({204}),
+            expected_statuses=frozenset({200, 204}),
         )
 
     def _combined_update(self, ticket_id: str, description: str, comment: str) -> None:

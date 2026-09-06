@@ -1,7 +1,9 @@
 # Provider capabilities and limitations
 
-確認日: 2026-09-06。実装は公式公開APIの基本契約をfixture/mockで検証しており、live instanceでは
-未検証である。plugin、version、role、markup設定により結果が異なる場合はunknownとして安全停止する。
+確認日: 2026-09-06。公式公開APIの基本契約をfixture/mockで検証し、非公開の閉域テスト環境で
+Redmine 2.6.10、3.0.7、3.1.7、3.2.9、3.3.9、3.4.13、4.0.9、4.1.7、4.2.10、
+5.0.12、5.1.12、6.0.11、6.1.4、7.0.1をlive検証した。実運用instanceは未検証である。
+plugin、version、role、markup設定により結果が異なる場合はunknownとして安全停止する。
 
 ## Backlog
 
@@ -16,6 +18,8 @@
 - Read: `GET <subpath>/issues/{id}.json?include=journals`。
 - Combined/comment update: JSON `PUT` の `issue.description` / `issue.notes`。snapshotは公開コメントとし、
   `private_notes: false` を明示する。
+- Update response: 現行系の204に加え、Redmine 2.6.10のlive検証で確認した200を受理する。
+  どちらもresponseだけでは `APPLIED` とせず、description/commentを再取得して完全一致を確認する。
 - Auth: `X-Redmine-API-Key` header。設定済みsubpathを保持する。
 - nested journalsのpagination契約はなく、表示順も設定依存のためID/markerで確認する。
 - REST API有効化、role、text formatting、plugin拡張はinstance側設定に依存する。標準API契約と異なる
