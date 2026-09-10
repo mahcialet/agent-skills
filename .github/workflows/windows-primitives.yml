@@ -1,0 +1,30 @@
+name: Windows W1 primitives
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  w1:
+    runs-on: windows-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Probe native primitives (no installer or host integration)
+        run: python -m tools.windows_probe --out .repoctl/w1-native
+      - name: Save W1 evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-w1-primitives
+          path: .repoctl/w1-native/
+          include-hidden-files: true
+          retention-days: 7

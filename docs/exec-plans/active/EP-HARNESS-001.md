@@ -819,3 +819,21 @@ lockのhardlink拒否/byte range）を採用した。文書validatorの初回実
 `python -m tools.repoctl docs-check`、`python -m tools.repoctl plans check`、`git diff --check`の再実行はすべてPASS。
 native primitive/transaction検証は未実行であり、実装成立性は依然W1の判定事項である。
 修正後の独立再レビューで3件すべての日英反映を確認し、未解決の既知指摘なし。これは設計レビューの結果であってnative合格ではない。
+
+### W1 実行checkpoint（2026-09-11）
+
+このcheckpointは上記の設計時点の未承認記録を更新する。ユーザーが設計変更のcommit、W1の実装・検証、
+作業ブランチのpushとGitHub ActionsによるWindows検証を明示承認した。W2以降、実モデル・実ホスト起動、
+mergeは引き続き対象外。専用ブランチ `feat/ep-harness-001` を継続し、fetch後の `origin/master` は
+`d423d1f483e48cfa955b02114c17611c6f2993cd` のまま。提供された未追跡原本は変更・commitしない。
+
+- 設計commit: `aed77c6`。事前に `env PATH=<repo>/.venv/bin:$PATH ./scripts/validate-skills.sh --out .repoctl/w1-design-precommit`
+  をrepo rootで実行し、Linux/Python 3.13.5、13 tasks／401 tests PASS。
+  run `20260910T220324Z-b7db02006b56`、実行HEAD `f9cb90486ea25d35ef3eacc70d8874d0950fd126`＋dirty、
+  `git diff --check` もPASS。このverify集約summaryにはsource fingerprintがなく、commit単位の実機証拠はActionsで別途取得する。
+- W1は `tools/windows_probe/` と `tests/windows_probe/` の実験コードに限定し、installer／runner本体へ接続しない。
+  専用workflow `Windows W1 primitives` は `python -m tools.windows_probe --out .repoctl/w1-native` を実行する。
+  Python 3.12／Windows x64のnative試験であり、非WindowsはBLOCKED。専用試験のskipもCI成功へ変換しない。
+  証拠はconsoleと明示出力先のみ、Actions artifactの保存期間は7日。実ユーザーの配置先・認証・設定には触れない。
+- 既存 `Validate skills` のWindows必須suiteは引き続きBLOCKED。W1の成功をAC05／AC09やM2／M3完了へ昇格しない。
+  W1の実機結果、独立レビュー、残件は実行後にこの節へ追記する。

@@ -758,3 +758,23 @@ translation hash; `plans check` and `git diff --check` PASSED. After rechecking 
 reruns of `python -m tools.repoctl docs-check`, `python -m tools.repoctl plans check` and `git diff --check` all PASSED.
 No native primitive/transaction tests have run; implementation feasibility remains a W1 decision.
 Independent re-review confirmed all three fixes in both languages, with no unresolved known findings. This is a design-review result, not native acceptance.
+
+### W1 execution checkpoint (2026-09-11)
+
+This checkpoint updates the authorization state recorded at design time above. The user explicitly authorized committing the design,
+implementing/testing W1, pushing the work branch and Windows verification through GitHub Actions. W2 onward, live model/host launches
+and merge remain out of scope. Continue on `feat/ep-harness-001`; after fetch, `origin/master` remains
+`d423d1f483e48cfa955b02114c17611c6f2993cd`. Do not modify or commit the supplied untracked original.
+
+- Design commit: `aed77c6`. Before committing, ran
+  `env PATH=<repo>/.venv/bin:$PATH ./scripts/validate-skills.sh --out .repoctl/w1-design-precommit` at repository root:
+  Linux/Python 3.13.5, 13 tasks/401 tests PASS. Run `20260910T220324Z-b7db02006b56`, execution HEAD
+  `f9cb90486ea25d35ef3eacc70d8874d0950fd126` plus dirty state. `git diff --check` also PASS.
+  This aggregate verify summary lacks a source fingerprint; commit-bound native evidence will be obtained separately through Actions.
+- W1 is experimental code in `tools/windows_probe/` and `tests/windows_probe/`, without installer/runner integration.
+  Dedicated workflow `Windows W1 primitives` runs `python -m tools.windows_probe --out .repoctl/w1-native`.
+  This is Python 3.12/native Windows x64 testing; non-Windows is BLOCKED. Even dedicated-suite skips cannot produce CI success.
+  Evidence goes only to console and the explicit output directory; Actions artifacts expire after seven days.
+  No real-user deployment locations, credentials or settings are touched.
+- Existing `Validate skills` mandatory Windows suite remains BLOCKED. W1 success cannot promote AC05/AC09 or M2/M3 to complete.
+  Append native results, independent review and residuals here after execution.
