@@ -777,4 +777,32 @@ and merge remain out of scope. Continue on `feat/ep-harness-001`; after fetch, `
   Evidence goes only to console and the explicit output directory; Actions artifacts expire after seven days.
   No real-user deployment locations, credentials or settings are touched.
 - Existing `Validate skills` mandatory Windows suite remains BLOCKED. W1 success cannot promote AC05/AC09 or M2/M3 to complete.
-  Append native results, independent review and residuals here after execution.
+  Implementation, verification and blockers follow below.
+
+#### W1 outcome (implemented / native BLOCKED)
+
+- Implementation commit `bfbc16e8eadc96711d9e5a95f448e9be4830fe4c` was pushed normally to `origin/feat/ep-harness-001`.
+  The two preceding M1–M4 commits and the design commit were also published on that branch. No PR creation or merge.
+- File probes implement an ancestor-pinned NTFS bootstrap, component-relative opens, reparse/hardlink rejection, FileIdInfo,
+  handle-based no-replace rename/disposition, guard share-delete exclusion, fixed-byte locks and two-process synchronization barriers.
+  Readonly testing checks disposition rejection after a DELETE-only open; ACL testing denies WRITE_DATA on a temporary file.
+- Job probes test suspended create→assign→resume, termination/reaping on assignment failure, non-inherited Jobs, final-handle lifetime,
+  descendant cleanup, forced owner death, breakaway rejection and nested Jobs. Only fixture child processes are launched, not live hosts.
+- Linux/Python 3.13.5: precommit verify in `.repoctl/w1-precommit-1`, `-2` and `-3` all PASS.
+  Final `-3`: 13 tasks/407 tests (root 44, adversarial 30, reader 186, ticket 124, repoctl 23).
+  `python -m unittest discover -s tests/windows_probe -v`: 19 cases, portable 1 PASS/native 18 SKIP.
+  These skips are not native success. `python -m tools.windows_probe --out .repoctl/w1-linux-preflight` returned expected
+  exit 3/`ASKILLS-W1-PLATFORM`/BLOCKED with preflight evidence class.
+- Independent review identified missing summaries on discovery exceptions, missing subtest case identities, incorrect non-native
+  evidence classification, Windows Path incompatibility in entry fixtures, missing per-module zero-case detection, the ambiguous ACL
+  DELETE oracle and excessive readonly-open rights. All findings were adopted, fixed and confirmed resolved by re-review.
+  Six entry tests PASS; no new known blocking findings. This is code review, not native proof of ctypes ABI/API behavior.
+- **Native execution blocker**: after push, `gh run list --branch feat/ep-harness-001` was empty;
+  `gh api repos/mahcialet/agent-skills/commits/bfbc16e/check-runs` returned `total_count: 0`.
+  `gh api repos/mahcialet/agent-skills/actions/permissions` returned `enabled: false`.
+  Do not change repository-wide Actions settings without authorization. No Windows run ID/artifact exists; W1 acceptance is undecided.
+- The next required decision is permission to enable repository Actions, or designation of another native Windows environment.
+  After enabling, trigger the tests through a push event or equivalent and verify 19 tests/no skips plus commit-bound native artifacts.
+  Control-directory ACL policy, snapshot/rollback/crash recovery, integrated 30-writer races, symlink privileges, unsupported reparse
+  types and comprehensive long-path/case-collision coverage remain unverified. Carry these into W2/W3 acceptance; do not infer backend
+  safety from W1. W2 onward, M5 onward, live model/host launches and merge have not been started.

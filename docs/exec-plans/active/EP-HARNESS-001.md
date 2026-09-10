@@ -836,4 +836,32 @@ mergeは引き続き対象外。専用ブランチ `feat/ep-harness-001` を継�
   Python 3.12／Windows x64のnative試験であり、非WindowsはBLOCKED。専用試験のskipもCI成功へ変換しない。
   証拠はconsoleと明示出力先のみ、Actions artifactの保存期間は7日。実ユーザーの配置先・認証・設定には触れない。
 - 既存 `Validate skills` のWindows必須suiteは引き続きBLOCKED。W1の成功をAC05／AC09やM2／M3完了へ昇格しない。
-  W1の実機結果、独立レビュー、残件は実行後にこの節へ追記する。
+  以下に実装・検証・阻害要因を記録する。
+
+#### W1 結果（implemented / native BLOCKED）
+
+- 実装commit `bfbc16e8eadc96711d9e5a95f448e9be4830fe4c` を `origin/feat/ep-harness-001` へ通常push済み。
+  先行するM1〜M4の2 commitsと設計commitも同ブランチへ公開した。PR作成・mergeはしていない。
+- ファイルprobeはancestorを保持するNTFS bootstrap、component相対open、reparse/hardlink拒否、FileIdInfo、
+  handle-based no-replace rename/disposition、guardのshare-delete拒否、固定byte lockと2プロセスの同期barrierを実装。
+  readonlyはDELETE-only open後のdisposition拒否、ACLは一時ファイルのWRITE_DATA拒否を検査する。
+- Job probeはsuspended create→assign→resume、割当失敗時のterminate/reap、非継承Job、最終handle寿命、
+  子孫cleanup、owner強制終了、breakaway拒否、nested Jobを検査する。fixtureの子プロセスのみ起動し、実ホストではない。
+- Linux/Python 3.13.5: `.repoctl/w1-precommit-1`、`-2`、`-3` のcommit前verifyはすべてPASS。
+  最終 `-3` は13 tasks／407 tests（root 44、adversarial 30、reader 186、ticket 124、repoctl 23）。
+  `python -m unittest discover -s tests/windows_probe -v` は19件中portable 1 PASS／native 18 SKIP。
+  このSKIPをnative成功としない。`python -m tools.windows_probe --out .repoctl/w1-linux-preflight` は期待どおり
+  exit 3／`ASKILLS-W1-PLATFORM`／BLOCKED、evidence classはpreflight。
+- 独立レビューで、discovery例外時のsummary欠落、subtestのケース識別欠落、非nativeの証拠区分、入口fixtureの
+  Windows Path互換性、必須moduleの0件検知、ACL DELETE oracleの曖昧さ、readonly openの過剰権限を指摘。
+  すべて採用して修正し、再レビューで解消を確認。入口6 tests PASS、新たな既知阻害指摘なし。
+  これはコードレビューであって、ctypes ABI/APIのnative成立性を保証しない。
+- **実機実行の阻害要因**: push後の `gh run list --branch feat/ep-harness-001` は空、
+  `gh api repos/mahcialet/agent-skills/commits/bfbc16e/check-runs` は `total_count: 0`。
+  `gh api repos/mahcialet/agent-skills/actions/permissions` は `enabled: false` を返した。
+  リポジトリ全体のActions設定変更は無断で行わない。Windows実行run ID／artifactは存在せず、W1合格は未判定。
+- 次に必要な判断はリポジトリActionsの有効化許可、または別のnative Windows実行環境の指定。
+  有効化後はpushイベント等で試験を起動し、19 tests／skipなしの実機結果と対象commitのartifactを確認する。
+  制御directoryのACL方針、snapshot／rollback／crash recovery、30 writersなどの統合競合、symlink権限、
+  未対応reparse、長いpathやcase衝突の網羅は未検証。W2/W3の受入条件へ引き継ぎ、W1から本体の安全性へ推論しない。
+  W2以降・M5以降・実モデル／実ホスト起動・mergeには着手していない。
