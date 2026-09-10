@@ -707,4 +707,115 @@ Skill runtime ↛ repoctl／別Skill／repo専用docs
 - 最終の別 context 技術reviewで既知 blocker の修正を再検証済み。timeout fixture の sleep 依存も E6 で解消した。Windows と未実施 native の残件は review 合格へ昇格していない。
 - 別 context の二言語 reviewer が AGENTS／QUALITY／PLANS／ADR／harness contract／architecture を比較。主要不変条件・限定範囲の意味差なし。installer helper の誤名を指摘し両言語で `scripts/install_local.py` に修正。source hash 一致を翻訳品質の唯一の証拠にしなかった。ExecPlan の受入追記部分はこの時点の review より後なので別に確認する。
 - Windows installer の安全な backend と Windows process-tree cleanup の native 証拠は延期。既存 POSIX 防御を外す修正は採用しない。M2／M3 の全面完了を主張しない。
-- native 3OS CI、AC10 の完全 sentinel、AC11 の catalog 両方向故障注入の個別確認が残る。M5〜M7、実モデル・実ホスト、merge は今回未着手。commit／push／merge はこの checkpoint では実施していない。
+- native 3OS CI、AC10 の完全 sentinel、AC11 の catalog 両方向故障注入の個別確認が残る。M5〜M7、実モデル・実ホスト、merge は今回未着手。この台帳の作成後、ローカルcommit `38321ef` と `f9cb904` を作成した。push／merge は未実施。
+
+### Windows backend 設計追補（2026-09-11、設計のみ）
+
+ユーザーの「進めてください」は直前の安全な移植設計への承認として扱う。調査時のHEADは
+`f9cb904`、作業ブランチは `feat/ep-harness-001`。実装・native起動・push・M5以降の許可へ拡張しない。
+以下は実装候補と検証gateであり、Windowsの実機証拠ではない。AC05は引き続きBLOCKED、AC09はNOT_RUN。
+
+#### 推奨構成と採用しない代替
+
+POSIX transactionは当面変更せず、Python公開入口の下にWindows専用backendを設ける案を推奨する。
+共有するのは引数・source identity・stamp形式・テスト契約であり、POSIXのsyscallを無理に共通化しない。
+handle-relativeなファイル操作を小さな境界へ集約する。最初の候補は標準ライブラリ`ctypes`での明示的な
+Windows API bindingだが、ABI・flag組合せ・error変換をnativeで証明するまで本体へ接続しない。
+bindingが過度に危険・複雑なら、依存またはcompiled helperの採用判断を人間へ戻す。
+
+`Path.resolve()`後の`shutil`操作、繰返しのpath検査、PIDファイルだけのlock、Developer Modeの自動有効化、
+管理者昇格、junctionへの無断fallbackは採用しない。広いPOSIX refactorや既存テストの緩和もこの移植に混ぜない。
+
+#### 不変条件とWindowsでの候補
+
+| 境界 | 候補と確認事項 | 成立しない場合 |
+|---|---|---|
+| root・祖先の固定 | bootstrapで実directory handleを取得し、各componentを保持した親handleから開く。`NtCreateFile`の`RootDirectory`と単一component名、reparseを追跡しないopen、volume + file IDで照合する。sourceの祖先へinstallできないこともhandleで検査 | path操作へ戻さず、書込み前BLOCKED |
+| rename・削除 | source entryのDELETE権限handleとdestination parent handleを保持。`SetFileInformationByHandle`の`FileRenameInfo`／`RootDirectory`、`ReplaceIfExists=FALSE`でno-replaceを検証。削除も対象handleからのdispositionを候補とし、再帰cleanupの各子を同様に扱う | entryを勝手に上書き・再帰削除せず停止 |
+| identity・snapshot | `FileIdInfo`のvolume serial + file ID、entry type、サイズ・内容hash、列挙集合を保持し、copy前後・stamp後・activate前に再検証。IDは保持handleの生存範囲で使い、close後の再利用を永久識別子とみなさない | source変更は既存のdirty分類または安全停止。無根拠なclean stampは禁止 |
+| lock | `.agents`側の非発見領域に永続registry guardを置き、regular-file identity確認と`LockFileEx`で排他。guard下でper-skill lockのopenと取得、cleanupを直列化する。lock獲得待ちをguard下で無期限に行わず、即時取得失敗ならguardを解放する | 遅延openerや別identityを検出したら停止。PIDを根拠に他者lockを削除しない |
+| permissions・共有 | staging/control directoryは新規作成時のACLを検査し、既存rootのACLは変更しない。必要権限・share modeは最小化し、共有違反を競合として扱う。renameを許すshare modeとreparse改変の防止が両立するか検証する | ACL・antivirus等との競合を無理に迂回せず、更新前ならBLOCKED |
+| 子process | 必要なstamp/検査childはJob Objectへ実行開始前に所属させ、breakawayを許さず、kill-on-closeと終了確認を使う候補。既存CI Jobとのnested jobも検証 | Jobに収容できなければchildを実行しない。`taskkill`を厳密な所有証明に昇格しない |
+
+registry guardの永続ファイルはkernel lockが解放されれば未使用であり、残存所有者ではない。
+POSIXの「lock directoryが空」というfixtureを無条件に変更するのではなく、Windows契約として
+非発見領域のguard残存、per-skill ownership解放、handle消失を別々に検証する。guardファイルを
+通常cleanupで削除してnamespaceを分裂させない。guard/lockをopen中に差し替えられないshare/ACLの成立性もW1の必須条件とする。
+guard/lockはreparseと複数hardlinkを拒否し、現行の`nlink=1`検査を落とさない。すべてのwriterで同一の
+LockFileEx byte rangeを固定し、hardlink/aliasによる迂回も故障注入する。
+
+Jobは親が所有し、handleをchildへ継承・複製しない。`CREATE_SUSPENDED → AssignProcessToJobObject → ResumeThread`
+の順序を固定し、assign失敗時は未実行childを終了・回収してから停止する。kill-on-closeは最後のJob handleを
+閉じたときの条件なので、親死亡・誤った追加handle・childのbreakaway試行を試験し、通知だけでなく終了を確認する。
+
+現行POSIX実装はparent fdを固定するが、rollback対象entry IDの保存照合や第三者へのatomic no-replaceを
+証明していない。Windowsではこれらを**強化する受入条件**とする。現行で保証済みとは書かず、POSIX修正は別判断とする。
+
+#### transactionと中断
+
+状態は `VALIDATED → STAGED → BACKED_UP → ACTIVATED → COMMITTED` とし、各renameの直後に所有entry IDと
+phaseを更新する。Windowsの捕捉可能なcancelはflagとして受け、単一API mutationとphase更新の間で
+rollbackを再入させない。`--force`でもactive→一意backup、stage→activeは別々のno-replace操作であり、
+全体がatomicなswapとは主張しない。backupとstageはtargetと同一volumeに限定する。
+rename前にold/new identity・操作元/先を含むintentをprivate記録へ保存し、成功後に結果を記録する。
+rename成功と結果記録の間で強制終了する試験も必須とし、不確実・欠落・不正な記録から自動restore/deleteしない。
+通常cleanupも作成したentryの所有集合とidentityへ限定し、第三者が追加・置換したentryは残して安全停止する。
+
+rollbackは未commitかつ保存したidentityが一致し、restore先が空の場合だけ実施する。他者が占有したactiveや
+改変されたbackupを削除しない。不一致・sharing violationなら証拠とbackupを保持し、復旧未完了を失敗として返す。
+commit後のcleanup失敗は「install成功・cleanup未完了」と分離して記録し、古いactiveへ勝手に戻さない。
+
+強制終了・電源断では自動rollbackを保証しない。phase/identity/hashを記したlocal記録は復旧の手掛かりであり、
+flushだけでfilesystem全体のtransaction durabilityを保証したことにはしない。次回は未完了状態を検出してBLOCKED、
+破壊的な復旧は別の明示的操作とする。ACL、mode、Windows read-only属性、Git executable bitは同一視せず、
+stampのclean/dirty判定についてWindowsの表現差を別テストで固定する。
+
+#### 初期検証範囲の提案と未解決事項
+
+最初のnative prototypeはWindows x64・local NTFS・Python 3.12+の通常copyを対象とする提案であり、
+公開対応範囲を既に決定したものではない。UNC/SMB、FAT/exFAT/ReFS、cloud placeholder、別volume、ARM64等は
+個別証拠なしに対応済みとしない。capabilityが不明ならactive変更前にBLOCKEDとする。
+
+root/control directoriesはjunction、mount point等のreparseを拒否する。copy内の通常symlinkと`--link`は
+現行の意味を維持する必要があり、権限不足なら全操作を更新前に止める。symlink作成権限やDeveloper Modeを
+自動変更しない。未知reparse tagを普通のsymlinkと扱わず、dereference/copy/junctionへの代替も行わない。
+case collision、ADS、予約名、末尾dot/space、長いUnicode pathは事前検査するが、名前を黙って書き換えない。
+Windowsの保護を管理者やprocess injectionへの隔離保証と表現しない。
+
+#### 次の実装gate（未着手）
+
+1. **W1 primitive検証**: 一時NTFS treeだけでhandle-relative open/rename/delete、reparse拒否、ID、share/ACL、
+   LockFileEx、Jobを検証。別processのready/release barrierで各競合を強制する。ABI・directory flags・root bootstrapを
+   証明できなければBLOCKEDを維持し設計へ戻る。dependency/helper、初期OS/FS範囲、guard残存契約はこの時点でレビューする。
+2. **W2 transaction実装**: W1合格後にbackendを実装し、既存CLI/source判定を再利用。rollback、stamp、
+   owner cleanupのnativeテストを追加する。Windows gateを外す前に通常copyと`--force`を必須成功とする。
+3. **W3 敵対的・互換検証**: delayed opener、lock/registry差替え、同一Skill30 writer、別Skill同時処理、
+   source truncate/rename、stage改変、backup/active名の競合、各phase cancel/強制終了、リンク権限不足を注入する。
+   source/他者entry不変、backup数と内容、発見されるSkill一意、handle/Job終了を観測し、sleepだけをoracleにしない。
+4. **W4 統合判断**: 独立reviewとnative証拠後にWindows platform gateを外し、Linux/macOS回帰と3OS CIを実行する。
+   Windowsの必須copyをskipやmockで代替しない。push/CIの許可と結果が別途必要であり、設計の承認だけではAC05/AC09をPASSにしない。
+
+W1〜W4はM2/M3の残件であって、M5〜M7へ進む許可ではない。現turnでは文書のみを変更し、prototype・実ホスト・実モデルは起動しない。
+
+#### 出典と設計証拠
+
+2026-09-11に以下のMicrosoft Learn公式記述をread-onlyで確認した。APIの文書上の機能と、組合せが
+本installerの保証を満たす実機証拠は別物である。通常copyが動くだけでは受入としない。
+
+- [CreateFileW](https://learn.microsoft.com/en-us/windows/win32/api/fileapi/nf-fileapi-createfilew): directory handle、share mode、reparse open。
+- [NtCreateFile](https://learn.microsoft.com/en-us/windows/win32/api/winternl/nf-winternl-ntcreatefile): RootDirectory相対名、create disposition、reparse処理。ABIとdirectory flag組合せはW1で実証する。
+- [FILE_RENAME_INFO](https://learn.microsoft.com/en-us/windows/win32/api/winbase/ns-winbase-file_rename_info): destination RootDirectoryとReplaceIfExists。
+- [SetFileInformationByHandle](https://learn.microsoft.com/en-us/windows/win32/api/fileapi/nf-fileapi-setfileinformationbyhandle): rename/dispositionのhandle操作。
+- [GetFileInformationByHandleEx](https://learn.microsoft.com/en-us/windows/win32/api/winbase/nf-winbase-getfileinformationbyhandleex): FileIdInfo。
+- [LockFileEx](https://learn.microsoft.com/en-us/windows/win32/api/fileapi/nf-fileapi-lockfileex): OS lockとclose/終了後の解放。即時解放を前提にしない。
+- [Job Objects](https://learn.microsoft.com/en-us/windows/win32/procthread/job-objects): nested job、breakaway、kill-on-close。通知の欠落だけで終了を推定しない。
+- [CreateSymbolicLinkW](https://learn.microsoft.com/en-us/windows/win32/api/winbase/nf-winbase-createsymboliclinkw): unprivileged flagとDeveloper Modeの条件。
+
+別contextのread-only分析で現行のfd anchoring、lock registry、snapshot、cancel、rollbackの実装とfixtureを照合した。
+atomic no-replaceとentry ID再照合が現行POSIXで未保証という指摘を採用し、上記の強化条件として分離した。
+設計追補の日英を独立レビューし、主要な意味差なし。追記指摘3件（rename前intent、Job最終handleの寿命、
+lockのhardlink拒否/byte range）を採用した。文書validatorの初回実行は未更新の翻訳hashを正しく検出してFAIL、
+`plans check`と`git diff --check`はPASS。追記と日英の再確認後に翻訳manifestを更新し、
+`python -m tools.repoctl docs-check`、`python -m tools.repoctl plans check`、`git diff --check`の再実行はすべてPASS。
+native primitive/transaction検証は未実行であり、実装成立性は依然W1の判定事項である。
+修正後の独立再レビューで3件すべての日英反映を確認し、未解決の既知指摘なし。これは設計レビューの結果であってnative合格ではない。

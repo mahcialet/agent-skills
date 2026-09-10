@@ -643,4 +643,118 @@ Shared target: uncommitted work atop d423d1f483e48cfa955b02114c17611c6f2993cd, c
 - Final separate-context technical review independently retested known blocker fixes. E6 removed sleep-dependent timeout orchestration. Windows/native remaining work was not promoted to review acceptance.
 - Separate-context bilingual review compared AGENTS/QUALITY/PLANS/ADR/harness contract/architecture; no main invariant/scope meaning differences found. Corrected the installer helper typo to scripts/install_local.py in both languages. Hash equality was not the sole translation-quality evidence. This acceptance-ledger addition postdates that review and needs separate checking.
 - Defer a safe Windows installer backend and native Windows process-tree cleanup evidence; do not remove POSIX defenses or claim full M2/M3 completion.
-- Remaining: native three-OS CI, complete AC10 sentinel coverage and separate AC11 missing/extra catalog fault confirmation. M5–M7, live models/hosts and merge are unstarted. No commit/push/merge at this checkpoint.
+- Remaining: native three-OS CI, complete AC10 sentinel coverage and separate AC11 missing/extra catalog fault confirmation. M5–M7, live models/hosts and merge are unstarted. Local commits `38321ef` and `f9cb904` were created after this ledger was written. No push or merge.
+
+### Windows backend design addendum (2026-09-11, design only)
+
+The user's instruction to proceed authorizes the immediately preceding proposal for safe port DESIGN. Inspection HEAD is
+`f9cb904` on `feat/ep-harness-001`. Do not expand this into implementation, native execution, push or M5+ authorization.
+These are implementation candidates and verification gates, not native Windows evidence. AC05 remains BLOCKED; AC09 remains NOT_RUN.
+
+#### Recommended structure and rejected alternatives
+
+Keep the POSIX transaction unchanged initially and introduce a Windows-specific backend below the public Python entry.
+Share arguments, source identity, stamp format and test contracts, rather than forcing POSIX syscalls into a common abstraction.
+Concentrate handle-relative operations in a small boundary. The initial candidate is explicit Windows API bindings through
+stdlib `ctypes`, but do not connect it to the installer before native proof of ABI, flag combinations and error translation.
+If bindings become excessively risky or complex, return the dependency/compiled-helper decision to a human.
+
+Reject `shutil` operations after `Path.resolve()`, repeated path checks as an anchoring substitute, PID-file-only locks,
+automatic Developer Mode, elevation and silent junction fallback. Do not mix broad POSIX refactoring or weaker existing tests into this port.
+
+#### Invariants and Windows candidates
+
+| Boundary | Candidate and required proof | If not established |
+|---|---|---|
+| Root/ancestor anchoring | Bootstrap a real directory handle, then open each component from its held parent handle. Use NtCreateFile RootDirectory with single-component names, no-reparse opens, and volume + file ID comparison. Check source ancestry using handles too | BLOCKED before writes; no path-based fallback |
+| Rename/deletion | Hold the source entry handle with DELETE access and destination parent handle. Verify SetFileInformationByHandle FileRenameInfo/RootDirectory with ReplaceIfExists=FALSE for no-replace. Candidate deletion uses handle disposition, including every child during recursive cleanup | Stop without overwriting or recursively deleting unrelated entries |
+| Identity/snapshot | Retain FileIdInfo volume serial + file ID, entry type, size/content hashes and enumeration sets; recheck around copy, after stamping and before activation. IDs are meaningful while handles remain held, not permanent identifiers after closure/reuse | Preserve existing dirty classification or stop; no unsupported clean stamp |
+| Lock | Keep a persistent registry guard outside Skill discovery under .agents, verify regular-file identity and use LockFileEx. Serialize opening/acquiring and cleaning per-skill locks under the guard. Do not wait indefinitely for a per-skill lock while holding the guard; release the guard on immediate acquisition failure | Stop on delayed-opener or identity mismatch; do not delete another owner's lock based on a PID |
+| Permissions/sharing | Check ACLs when creating staging/control directories; do not change existing root ACLs. Minimize rights/share modes and treat sharing violations as conflicts. Prove compatibility between rename-enabling share modes and prevention of reparse modification | Do not bypass ACL/antivirus conflicts; BLOCKED if before mutation |
+| Child processes | Candidate: assign required stamp/check children to a Job Object before execution, forbid breakaway, use kill-on-close and verify termination. Test nesting under the existing CI Job | Do not start an uncontained child; do not promote taskkill into strict ownership proof |
+
+A persistent registry guard with its kernel lock released is not a surviving owner. Do not indiscriminately replace the POSIX
+empty-lock-directory fixture: test the Windows guard outside discovery, released per-skill ownership and closed handles separately.
+Do not delete the guard during ordinary cleanup and split the lock namespace. Share/ACL properties preventing guard/lock replacement
+while open are mandatory W1 proof as well.
+Reject reparse entries and multiple hardlinks for guard/lock files; preserve the existing `nlink=1` check. Fix the same LockFileEx
+byte range for all writers and inject hardlink/alias bypass attempts.
+
+The parent owns the Job; do not inherit or duplicate its handle into children. Fix the sequence as
+`CREATE_SUSPENDED → AssignProcessToJobObject → ResumeThread`; on assignment failure terminate/reap the unexecuted child before stopping.
+Kill-on-close depends on the last Job handle closing: test parent death, unintended extra handles and child breakaway attempts,
+and verify termination rather than relying only on notifications.
+
+The current POSIX implementation anchors parent fds but does not establish saved rollback entry IDs or atomic no-replace against third
+parties. Require these as **strengthened Windows acceptance conditions**, not existing proven guarantees. POSIX changes remain a separate decision.
+
+#### Transaction and interruption
+
+Use `VALIDATED → STAGED → BACKED_UP → ACTIVATED → COMMITTED`, recording owned entry IDs and phase immediately after each rename.
+Deliver catchable Windows cancellation as a flag, without reentering rollback between a single API mutation and its phase update.
+Even with `--force`, active-to-unique-backup and stage-to-active are separate no-replace operations, not an atomic whole-operation swap.
+Keep backup and stage on the target volume.
+Before rename, save private intent containing old/new identities and source/destination; record the result after success.
+Forced termination between successful rename and result recording is mandatory fault injection. Uncertain, missing or invalid records
+must never trigger automatic restore/delete. Limit ordinary cleanup to the created entry ownership set and matching identities;
+retain entries added/replaced by another actor and stop safely.
+
+Rollback only before commit, with matching saved identities and an empty restore destination. Do not delete an active entry occupied by
+another actor or a modified backup. On mismatch/sharing violation, retain evidence and backup and report incomplete recovery as failure.
+Separate successful installation from incomplete post-commit cleanup; do not silently restore the previous active installation.
+
+Do not guarantee automatic rollback after forced termination or power loss. A local phase/identity/hash record is recovery evidence;
+flushing it does not prove whole-filesystem transaction durability. Detect incomplete state on the next attempt and BLOCK; destructive
+recovery is a separately explicit operation. Do not equate ACLs, modes, Windows read-only attributes and Git executable bits: pin Windows
+representation differences in dedicated clean/dirty stamp tests.
+
+#### Proposed initial proof scope and open questions
+
+Propose Windows x64, local NTFS, Python 3.12+ and ordinary copy for the first native prototype; this does not already decide public support.
+Do not claim UNC/SMB, FAT/exFAT/ReFS, cloud placeholders, cross-volume operations, ARM64 or other cases without separate evidence.
+Unknown capabilities must BLOCK before active mutation.
+
+Reject junctions, mount points and other reparse entries in root/control directories. Preserve current semantics for ordinary symlinks
+inside copies and `--link`; missing privileges stop the whole operation before mutation. Do not change symlink privileges or Developer Mode.
+Do not treat unknown reparse tags as ordinary symlinks, or silently dereference/copy/substitute junctions. Preflight case collisions, ADS,
+reserved names, trailing dots/spaces and long Unicode paths without silently rewriting names. Do not describe these protections as isolation
+against administrators or process injection.
+
+#### Next implementation gates (not started)
+
+1. **W1 primitive proof**: use only temporary NTFS trees to verify handle-relative open/rename/delete, reparse refusal, IDs, share/ACL,
+   LockFileEx and Jobs. Force races with separate-process ready/release barriers. If ABI, directory flags or root bootstrap cannot be
+   established, retain BLOCKED and revisit the design. Review dependency/helper choice, initial OS/FS scope and persistent-guard contract here.
+2. **W2 transaction implementation**: after W1, implement the backend reusing CLI/source classification; add native rollback, stamp and
+   owned-cleanup tests. Ordinary copy and `--force` must succeed before removing the Windows gate.
+3. **W3 adversarial/compatibility proof**: inject delayed openers, lock/registry swaps, 30 same-Skill writers, concurrent different Skills,
+   source truncate/rename, stage changes, backup/active name conflicts, per-phase cancel/forced termination and missing symlink privileges.
+   Observe source/unrelated-entry preservation, backup counts/content, single Skill discovery and handle/Job termination; sleep alone is not an oracle.
+4. **W4 integration decision**: after independent review and native evidence, remove the Windows gate and run Linux/macOS regression and
+   three-OS CI. Do not replace mandatory Windows copy with a skip or mock. Push/CI authority and results remain separately required;
+   design approval alone does not make AC05/AC09 PASS.
+
+W1–W4 address M2/M3 residuals, not authorization for M5–M7. This turn changes documents only; no prototype, live host or live model is launched.
+
+#### Sources and design evidence
+
+The following official Microsoft Learn documentation was inspected read-only on 2026-09-11. Documented API functionality is distinct
+from native evidence that the combination meets installer guarantees. Ordinary copy success alone is not acceptance.
+
+- [CreateFileW](https://learn.microsoft.com/en-us/windows/win32/api/fileapi/nf-fileapi-createfilew): directory handles, share modes and reparse opens.
+- [NtCreateFile](https://learn.microsoft.com/en-us/windows/win32/api/winternl/nf-winternl-ntcreatefile): RootDirectory-relative names, create disposition and reparse behavior. W1 must prove ABI/directory flag combinations.
+- [FILE_RENAME_INFO](https://learn.microsoft.com/en-us/windows/win32/api/winbase/ns-winbase-file_rename_info): destination RootDirectory and ReplaceIfExists.
+- [SetFileInformationByHandle](https://learn.microsoft.com/en-us/windows/win32/api/fileapi/nf-fileapi-setfileinformationbyhandle): handle-based rename/disposition.
+- [GetFileInformationByHandleEx](https://learn.microsoft.com/en-us/windows/win32/api/winbase/nf-winbase-getfileinformationbyhandleex): FileIdInfo.
+- [LockFileEx](https://learn.microsoft.com/en-us/windows/win32/api/fileapi/nf-fileapi-lockfileex): OS locking and release after closure/termination; do not assume immediate release.
+- [Job Objects](https://learn.microsoft.com/en-us/windows/win32/procthread/job-objects): nesting, breakaway and kill-on-close. Missing notifications alone do not prove termination.
+- [CreateSymbolicLinkW](https://learn.microsoft.com/en-us/windows/win32/api/winbase/nf-winbase-createsymboliclinkw): unprivileged flag and Developer Mode conditions.
+
+Separate-context read-only analysis compared existing fd anchoring, the lock registry, snapshots, cancellation and rollback with fixtures.
+Adopted the finding that atomic no-replace and entry-ID rechecks are not established POSIX guarantees, separating them as stronger conditions.
+Independent review of both languages found no major meaning differences. Adopted all three clarifications: pre-rename intent,
+last-Job-handle lifetime and hardlink refusal/fixed lock byte range. Initial document validation correctly FAILED on the not-yet-updated
+translation hash; `plans check` and `git diff --check` PASSED. After rechecking the additions and translation and refreshing the manifest,
+reruns of `python -m tools.repoctl docs-check`, `python -m tools.repoctl plans check` and `git diff --check` all PASSED.
+No native primitive/transaction tests have run; implementation feasibility remains a W1 decision.
+Independent re-review confirmed all three fixes in both languages, with no unresolved known findings. This is a design-review result, not native acceptance.
