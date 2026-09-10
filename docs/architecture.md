@@ -1,4 +1,19 @@
+---
+status: active
+owner: maintainers
+last_verified: 2026-09-11
+---
+
 # アーキテクチャ
+
+[English](architecture.en.md) ／ [文書入口](index.md)
+
+## リポジトリハーネス
+
+`tools/repoctl` は repository の開発用入口であり、Skill runtime の依存にはしません。
+既存 validator、installer、各 Skill の tests を接続し、構造検査とテスト実行を分離します。
+設計判断は [ADR 0001](adr/0001-repository-harness.md)、検証到達範囲と実行契約は
+[harness contract](testing/harness-contract.md)、実装状態は [ExecPlan](exec-plans/active/EP-HARNESS-001.md) を参照します。
 
 ## Skillの配置
 

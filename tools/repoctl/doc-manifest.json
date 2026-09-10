@@ -1,0 +1,45 @@
+{
+  "schema_version": 1,
+  "pairs": [
+    {
+      "source": "AGENTS.md",
+      "translation": "AGENTS.en.md",
+      "source_sha256": "5081111b587fbf7aa4b17c27d8adaf70ad5cd30a34656765266823c23f4fb75e"
+    },
+    {
+      "source": "docs/index.md",
+      "translation": "docs/index.en.md",
+      "source_sha256": "a8090cf0bc22dfb098e746a583afb42031af6288fe829d950d182c05840d82cf"
+    },
+    {
+      "source": "docs/architecture.md",
+      "translation": "docs/architecture.en.md",
+      "source_sha256": "f7f55ca84b1342b1f3dd70f9f62634c62b9be4e80c8fbde64c37e4412d9aa7b0"
+    },
+    {
+      "source": "docs/QUALITY.md",
+      "translation": "docs/QUALITY.en.md",
+      "source_sha256": "7dd8b6faa03865b2ce2790ae5c1ee2a47de0b6cdfb150e9ffa69758c6ea6167d"
+    },
+    {
+      "source": "docs/PLANS.md",
+      "translation": "docs/PLANS.en.md",
+      "source_sha256": "7d079bffbbbbeda5cc8c6b515c00fcb6128f0de6842307c04a3f7c3ac40fa0e8"
+    },
+    {
+      "source": "docs/testing/harness-contract.md",
+      "translation": "docs/testing/harness-contract.en.md",
+      "source_sha256": "30b52be74bdbf1bbd7d5fee51d87b4047078e360ca87398861fbfa8fb276ea4e"
+    },
+    {
+      "source": "docs/adr/0001-repository-harness.md",
+      "translation": "docs/adr/0001-repository-harness.en.md",
+      "source_sha256": "1620f7e7de720e5376f01c30c3fc909b51157161de3218046879de317d25913b"
+    },
+    {
+      "source": "docs/exec-plans/active/EP-HARNESS-001.md",
+      "translation": "docs/exec-plans/active/EP-HARNESS-001.en.md",
+      "source_sha256": "17932798227c66b56045aab33e70e7170e91884c24c145ca3cab91881c930c0b"
+    }
+  ]
+}

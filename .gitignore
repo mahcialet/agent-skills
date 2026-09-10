@@ -3,4 +3,5 @@
 .reader-first-editor/
 .venv/
 __pycache__/
+.repoctl/
 *.pyc

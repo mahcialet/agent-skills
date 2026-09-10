@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import re
+import argparse
 import subprocess
 import sys
 from pathlib import Path
@@ -12,6 +13,7 @@ NAME_RE = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
 LINK_RE = re.compile(r"(?<!!)\[[^]]*\]\(([^)]+)\)")
 CODE_PATH_RE = re.compile(r"`((?:references|examples|evals|scripts|assets)/[^`\s]+)`")
 FORBIDDEN_FRONTMATTER = {"allowed-tools", "model", "version", "tools"}
+IGNORED_SOURCE_DIRS = {".git", ".codex", ".tokensave", ".venv", "__pycache__", ".agents"}
 
 
 def parse_frontmatter(path: Path) -> tuple[dict[str, str], str]:
@@ -50,7 +52,7 @@ def parse_frontmatter(path: Path) -> tuple[dict[str, str], str]:
 
 def check_markdown_links(repo: Path, errors: list[str]) -> None:
     for path in repo.rglob("*.md"):
-        if any(part in {".git", ".codex", ".tokensave"} for part in path.parts):
+        if set(path.relative_to(repo).parts) & IGNORED_SOURCE_DIRS:
             continue
         text = path.read_text(encoding="utf-8")
         for raw_target in LINK_RE.findall(text):
@@ -61,7 +63,8 @@ def check_markdown_links(repo: Path, errors: list[str]) -> None:
                 errors.append(f"{path.relative_to(repo)}: broken link {raw_target}")
 
 
-def validate(repo: Path) -> list[str]:
+def validate(repo: Path, *, run_content: bool = True, run_tests: bool = True,
+             run_catalog: bool = True, run_links: bool = True) -> list[str]:
     errors: list[str] = []
     skills_dir = repo / "skills"
     skill_files = sorted(skills_dir.glob("*/SKILL.md")) if skills_dir.exists() else []
@@ -70,7 +73,7 @@ def validate(repo: Path) -> list[str]:
 
     all_skill_files = [
         path for path in repo.rglob("SKILL.md")
-        if not any(part in {".git", ".codex", ".tokensave"} for part in path.parts)
+        if not set(path.relative_to(repo).parts) & IGNORED_SOURCE_DIRS
     ]
     unexpected = set(all_skill_files) - set(skill_files)
     for path in sorted(unexpected):
@@ -112,10 +115,35 @@ def validate(repo: Path) -> list[str]:
             target = (skill_dir / reference).resolve()
             if skill_dir.resolve() not in target.parents or not target.is_file():
                 errors.append(f"{rel}: missing or external reference {reference}")
+        # Follow declared runtime Markdown references, not repository-facing READMEs.
+        pending = [skill_file]
+        visited: set[Path] = set()
+        while pending:
+            source = pending.pop()
+            if source in visited:
+                continue
+            visited.add(source)
+            text = source.read_text(encoding="utf-8")
+            references = [(raw.split("#", 1)[0].strip().strip("<>"), source.parent)
+                          for raw in LINK_RE.findall(text)]
+            references += [(raw, skill_dir) for raw in CODE_PATH_RE.findall(text)]
+            references += [(raw, source.parent) for raw in re.findall(r"`((?:\.\./|tools/)[^`\s]+)`", text)]
+            for reference, parent in references:
+                if not reference or re.match(r"^[a-z][a-z0-9+.-]*:", reference, re.I):
+                    continue
+                target = (parent / reference).resolve()
+                if "*" in reference and target.is_relative_to(skill_dir.resolve()):
+                    matches = list(parent.glob(reference))
+                    if matches and all(p.resolve().is_relative_to(skill_dir.resolve()) for p in matches):
+                        continue
+                if not target.is_relative_to(skill_dir.resolve()) or not target.exists():
+                    errors.append(f"{source.relative_to(repo)}: missing or external runtime reference {reference}")
+                elif target.suffix == ".md" and target.is_file():
+                    pending.append(target)
         content_validator = skill_dir / "scripts" / "validate_content.py"
         if not content_validator.is_file():
             errors.append(f"{skill_dir.relative_to(repo)}: missing content validator")
-        else:
+        elif run_content:
             result = subprocess.run(
                 [sys.executable, str(content_validator)],
                 cwd=repo,
@@ -126,7 +154,7 @@ def validate(repo: Path) -> list[str]:
             if result.returncode:
                 errors.append(f"{content_validator.relative_to(repo)} failed:\n{result.stderr.strip()}")
         tests_dir = skill_dir / "tests"
-        if tests_dir.is_dir():
+        if run_tests and tests_dir.is_dir():
             result = subprocess.run(
                 [sys.executable, "-m", "unittest", "discover", "-s", str(tests_dir), "-p", "test_*.py"],
                 cwd=repo,
@@ -145,7 +173,7 @@ def validate(repo: Path) -> list[str]:
     catalog_generator = repo / "scripts" / "generate-catalog.py"
     if not catalog_generator.is_file():
         errors.append("scripts/generate-catalog.py is missing")
-    else:
+    elif run_catalog:
         result = subprocess.run(
             [sys.executable, str(catalog_generator), "--check", "--repo", str(repo)],
             cwd=repo,
@@ -168,13 +196,19 @@ def validate(repo: Path) -> list[str]:
             if token not in text:
                 errors.append(f"{openai_metadata.relative_to(repo)}: missing {token}")
 
-    check_markdown_links(repo, errors)
+    if run_links:
+        check_markdown_links(repo, errors)
     return errors
 
 
 def main() -> int:
-    repo = Path(sys.argv[1] if len(sys.argv) > 1 else ".").resolve()
-    errors = validate(repo)
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("repo", nargs="?", default=".")
+    parser.add_argument("--structure-only", action="store_true")
+    args = parser.parse_args()
+    repo = Path(args.repo).resolve()
+    errors = validate(repo, run_content=not args.structure_only, run_tests=not args.structure_only,
+                      run_catalog=not args.structure_only, run_links=not args.structure_only)
     if errors:
         for error in errors:
             print(f"ERROR: {error}", file=sys.stderr)

@@ -4,5 +4,5 @@ set -euo pipefail
 script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 repo_dir="$(cd -- "${script_dir}/.." && pwd)"
 
-python3 "${script_dir}/validate_skills.py" "${repo_dir}"
-python3 "${repo_dir}/tests/test_install_local.py"
+cd -- "${repo_dir}"
+exec python3 -m tools.repoctl verify "$@"
