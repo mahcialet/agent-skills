@@ -38,7 +38,7 @@ class LocalInstallerTestCase(unittest.TestCase):
     def setUp(self) -> None:
         self.temporary_directory = tempfile.TemporaryDirectory()
         self.addCleanup(self.temporary_directory.cleanup)
-        self.repository = Path(self.temporary_directory.name) / "repository"
+        self.repository = Path(self.temporary_directory.name) / "repository 日本語 space"
         self.scripts = self.repository / "scripts"
         self.skill = self.repository / "skills" / "demo-skill"
         self.scripts.mkdir(parents=True)
@@ -46,6 +46,7 @@ class LocalInstallerTestCase(unittest.TestCase):
 
         for script_name in (
             "install-local.sh",
+            "install_local_cli.py",
             "install_local.py",
             "stamp_installed_skill.py",
             "validate_skills.py",
@@ -57,7 +58,7 @@ class LocalInstallerTestCase(unittest.TestCase):
 
     @property
     def installer(self) -> Path:
-        return self.scripts / "install-local.sh"
+        return self.scripts / "install_local_cli.py"
 
     @property
     def active_skill(self) -> Path:
@@ -91,7 +92,7 @@ class LocalInstallerTestCase(unittest.TestCase):
         environment: dict[str, str] | None = None,
     ) -> subprocess.CompletedProcess[str]:
         return self.run_command(
-            "bash",
+            sys.executable,
             str(self.installer),
             "demo-skill",
             "--scope",
@@ -683,7 +684,7 @@ class LocalInstallerTestCase(unittest.TestCase):
         oid = self.initialize_git()
         assert oid is not None
         command = [
-            "bash",
+            sys.executable,
             str(self.installer),
             "demo-skill",
             "--scope",
@@ -759,9 +760,41 @@ class LocalInstallerTestCase(unittest.TestCase):
             installed,
         )
 
+    def test_copy_needs_no_shell_or_git_on_path(self) -> None:
+        result = self.run_installer(environment={"PATH": ""})
+
+        self.assertEqual(0, result.returncode)
+        self.assertIn(
+            "Install source: Git unavailable; no commit ID is available.",
+            (self.active_skill / "SKILL.md").read_text(encoding="utf-8"),
+        )
+
+    def test_user_scope_uses_only_explicit_temporary_home(self) -> None:
+        fixture_home = Path(self.temporary_directory.name) / "isolated user 日本語"
+        fixture_home.mkdir()
+        result = self.run_installer(
+            "--scope", "user", environment={"HOME": str(fixture_home)}
+        )
+
+        self.assertEqual(0, result.returncode)
+        self.assertTrue((fixture_home / ".agents/skills/demo-skill/SKILL.md").is_file())
+        self.assertFalse((self.repository / ".agents").exists())
+
+    def test_corrupt_git_metadata_does_not_replace_active_skill(self) -> None:
+        self.run_installer()
+        active_before = (self.active_skill / "SKILL.md").read_bytes()
+        (self.repository / ".git").write_text("not Git metadata\n", encoding="utf-8")
+
+        result = self.run_installer("--force", check=False)
+
+        self.assertEqual(1, result.returncode)
+        self.assertIn("ASKILLS-INSTALL-SOURCE", result.stderr)
+        self.assertEqual(active_before, (self.active_skill / "SKILL.md").read_bytes())
+        self.assertFalse(self.backup_root.exists())
+
     def test_invalid_skill_name_cannot_escape_install_roots(self) -> None:
         result = self.run_command(
-            "bash",
+            sys.executable,
             str(self.installer),
             "../demo-skill",
             "--scope",
